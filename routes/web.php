@@ -4,8 +4,10 @@ use App\Enums\UserRole;
 use App\Http\Controllers\VacanciesController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', [VacanciesController::class, 'index'])->name('home');
+
 
 // Redirect based on role
 Route::middleware(['auth', 'verified'])->get('/redirect', function () {
@@ -13,6 +15,10 @@ Route::middleware(['auth', 'verified'])->get('/redirect', function () {
     ? redirect()->route('admin.dashboard')
     : redirect()->route('user.info');
 })->name('dashboard');
+
+Route::get('/confirm-data', function () {
+    return Inertia::render('candidate/profile/confirm-data');
+});
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
