@@ -13,6 +13,10 @@ Route::get('/application-history', function () {
     return Inertia::render('candidate/jobs/application-history');
 })->name('application-history');
 
+Route::get('/ContactPerson', function () {
+    return Inertia::render('ContactPerson');
+})->name('ContactPerson');
+
 Route::get('/data-pribadi', function () {
         return Inertia::render('DataPribadiForm');
     })->name('data.pribadi');
