@@ -40,7 +40,6 @@ const ConfirmData = () => {
         <div className="container mx-auto flex h-full items-center justify-between px-6">
           <div className="text-[20px] font-bold text-black">MITRA KARYA GROUP</div>
           <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
-            <Link href="/dashboard" className="text-black hover:text-blue-600">Dasbor</Link>
             <Link href="/profile" className="text-black hover:text-blue-600">Profil</Link>
             <Link href="/lowongan" className="text-black hover:text-blue-600">Lowongan Pekerjaan</Link>
             <Link href="/lamaran" className="text-black hover:text-blue-600">Lamaran</Link>
