@@ -23,13 +23,13 @@ const ConfirmData = () => {
   const auth = props.auth;
 
   const sections = [
-    { title: "Data Pribadi", content: "Lengkapi data pribadi Anda di sini untuk dapat melamar ke pekerjaan ini.", link: "/profile/data-pribadi" },
-    { title: "Pendidikan", content: "Lengkapi riwayat pendidikan Anda untuk memberikan gambaran latar belakang akademik Anda.", link: "/profile/pendidikan" },
-    { title: "Pengalaman Kerja", content: "Masukkan pengalaman kerja Anda untuk menunjukkan keahlian dan kontribusi di tempat kerja sebelumnya.", link: "/profile/pengalaman-kerja" },
-    { title: "Organisasi", content: "Lengkapi pengalaman organisasi Anda untuk menunjukkan kemampuan kepemimpinan dan kerja sama tim.", link: "/profile/organisasi" },
-    { title: "Prestasi", content: "Masukkan prestasi yang telah Anda raih untuk memperkuat profil Anda.", link: "/profile/prestasi" },
-    { title: "Social Media", content: "Tambahkan akun media sosial yang relevan untuk memperkuat jejak digital Anda.", link: "/profile/sosial-media" },
-    { title: "Data Tambahan", content: "Isi data tambahan yang mungkin dibutuhkan oleh perusahaan.", link: "/profile/data-tambahan" },
+    { title: "Data Pribadi", content: "Lengkapi data pribadi Anda", link: "/profile/data-pribadi" },
+    { title: "Pendidikan", content: "Lengkapi riwayat pendidikan Anda", link: "/profile/pendidikan" },
+    { title: "Pengalaman Kerja", content: "Masukkan pengalaman kerja Anda ", link: "/profile/pengalaman-kerja" },
+    { title: "Organisasi", content: "Lengkapi organisasi Anda ", link: "/profile/organisasi" },
+    { title: "Prestasi", content: "Masukkan prestasi Anda", link: "/profile/prestasi" },
+    { title: "Social Media", content: "Tambahkan akun media sosial Anda", link: "/profile/sosial-media" },
+    { title: "Data Tambahan", content: "Isi data tambahan", link: "/profile/data-tambahan" },
   ];
 
   const [openSection, setOpenSection] = useState<string | null>(null);
