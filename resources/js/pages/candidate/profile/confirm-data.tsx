@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ChevronRight, AlertCircle } from "lucide-react";
 import { Head, Link, usePage } from "@inertiajs/react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -21,15 +21,22 @@ type PageProps = {
 const ConfirmData = () => {
   const { props } = usePage<PageProps>();
   const auth = props.auth;
+
   const sections = [
-    "Data Pribadi",
-    "Pendidikan",
-    "Pengalaman Kerja",
-    "Organisasi",
-    "Prestasi",
-    "Social Media",
-    "Data Tambahan",
+    { title: "Data Pribadi", content: "Lengkapi data pribadi Anda di sini untuk dapat melamar ke pekerjaan ini.", link: "/profile/data-pribadi" },
+    { title: "Pendidikan", content: "Lengkapi riwayat pendidikan Anda untuk memberikan gambaran latar belakang akademik Anda.", link: "/profile/pendidikan" },
+    { title: "Pengalaman Kerja", content: "Masukkan pengalaman kerja Anda untuk menunjukkan keahlian dan kontribusi di tempat kerja sebelumnya.", link: "/profile/pengalaman-kerja" },
+    { title: "Organisasi", content: "Lengkapi pengalaman organisasi Anda untuk menunjukkan kemampuan kepemimpinan dan kerja sama tim.", link: "/profile/organisasi" },
+    { title: "Prestasi", content: "Masukkan prestasi yang telah Anda raih untuk memperkuat profil Anda.", link: "/profile/prestasi" },
+    { title: "Social Media", content: "Tambahkan akun media sosial yang relevan untuk memperkuat jejak digital Anda.", link: "/profile/sosial-media" },
+    { title: "Data Tambahan", content: "Isi data tambahan yang mungkin dibutuhkan oleh perusahaan.", link: "/profile/data-tambahan" },
   ];
+
+  const [openSection, setOpenSection] = useState<string | null>(null);
+
+  const toggleSection = (title: string) => {
+    setOpenSection(openSection === title ? null : title);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -44,15 +51,15 @@ const ConfirmData = () => {
             <Link href="/lowongan" className="text-black hover:text-blue-600">Lowongan Pekerjaan</Link>
             <Link href="/lamaran" className="text-black hover:text-blue-600">Lamaran</Link>
           </nav>
-        <div className="flex items-center">
+          <div className="flex items-center">
             <a href="#" className="block w-[40px] h-[40px]">
-                <img
-                    src="/images/profile-icon.png"
-                    alt="User Profile"
-                    className="w-full h-full object-cover"
-                />
+              <img
+                src="/images/profile-icon.png"
+                alt="User Profile"
+                className="w-full h-full object-cover"
+              />
             </a>
-        </div>
+          </div>
         </div>
       </header>
 
@@ -67,18 +74,42 @@ const ConfirmData = () => {
 
         {/* Checklist Sections */}
         <div className="space-y-3">
-          {sections.map((section, idx) => (
-            <div
-              key={idx}
-              className="flex justify-between items-center border border-gray-300 rounded-md px-4 py-3 bg-white shadow-sm"
-            >
-              <div className="flex items-center gap-2 text-sm text-black">
-                <ChevronRight className="w-4 h-4 text-gray-600" />
-                <span>{section}</span>
+          {sections.map((section, idx) => {
+            const isOpen = openSection === section.title;
+
+            return (
+              <div key={idx} className="border rounded-md shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.title)}
+                  className={`w-full px-4 py-3 flex justify-between items-center text-left ${
+                    isOpen ? "border-red-500" : "border-gray-300"
+                  } border rounded-md`}
+                >
+                  <div className="flex items-center gap-2 text-sm text-black">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    <span>{section.title}</span>
+                  </div>
+                  <ChevronRight
+                    className={`w-4 h-4 text-gray-600 transform transition-transform duration-200 ${
+                      isOpen ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+                {isOpen && (
+                  <div className="bg-gray-50 px-4 py-3 text-sm text-gray-700 border-t">
+                    <span>
+                      {section.content}{" "}
+                      <Link href={section.link} className="text-blue-600 underline">
+                        di sini
+                      </Link>{" "}
+                      untuk dapat melamar ke pekerjaan ini.
+                    </span>
+                  </div>
+                )}
               </div>
-              <AlertCircle className="w-5 h-5 text-red-500" />
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Warning Alert */}
@@ -97,62 +128,61 @@ const ConfirmData = () => {
         </div>
       </main>
 
-{/* Footer */}
-<footer className="bg-[#f6fafe] py-16">
-    <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
-        {/* Kolom 1 */}
-        <div>
+      {/* Footer */}
+      <footer className="bg-[#f6fafe] py-16">
+        <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
+          {/* Kolom 1 */}
+          <div>
             <h4 className="mb-2 text-[16px] font-bold text-black">PT MITRA KARYA ANALITIKA</h4>
             <p className="mb-6 text-sm text-gray-700">
-                Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
+              Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
             </p>
             <div className="flex space-x-4 text-xl text-blue-600">
-                <a href="#"><FontAwesomeIcon icon={faInstagram} /></a>
-                <a href="#"><FontAwesomeIcon icon={faXTwitter} /></a>
-                <a href="#"><FontAwesomeIcon icon={faLinkedin} /></a>
-                <a href="#"><FontAwesomeIcon icon={faYoutube} /></a>
-                <a href="#"><FontAwesomeIcon icon={faWhatsapp} /></a>
+              <a href="#"><FontAwesomeIcon icon={faInstagram} /></a>
+              <a href="#"><FontAwesomeIcon icon={faXTwitter} /></a>
+              <a href="#"><FontAwesomeIcon icon={faLinkedin} /></a>
+              <a href="#"><FontAwesomeIcon icon={faYoutube} /></a>
+              <a href="#"><FontAwesomeIcon icon={faWhatsapp} /></a>
             </div>
-        </div>
+          </div>
 
-        {/* Kolom 2 */}
-        <div>
+          {/* Kolom 2 */}
+          <div>
             <h4 className="mb-2 text-[16px] font-bold text-black">Perusahaan Kami</h4>
             <ul className="space-y-1 text-sm text-gray-700">
-                <li>PT MITRA KARYA ANALITIKA</li>
-                <li>PT AUTENTIK KARYA ANALITIKA</li>
+              <li>PT MITRA KARYA ANALITIKA</li>
+              <li>PT AUTENTIK KARYA ANALITIKA</li>
             </ul>
-        </div>
+          </div>
 
-        {/* Kolom 3 */}
-        <div>
+          {/* Kolom 3 */}
+          <div>
             <h4 className="mb-4 text-[16px] font-bold text-black">Contact</h4>
             <ul className="space-y-2 text-sm text-gray-700">
-                <li className="flex items-start gap-2">
-                    <FontAwesomeIcon icon={faPhone} className="mt-1 text-blue-600" />
-                    <div>
-                        Rudy Alfiansyah: 082137384029
-                        <br />
-                        Deden Dermawan: 081807700111
-                    </div>
-                </li>
-                <li className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faEnvelope} className="text-blue-600" />
-                    <span>autentik.info@gmail.com</span>
-                </li>
-                <li className="flex items-start gap-2">
-                    <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-blue-600" />
-                    <span>
-                        Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo,
-                        <br />
-                        Kec. Tembalang, Kota Semarang, Jawa Tengah 50272
-                    </span>
-                </li>
+              <li className="flex items-start gap-2">
+                <FontAwesomeIcon icon={faPhone} className="mt-1 text-blue-600" />
+                <div>
+                  Rudy Alfiansyah: 082137384029
+                  <br />
+                  Deden Dermawan: 081807700111
+                </div>
+              </li>
+              <li className="flex items-center gap-2">
+                <FontAwesomeIcon icon={faEnvelope} className="text-blue-600" />
+                <span>autentik.info@gmail.com</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-blue-600" />
+                <span>
+                  Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo,
+                  <br />
+                  Kec. Tembalang, Kota Semarang, Jawa Tengah 50272
+                </span>
+              </li>
             </ul>
+          </div>
         </div>
-    </div>
-</footer>
-
+      </footer>
     </div>
   );
 };
