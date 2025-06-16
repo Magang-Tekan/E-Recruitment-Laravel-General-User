@@ -813,21 +813,15 @@ class CandidateController extends Controller
 
             \Log::info('Starting CV generation for user: ' . $userId);
 
-            // Validate user authentication
-            if (!$user) {
-                throw new \Exception('User not authenticated');
-            }
+            // Validate user data completeness
+            $this->validateUserDataForCV($userId);
 
-            // Get all required data with error checking
+            // Get all required data
             $profile = CandidatesProfiles::where('user_id', $userId)->firstOrFail();
 
             $educations = CandidatesEducations::where('user_id', $userId)
                 ->orderBy('year_in', 'desc')
                 ->get();
-
-            if ($educations->isEmpty()) {
-                throw new \Exception('No education data found');
-            }
 
             // Map educations with majors
             $educations = $educations->map(function($education) {
@@ -847,6 +841,8 @@ class CandidateController extends Controller
 
             $achievements = CandidatesAchievements::where('user_id', $userId)->get();
 
+            $skills = Skills::where('user_id', $userId)->get();
+
             $data = [
                 'user' => $user,
                 'profile' => $profile,
@@ -854,22 +850,66 @@ class CandidateController extends Controller
                 'workExperiences' => $workExperiences,
                 'organizations' => $organizations,
                 'achievements' => $achievements,
+                'skills' => $skills
             ];
 
             \Log::info('Generating PDF with data:', ['userId' => $userId]);
 
+            // Create PDF
             $pdf = PDF::loadView('cv.template', $data);
-
-            // Set paper size and orientation
             $pdf->setPaper('a4', 'portrait');
 
-            return $pdf->stream('cv.pdf');
+            // Create a unique filename
+            $filename = 'CV_' . $user->name . '_' . date('Y-m-d_His') . '.pdf';
+            $sanitized_filename = str_replace(' ', '_', $filename);
+
+            // Define storage path
+            $path = 'cv/' . $userId;
+            $fullPath = $path . '/' . $sanitized_filename;
+
+            // Ensure the directory exists
+            Storage::disk('public')->makeDirectory($path);
+
+            // Save PDF to storage
+            Storage::disk('public')->put($fullPath, $pdf->output());
+
+            \Log::info('PDF file generated and saved', ['path' => $fullPath]);
+
+            // Save to database
+            $cvRecord = CandidateCV::create([
+                'user_id' => $userId,
+                'cv_filename' => $sanitized_filename,
+                'cv_path' => $fullPath,
+                'file_size' => Storage::disk('public')->size($fullPath),
+                'is_active' => true,
+                'download_count' => 0
+            ]);
+
+            // Mark previous CVs as inactive
+            CandidateCV::where('user_id', $userId)
+                ->where('id', '!=', $cvRecord->id)
+                ->update(['is_active' => false]);
+
+            // Return response with download URL
+            return response()->json([
+                'success' => true,
+                'message' => 'CV berhasil digenerate!',
+                'data' => [
+                    'id' => $cvRecord->id,
+                    'filename' => $sanitized_filename,
+                    'download_url' => url('/candidate/cv/download/' . $cvRecord->id),
+                    'created_at' => $cvRecord->created_at->format('Y-m-d H:i:s')
+                ]
+            ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error generating CV: ' . $e->getMessage());
+            \Log::error('Error generating CV: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error generating CV: ' . $e->getMessage()
+                'message' => 'Gagal generate CV: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -1579,8 +1619,8 @@ public function getProfileImage()
         $profile = CandidatesProfiles::where('user_id', $userId)->first();
 
         if ($profile && $profile->profile_image) {
-                // Generate public URL for the image
-            $imageUrl = Storage::disk('public')->url($profile->profile_image);
+            // Generate public URL for the image
+            $imageUrl = asset('storage/' . $profile->profile_image);
 
             return response()->json([
                 'success' => true,
@@ -1621,14 +1661,18 @@ public function uploadProfileImage(Request $request)
             Storage::disk('public')->delete($profile->profile_image);
         }
 
+        // Pastikan direktori profile-images ada
+        Storage::disk('public')->makeDirectory('profile-images');
+
         // Store new image
         $file = $request->file('profile_image');
         $filename = time() . '_' . $userId . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs('profile-images', $filename, 'public');
 
+        // Update kolom profile_image sesuai dengan skema database
         $profile->update(['profile_image' => $path]);
 
-        // Generate public URL for the image - this is the key fix
+        // Generate public URL for the image
         $imageUrl = asset('storage/' . $path);
 
         return response()->json([
@@ -1641,7 +1685,7 @@ public function uploadProfileImage(Request $request)
         \Log::error('Error uploading profile image: ' . $e->getMessage());
         return response()->json([
             'success' => false,
-            'message' => 'Error uploading profile image'
+            'message' => 'Error uploading profile image: ' . $e->getMessage()
         ], 500);
     }
 }
@@ -1762,6 +1806,40 @@ public function updateEducation(Request $request, $id)
         return response()->json([
             'success' => false,
             'message' => 'Error updating education data: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Get candidate profile data for API requests
+ */
+public function getProfile()
+{
+    try {
+        $userId = Auth::id();
+        $user = Auth::user();
+        $profile = CandidatesProfiles::where('user_id', $userId)->first();
+
+        // Add image URL if profile exists and has an image
+        if ($profile && $profile->profile_image) {
+            $profile->image_url = asset('storage/' . $profile->profile_image);
+        }
+
+        return response()->json([
+            'success' => true,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+            'profile' => $profile
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error getting profile data: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Error retrieving profile data'
         ], 500);
     }
 }

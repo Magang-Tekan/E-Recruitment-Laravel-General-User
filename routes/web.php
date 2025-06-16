@@ -49,16 +49,16 @@ Route::middleware(['auth'])->group(function () {
         }
     });
 
-    
+
     Route::get('/api/candidate/education', [CandidateController::class, 'getEducation']);
     Route::post('/api/candidate/education', [CandidateController::class, 'storeEducation']);
-    
-    
+
+
     Route::get('/api/candidate/profile-image', [CandidateController::class, 'getProfileImage'])
         ->name('candidate.profile-image.get');
     Route::post('/api/candidate/profile-image', [CandidateController::class, 'uploadProfileImage'])
         ->name('candidate.profile-image.upload');
-    
+
     // Tambahkan route untuk get educations
     Route::get('/api/candidate/educations', [CandidateController::class, 'getAllEducations']);
     Route::post('/api/candidate/education', [CandidateController::class, 'storeEducation']);
@@ -98,17 +98,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/candidate/work-experience/{id}', [CandidateController::class, 'showWorkExperience'])
         ->name('candidate.work-experience.show');
 
- 
+
     Route::delete('/candidate/work-experience/{id}', [CandidateController::class, 'deleteWorkExperience'])
         ->name('candidate.work-experience.delete');
     Route::get('/candidate/work-experiences', [CandidateController::class, 'indexWorkExperiences'])
         ->name('candidate.work-experiences');
 
-   
+
     Route::get('/candidate/work-experience/{id}/edit', [CandidateController::class, 'editWorkExperience'])
         ->name('candidate.work-experience.edit');
 
-    
+
     Route::get('/candidate/achievements', [CandidateController::class, 'indexAchievements'])
         ->name('candidate.achievements');
     Route::post('/candidate/achievement', [CandidateController::class, 'storeAchievement'])

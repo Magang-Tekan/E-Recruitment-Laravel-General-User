@@ -2,16 +2,6 @@ import SocialMediaList from "@/components/forms/SocialMediaList";
 import { router, useForm, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import React, { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
-
-// Configure axios defaults for Laravel
-axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-axios.defaults.withCredentials = true;
-
-// Get CSRF token from meta tag
-const csrf_token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-if (csrf_token) {
-    axios.defaults.headers.common['X-CSRF-TOKEN'] = csrf_token;
-}
 import Swal from 'sweetalert2';
 import InputField from "../components/InputField";
 import SelectField from "../components/SelectField";
@@ -26,6 +16,16 @@ import PendidikanForm from '../components/forms/ListEducationForm';
 import OrganisasiForm from '../components/forms/Organization';
 import { FormType } from '../types/FormTypes';
 import PengalamanKerjaForm from './WorkExperienceForm';
+
+// Configure axios defaults for Laravel
+axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+axios.defaults.withCredentials = true;
+
+// Get CSRF token from meta tag
+const csrf_token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+if (csrf_token) {
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = csrf_token;
+}
 
 // Tambahkan komponen Alert
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
@@ -61,14 +61,20 @@ const CustomProfileHeader = ({ name, email }: { name: string; email: string }) =
     useEffect(() => {
         const loadProfileImage = async () => {
             try {
+                // Use the existing getProfileImage endpoint instead of "profile"
                 const response = await axios.get('/api/candidate/profile-image');
+
                 if (response.data.success && response.data.image) {
-                    setProfileImage(response.data.image); // Use the correct image URL
+                    setProfileImage(response.data.image);
+                    console.log('Loaded profile image:', response.data.image);
+                } else {
+                    console.log('No profile image found');
                 }
             } catch (error) {
-                console.log('No existing profile image');
+                console.error('Error loading profile image:', error);
             }
         };
+
         loadProfileImage();
     }, []);
 
@@ -84,78 +90,60 @@ const CustomProfileHeader = ({ name, email }: { name: string; email: string }) =
     }, []);
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+        if (!event.target.files || event.target.files.length === 0) return;
 
-        // Validate file type
-        if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
-            alert('Hanya file gambar (JPG, JPEG, PNG) yang diizinkan');
-            return;
-        }
-
-        // Validate file size (max 2MB)
-        if (file.size > 2 * 1024 * 1024) {
-            alert('Ukuran file maksimal 2MB');
-            return;
-        }
-
+        const file = event.target.files[0];
         setUploading(true);
 
         try {
             const formData = new FormData();
             formData.append('profile_image', file);
 
-            // Make sure to include the CSRF token in the headers
-            const csrf_token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-            console.log('CSRF Token:', csrf_token); // Debug CSRF token
-
-            // Add default headers from axios for Laravel
-            axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-            axios.defaults.withCredentials = true;
+            console.log('Uploading file:', file.name, file.type, file.size);
 
             const response = await axios.post('/api/candidate/profile-image', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
-                    'X-CSRF-TOKEN': csrf_token
-                },
+                }
             });
 
-            console.log('Response:', response.data); // Debug response
+            console.log('Upload response:', response.data);
 
             if (response.data.success) {
-                setProfileImage(response.data.image_url);
-                // Show success message
-                const successMessage = document.createElement('div');
-                successMessage.className = 'fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50';
-                successMessage.textContent = 'Foto profil berhasil diupload!';
-                document.body.appendChild(successMessage);
+                // Gunakan URL lengkap dari respons server
+                const imageUrl = response.data.image_url;
+                console.log('Setting profile image to:', imageUrl);
+                setProfileImage(imageUrl);
+
+                // Tambahkan notifikasi sukses
+                postMessage({
+                    type: 'success',
+                    text: 'Foto profil berhasil diperbarui!'
+                });
 
                 setTimeout(() => {
-                    if (document.body.contains(successMessage)) {
-                        document.body.removeChild(successMessage);
-                    }
+                    postMessage(null);
                 }, 3000);
             } else {
-                throw new Error(response.data.message || 'Failed to upload profile image');
+                console.error('Upload failed:', response.data.message);
+                postMessage({
+                    type: 'error',
+                    text: 'Gagal mengunggah foto profil: ' + response.data.message
+                });
+
+                setTimeout(() => {
+                    postMessage(null);
+                }, 5000);
             }
         } catch (error: any) {
-            console.error('Error uploading image:', error);
-
-            // Show detailed error message
-            const errorMsg = error.response?.data?.message ||
-                           error.message ||
-                           'Gagal mengupload foto profil';
-
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50';
-            errorDiv.textContent = errorMsg;
-            document.body.appendChild(errorDiv);
+            console.error('Upload error:', error.response?.data || error.message);
+            postMessage({
+                type: 'error',
+                text: 'Error mengunggah foto profil: ' + (error.response?.data?.message || error.message)
+            });
 
             setTimeout(() => {
-                if (document.body.contains(errorDiv)) {
-                    document.body.removeChild(errorDiv);
-                }
+                postMessage(null);
             }, 5000);
         } finally {
             setUploading(false);
@@ -672,7 +660,10 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
         }
 
         setGeneratingCV(true);
-        setMessage(null);
+        setMessage({
+            type: 'success',
+            text: 'Sedang mempersiapkan CV Anda. Mohon tunggu...'
+        });
 
         try {
             console.log('Starting CV generation...');
@@ -684,22 +675,26 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
 
                 setMessage({
                     type: 'success',
-                    text: `${response.data.message} File: ${response.data.data.filename}`,
+                    text: `${response.data.message} CV Anda siap diunduh.`,
                 });
 
-                setTimeout(() => {
-                    setMessage(null);
-                }, 5000);
-
+                // Open the download in a new tab
                 if (response.data.data.download_url) {
                     setTimeout(() => {
-                        window.open(response.data.data.download_url, '_blank');
+                        const downloadWindow = window.open(response.data.data.download_url, '_blank');
+                        if (!downloadWindow) {
+                            setMessage({
+                                type: 'error',
+                                text: 'Popup diblokir oleh browser. Mohon izinkan popup untuk mengunduh CV.'
+                            });
+                        }
                     }, 1000);
                 }
 
                 setTimeout(() => {
                     checkDataCompleteness();
-                }, 2000);
+                    setMessage(null);
+                }, 3000);
             }
 
         } catch (error: any) {
