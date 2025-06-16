@@ -12,6 +12,7 @@ use App\Http\Controllers\ResetPasswordController;
 use App\Models\AboutUs;
 use App\Http\Controllers\ContactsController;
 use App\Http\Controllers\PersonalDataController;
+use App\Http\Controllers\AboutUsController;
 
 Route::get('/', [VacanciesController::class, 'index'])->name('home');
 // Updated to use the same controller method as candidate/jobs
@@ -27,12 +28,7 @@ Route::get('/data-pribadi', function () {
 Route::get('/contact', [ContactsController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactsController::class, 'store'])->name('contact.store');
 
-Route::get('/about-us', function () {
-    $aboutUs = \App\Models\AboutUs::with('companies')->get();
-    return Inertia::render('landing-page/about-us', [
-        'aboutUs' => $aboutUs,
-    ]);
-})->name('about-us');
+Route::get('/about-us', [AboutUsController::class, 'index'])->name('about-us');
 
 // API routes untuk AJAX requests
 Route::middleware(['auth'])->group(function () {
