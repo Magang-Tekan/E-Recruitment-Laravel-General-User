@@ -45,19 +45,31 @@ Route::middleware(['auth'])->group(function () {
         }
     });
 
-    // Route untuk education - INI YANG DIGUNAKAN
+    
     Route::get('/api/candidate/education', [CandidateController::class, 'getEducation']);
     Route::post('/api/candidate/education', [CandidateController::class, 'storeEducation']);
+    
+    
+    Route::get('/api/candidate/profile-image', [CandidateController::class, 'getProfileImage'])
+        ->name('candidate.profile-image.get');
+    Route::post('/api/candidate/profile-image', [CandidateController::class, 'uploadProfileImage'])
+        ->name('candidate.profile-image.upload');
+    
+    // Tambahkan route untuk get educations
+    Route::get('/api/candidate/educations', [CandidateController::class, 'getAllEducations']);
+    Route::post('/api/candidate/education', [CandidateController::class, 'storeEducation']);
+    Route::put('/api/candidate/education/{id}', [CandidateController::class, 'updateEducation']);
+    Route::delete('/api/candidate/education/{id}', [CandidateController::class, 'deleteEducation']);
 });
 
-// Redirect based on role
+
 Route::middleware(['auth', 'verified'])->get('/redirect', function () {
     return Auth::user()->role === UserRole::HR
     ? redirect()->route('admin.dashboard')
     : redirect()->route('user.profile');
 })->name('dashboard');
 
-// Route untuk simpan data pribadi (POST)
+
 Route::post('/candidate/data-pribadi', [CandidateController::class, 'storeDataPribadi'])
     ->name('candidate.data-pribadi.store');
 
@@ -66,13 +78,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/candidate/data-pribadi', [CandidateController::class, 'profile'])
         ->name('candidate.data-pribadi');
 
-    // HAPUS ROUTE EDUCATION YANG DUPLIKAT INI
-    // Route::get('/candidate/education/data', [CandidateController::class, 'getEducation'])
-    //     ->name('candidate.education.data');
-    // Route::post('/candidate/education/update', [CandidateController::class, 'storeEducation'])
-    //     ->name('candidate.education.update');
 
-    // Tambah pengalaman kerja (POST)
     Route::post('/candidate/work-experience', [CandidateController::class, 'storeWorkExperience'])
         ->name('candidate.work-experience.store');
 
@@ -88,17 +94,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/candidate/work-experience/{id}', [CandidateController::class, 'showWorkExperience'])
         ->name('candidate.work-experience.show');
 
-    // Hapus pengalaman kerja (DELETE)
+ 
     Route::delete('/candidate/work-experience/{id}', [CandidateController::class, 'deleteWorkExperience'])
         ->name('candidate.work-experience.delete');
     Route::get('/candidate/work-experiences', [CandidateController::class, 'indexWorkExperiences'])
         ->name('candidate.work-experiences');
 
-    // Rute untuk Edit Pengalaman Kerja
+   
     Route::get('/candidate/work-experience/{id}/edit', [CandidateController::class, 'editWorkExperience'])
         ->name('candidate.work-experience.edit');
 
-    // Achievement routes
+    
     Route::get('/candidate/achievements', [CandidateController::class, 'indexAchievements'])
         ->name('candidate.achievements');
     Route::post('/candidate/achievement', [CandidateController::class, 'storeAchievement'])
@@ -114,14 +120,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [CandidateController::class, 'profile'])->name('user.profile');
 });
 
-// HAPUS ROUTE EDUCATION YANG DUPLIKAT INI JUGA
-// Route::middleware(['auth'])->group(function () {
-//     Route::get('/candidate/education', [CandidateController::class, 'showEducationForm'])
-//         ->name('candidate.education');
-//     Route::post('/candidate/education', [CandidateController::class, 'storeEducation'])
-//         ->name('candidate.education.store');
-//     Route::get('/candidate/education/data', [CandidateController::class, 'getEducation']);
-// });
+
 
 // Organization routes
 Route::middleware(['auth'])->group(function () {
@@ -131,6 +130,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('candidate.organization.store');
     Route::put('/candidate/organization/{id}', [CandidateController::class, 'updateOrganization'])
         ->name('candidate.organization.update');
+    // Add this new route
+    Route::delete('/candidate/organization/{id}', [CandidateController::class, 'deleteOrganization'])
+        ->name('candidate.organization.delete');
 });
 
 // Social Media routes
@@ -138,6 +140,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/candidate/social-media', [CandidateController::class, 'indexSocialMedia']);
     Route::post('/candidate/social-media', [CandidateController::class, 'storeSocialMedia']);
     Route::put('/candidate/social-media/{id}', [CandidateController::class, 'updateSocialMedia']);
+    // Add this new route
+    Route::delete('/candidate/social-media/{id}', [CandidateController::class, 'deleteSocialMedia']);
 });
 
 // Skills routes
@@ -172,6 +176,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('candidate.courses.index');
     Route::post('/candidate/courses', [CandidateController::class, 'storeCourse'])
         ->name('candidate.courses.store');
+    // Tambahkan rute delete untuk kursus
+    Route::delete('/candidate/courses/{id}', [CandidateController::class, 'deleteCourse'])
+        ->name('candidate.courses.delete');
 });
 
 // Certifications routes
@@ -180,6 +187,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('candidate.certifications.index');
     Route::post('/candidate/certifications', [CandidateController::class, 'storeCertification'])
         ->name('candidate.certifications.store');
+    // Tambahkan rute delete untuk sertifikasi
+    Route::delete('/candidate/certifications/{id}', [CandidateController::class, 'deleteCertification'])
+        ->name('candidate.certifications.delete');
 });
 
 // English Certifications routes
@@ -188,6 +198,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('candidate.english-certifications.index');
     Route::post('/candidate/english-certifications', [CandidateController::class, 'storeEnglishCertification'])
         ->name('candidate.english-certifications.store');
+    // Tambahkan rute delete untuk sertifikasi bahasa Inggris
+    Route::delete('/candidate/english-certifications/{id}', [CandidateController::class, 'deleteEnglishCertification'])
+        ->name('candidate.english-certifications.delete');
 });
 
 // CV Generation routes
