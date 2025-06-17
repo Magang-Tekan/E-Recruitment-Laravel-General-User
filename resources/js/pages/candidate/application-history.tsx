@@ -225,20 +225,7 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
             });
     };
 
-    // State untuk modal detail
-    const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-    const [showDetail, setShowDetail] = useState(false);
-
-    // Handling detail view
-    const showApplicationDetail = (app: Application) => {
-        setSelectedApplication(app);
-        setShowDetail(true);
-    };
-
-    const closeDetail = () => {
-        setShowDetail(false);
-        setSelectedApplication(null);
-    };
+    // Navigation is now handled by React Router Link in the table
 
     return (
         <>
@@ -279,11 +266,13 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
                                     <tr key={app.id} onClick={(e) => {
                                         // Periksa apakah klik terjadi pada StatusBadge atau parent-nya
                                         if ((e.target as HTMLElement).closest('.status-badge-cell') ||
-                                            (e.target as HTMLElement).tagName === 'BUTTON') {
-                                            e.stopPropagation(); // Hentikan propagasi jika klik pada cell status
+                                            (e.target as HTMLElement).tagName === 'BUTTON' ||
+                                            (e.target as HTMLElement).tagName === 'A') {
+                                            e.stopPropagation(); // Hentikan propagasi jika klik pada cell status atau link
                                             return;
                                         }
-                                        showApplicationDetail(app);
+                                        // Navigate to status page
+                                        window.location.href = `/candidate/application/${app.id}/status`;
                                     }} style={{ cursor: 'pointer' }}>
                                         <td>{app.job.title}</td>
                                         <td>{app.job.company}</td>
@@ -296,10 +285,9 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
                                             </StatusBadge>
                                         </td>
                                         <td>
-                                            <ViewDetailButton onClick={(e) => {
-                                                e.stopPropagation();
-                                                showApplicationDetail(app);
-                                            }}>Detail</ViewDetailButton>
+                                            <Link href={`/candidate/application/${app.id}/status`} className="inline-block bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                                                Detail
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))}
@@ -314,50 +302,7 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
                         </EmptyState>
                     )}
 
-                    {/* Tambahkan modal detail */}
-                    {showDetail && selectedApplication && (
-                        <DetailModal>
-                            <ModalContent>
-                                <ModalHeader>
-                                    <h3>Detail Lamaran</h3>
-                                    <CloseButton onClick={closeDetail}>&times;</CloseButton>
-                                </ModalHeader>
-                                <ModalBody>
-                                    <DetailItem>
-                                        <DetailLabel>Posisi:</DetailLabel>
-                                        <DetailValue>{selectedApplication.job.title}</DetailValue>
-                                    </DetailItem>
-                                    <DetailItem>
-                                        <DetailLabel>Perusahaan:</DetailLabel>
-                                        <DetailValue>{selectedApplication.job.company}</DetailValue>
-                                    </DetailItem>
-                                    <DetailItem>
-                                        <DetailLabel>Lokasi:</DetailLabel>
-                                        <DetailValue>{selectedApplication.job.location}</DetailValue>
-                                    </DetailItem>
-                                    <DetailItem>
-                                        <DetailLabel>Tipe:</DetailLabel>
-                                        <DetailValue>{selectedApplication.job.type}</DetailValue>
-                                    </DetailItem>
-                                    <DetailItem>
-                                        <DetailLabel>Tanggal Apply:</DetailLabel>
-                                        <DetailValue>{selectedApplication.applied_at}</DetailValue>
-                                    </DetailItem>
-                                    <DetailItem>
-                                        <DetailLabel>Status:</DetailLabel>
-                                        <DetailValue>
-                                            <StatusBadge color={selectedApplication.status_color}>
-                                                {selectedApplication.status_name}
-                                            </StatusBadge>
-                                        </DetailValue>
-                                    </DetailItem>
-                                </ModalBody>
-                                <ModalFooter>
-                                    <Button onClick={closeDetail}>Tutup</Button>
-                                </ModalFooter>
-                            </ModalContent>
-                        </DetailModal>
-                    )}
+                    {/* Modal detail has been replaced with navigation to status-candidate page */}
                 </ContentContainer>
             </PageWrapper>
             <Footer />
@@ -401,101 +346,6 @@ const LoadingSpinner = styled.div`
     }
 `;
 
-// Tambahkan style untuk components
-const ViewDetailButton = styled.button`
-    background-color: #1a73e8;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-
-    &:hover {
-        background-color: #1557b0;
-    }
-`;
-
-const DetailModal = styled.div`
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-    background: white;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 600px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
-`;
-
-const ModalHeader = styled.div`
-    padding: 15px;
-    border-bottom: 1px solid #dee2e6;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-`;
-
-const ModalBody = styled.div`
-    padding: 15px;
-`;
-
-const ModalFooter = styled.div`
-    padding: 10px;
-    display: flex;
-    justify-content: flex-end;
-    border-top: 1px solid #dee2e6;
-`;
-
-const CloseButton = styled.button`
-    background: transparent;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: #495057;
-
-    &:hover {
-        color: #0088FF;
-    }
-`;
-
-const DetailItem = styled.div`
-    margin-bottom: 10px;
-`;
-
-const DetailLabel = styled.span`
-    font-weight: bold;
-    color: #495057;
-`;
-
-const DetailValue = styled.span`
-    margin-left: 5px;
-    color: #343a40;
-`;
-
-// Tambahkan definisi Button
-const Button = styled.button`
-    background-color: #1a73e8;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-
-    &:hover {
-        background-color: #1557b0;
-    }
-`;
+// Modal components have been removed as we're now using page navigation instead
 
 export default ApplicationHistory;
