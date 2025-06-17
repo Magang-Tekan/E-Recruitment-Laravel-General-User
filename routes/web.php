@@ -77,6 +77,15 @@ Route::middleware(['auth', 'verified'])->get('/redirect', function () {
     : redirect()->route('user.profile');
 })->name('dashboard');
 
+Route::get('/confirm-data', function () {
+    return Inertia::render('candidate/profile/confirm-data');
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/candidate/applicant-completeness', [CandidateController::class, 'checkApplicationDataCompleteness']) 
+        ->name('candidate.applicant-completeness'); 
+});
+
 
 Route::post('/candidate/data-pribadi', [CandidateController::class, 'storeDataPribadi'])
     ->name('candidate.data-pribadi.store');

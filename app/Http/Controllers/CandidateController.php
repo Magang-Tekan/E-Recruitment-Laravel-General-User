@@ -32,15 +32,57 @@ use App\Models\UserAnswer;
 
 class CandidateController extends Controller
 {
-    // public function dashboard()
-    // {
-    //     $user = Auth::user();
+    public function checkApplicationDataCompleteness()
+{
+    $userId = Auth::id();
 
-    //     return Inertia::render('candidate/dashboard', [
-    //         'users' => $user,
-    //     ]);
-    // }
-    public function dashboard()
+    $completeness = [
+        'profile' => false,
+        'education' => false,
+        'skills' => false,
+        'work_experience' => false,
+        'organization' => false,
+        'achievements' => false,
+        'social_media' => false,
+        'additional_data' => false,
+        'overall_complete' => false
+    ];
+
+    // Data Pribadi
+    $profile = CandidatesProfiles::where('user_id', $userId)->first();
+    $completeness['profile'] = $profile && $profile->phone_number && $profile->address && $profile->date_of_birth;
+
+    // Pendidikan
+    $education = CandidatesEducations::where('user_id', $userId)->first();
+    $completeness['education'] = (bool) $education;
+
+    // Skill
+    $skillsCount = Skills::where('user_id', $userId)->count();
+    $completeness['skills'] = $skillsCount > 0;
+
+    // Pengalaman Kerja
+    $completeness['work_experience'] = CandidatesWorkExperiences::where('user_id', $userId)->exists();
+
+    // Organisasi
+    $completeness['organization'] = CandidatesOrganizations::where('user_id', $userId)->exists();
+
+    // Prestasi
+    $completeness['achievements'] = CandidatesAchievements::where('user_id', $userId)->exists();
+
+    // Social Media
+    $completeness['social_media'] = CandidatesSocialMedia::where('user_id', $userId)->exists();
+
+    // Data Tambahan
+    $completeness['additional_data'] = CandidatesAdditionalData::where('user_id', $userId)->exists();
+
+    // Kelengkapan total minimal 3
+    $completeness['overall_complete'] = $completeness['profile'] &&
+                                        $completeness['education'] &&
+                                        $completeness['skills'];
+
+    return response()->json($completeness);
+}
+    public function index()
     {
         $user = Auth::user();
         $education = CandidatesEducations::where('user_id', $user->id)->first();
