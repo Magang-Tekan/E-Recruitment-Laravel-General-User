@@ -99,67 +99,35 @@ class JobsController extends Controller
     public function apply(Request $request, $id)
     {
         try {
+            // Validasi kelengkapan data kandidat
+            $completenessCheck = app('App\Http\Controllers\CandidateController')->checkApplicationDataCompleteness();
+            $completenessData = json_decode($completenessCheck->getContent(), true);
+            
+            // Jika data belum lengkap, redirect ke halaman confirm-data
+            if (!$completenessData['completeness']['overall_complete']) {
+                return redirect()->route('candidate.confirm-data', ['job_id' => $id])
+                    ->with('warning', 'Lengkapi data Anda terlebih dahulu sebelum melanjutkan aplikasi.');
+            }
+            
+            // Proses aplikasi jika data sudah lengkap
+            $userId = Auth::id();
+            
             // Check if user has already applied
-            $existingApplication = Applications::where('user_id', Auth::id())
+            $existingApplication = Applications::where('user_id', $userId)
                 ->where('vacancies_id', $id)
                 ->first();
 
             if ($existingApplication) {
-                \Log::info('User already applied for job', [
-                    'user_id' => Auth::id(),
-                    'job_id' => $id
-                ]);
-
                 return response()->json([
                     'success' => false,
                     'message' => 'Anda sudah pernah melamar pekerjaan ini.',
                     'redirect' => route('candidate.application-history')
                 ], 422);
             }
-
-            // Check if the education data is complete
-            $education = CandidatesEducations::where('user_id', Auth::id())->first();
-            if (!$education) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data pendidikan belum lengkap. Lengkapi data pendidikan terlebih dahulu.'
-                ], 422);
-            }
-
-            // Get the job vacancy details
+            
+            // Get vacancy details
             $vacancy = Vacancies::findOrFail($id);
-
-            // SIMPLIFIED VALIDATION FOR TESTING
-            // Hard-coded education requirement for demonstration
-            $requiredEducation = 'S1';
-            $candidateEducation = $education->education_level;
-
-            // Log the validation attempt
-            \Log::info('Validating education level for job application (simplified)', [
-                'user_id' => Auth::id(),
-                'job_id' => $id,
-                'candidate_education' => $candidateEducation,
-                'required_education' => $requiredEducation
-            ]);
-
-            // Perform the validation
-            if (!$this->validateEducationLevel($candidateEducation, $requiredEducation)) {
-                \Log::info('Education level validation failed (simplified)', [
-                    'candidate_education' => $candidateEducation,
-                    'required_education' => $requiredEducation
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => "Maaf, Anda tidak dapat melamar posisi ini. Posisi ini membutuhkan pendidikan minimal {$requiredEducation}, sedangkan pendidikan terakhir Anda adalah {$candidateEducation}."
-                ], 422);
-            }
-
-            \Log::info('Education level validation passed (simplified)', [
-                'candidate_education' => $candidateEducation,
-                'required_education' => $requiredEducation
-            ]);
-
+            
             // Ambil selection default (Administrasi)
             $initialSelection = Selections::where('name', 'Administrasi')->first();
             if (!$initialSelection) {
@@ -170,37 +138,25 @@ class JobsController extends Controller
             }
 
             // Buat aplikasi baru
-            $application = Applications::create([
-                'user_id' => Auth::id(),
+            Applications::create([
+                'user_id' => $userId,
                 'vacancies_id' => $id,
                 'selection_id' => $initialSelection->id,
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
 
-            \Log::info('User successfully applied for job (simplified)', [
-                'user_id' => Auth::id(),
-                'job_id' => $id,
-                'application_id' => $application->id
-            ]);
-
-            // Return sukses
             return response()->json([
                 'success' => true,
                 'message' => 'Lamaran berhasil dikirim!',
                 'redirect' => route('candidate.application-history')
             ]);
-
+            
         } catch (\Exception $e) {
-            \Log::error('Error while applying for job (simplified)', [
-                'user_id' => Auth::id(),
-                'job_id' => $id,
-                'error' => $e->getMessage()
-            ]);
-
+            \Log::error('Error applying for job: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan saat mengirim lamaran: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan saat melamar pekerjaan.'
             ], 500);
         }
     }

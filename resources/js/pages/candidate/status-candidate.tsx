@@ -1,5 +1,6 @@
 // === Ikon SVG ===
 // Definisi semua ikon yang digunakan di dalam satu file.
+import { Link } from '@inertiajs/react';
 
 const BriefcaseIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-2 text-gray-700">
@@ -83,6 +84,7 @@ interface ApplicationStatusProps {
         }>;
         applied_at: string;
         updated_at: string;
+        assessment_id?: number; // Tambahkan properti ini
     };
 }
 
@@ -425,9 +427,13 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                             </div>
 
                             <div className="flex justify-center mt-6">
-                                <button className="bg-blue-600 text-white font-medium py-3 px-8 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105">
+                                {/* Ganti button dengan Link komponen dari Inertia */}
+                                <Link 
+                                    href={`/candidate/tests/psychotest/${application.assessment_id || 1}`} 
+                                    className="bg-blue-600 text-white font-medium py-3 px-8 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105"
+                                >
                                     Mulai Mengerjakan
-                                </button>
+                                </Link>
                             </div>
                         </section>
                     )}

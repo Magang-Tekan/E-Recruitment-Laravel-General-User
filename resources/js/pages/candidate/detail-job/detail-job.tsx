@@ -174,6 +174,15 @@ const JobDetailPage: React.FC = () => {
 
     const handleApply = async () => {
         try {
+            // Check if data is complete before sending application
+            const completenessResponse = await axios.get('/candidate/applicant-completeness');
+            
+            // If data is incomplete, redirect to confirm-data page
+            if (!completenessResponse.data.completeness.overall_complete) {
+                window.location.href = `/candidate/confirm-data/${job.id}`;
+                return;
+            }
+            
             // Ambil CSRF token
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
@@ -196,32 +205,8 @@ const JobDetailPage: React.FC = () => {
                 'Accept': 'application/json'
             };
 
-            // Check if education data is complete first
-            try {
-                const educationResponse = await axios.get('/api/candidate/education', { headers });
-                const educationData = educationResponse.data;
-
-                if (!educationData || !educationData.education_level ||
-                    !educationData.faculty || !educationData.major_id ||
-                    !educationData.institution_name || !educationData.gpa) {
-
-                    Swal.fire({
-                        title: 'Perhatian',
-                        text: 'Data pendidikan belum lengkap. Lengkapi data pendidikan terlebih dahulu.',
-                        icon: 'warning',
-                        confirmButtonText: 'Lengkapi Data'
-                    }).then(() => {
-                        window.location.href = '/candidate/personal-data?redirect_back=/candidate/job/' + job.id;
-                    });
-                    return;
-                }
-            } catch (educationError) {
-                console.error("Error checking education:", educationError);
-                // Lanjutkan proses apply, server akan melakukan validasi
-            }
-
-            // If education data is complete, proceed with application
-            const response = await axios.post(`/candidate/jobs/${job.id}/apply`, {}, { headers });
+            // If data is complete, proceed with application
+            const response = await axios.post(`/candidate/apply/${job.id}`, {}, { headers });
 
             if (response.data.success) {
                 Swal.fire({
@@ -264,9 +249,7 @@ const JobDetailPage: React.FC = () => {
                     if (isAlreadyApplied) {
                         window.location.href = '/candidate/application-history';
                     } else if (redirectUrl) {
-                        const currentUrl = window.location.href;
-                        const redirectPath = `${redirectUrl}?redirect_back=${encodeURIComponent(currentUrl)}`;
-                        window.location.href = redirectPath;
+                        window.location.href = redirectUrl;
                     }
                 }
             });

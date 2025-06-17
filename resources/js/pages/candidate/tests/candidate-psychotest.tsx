@@ -1,17 +1,7 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect } from 'react';
+import { usePage, router } from '@inertiajs/react';
 import type { PageProps as InertiaPageProps } from '@inertiajs/core';
-import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { Check, ChevronLeft, ChevronRight, Clock, Flag } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 interface Question {
     id: number;
@@ -23,32 +13,53 @@ interface Assessment {
     id: number;
     title: string;
     description: string;
-    duration: number; // dalam menit
+    duration: number; // in minutes
+}
+
+interface TestInfo {
+    title: string;
+    type: string;
+    duration: number; // in minutes
+    totalQuestions: number;
+    instructions: string;
 }
 
 type PageProps = InertiaPageProps & {
     questions: Question[];
-    userAnswers: Record<number, string>;
     assessment: Assessment;
+    userAnswers: Record<number, string>;
 };
 
-export default function CandidateQuestions() {
-    const { questions, userAnswers: initialUserAnswers, assessment } = usePage<PageProps>().props;
+export default function CandidatePsychotest() {
+    const { questions = [], assessment, userAnswers: initialUserAnswers = {} } = usePage<PageProps>().props;
+    
+    // State management
+    const [currentPhase, setCurrentPhase] = useState<'start' | 'test' | 'complete'>('start');
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [userAnswers, setUserAnswers] = useState<Record<number, string>>(initialUserAnswers || {});
+    const [timeLeft, setTimeLeft] = useState(0);
+    const [testStarted, setTestStarted] = useState(false);
     const [markedQuestions, setMarkedQuestions] = useState(Array(questions.length).fill(false));
-    const [timeLeft, setTimeLeft] = useState(assessment.duration * 60); // Timer sesuai durasi assessment
     const [testCompleted, setTestCompleted] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    // Create test info from assessment
+    const testInfo: TestInfo = {
+        title: assessment?.title || 'Psychotest',
+        type: 'Logic',
+        duration: assessment?.duration || 60,
+        totalQuestions: questions.length,
+        instructions: assessment?.description || 'Pilih jawaban yang paling sesuai dengan diri Anda. Tidak ada jawaban benar atau salah. Jawablah dengan jujur dan spontan.'
+    };
+
+    // Timer effect
     useEffect(() => {
-        if (timeLeft > 0 && !testCompleted) {
+        if (testStarted && timeLeft > 0 && currentPhase === 'test') {
             const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
             return () => clearTimeout(timer);
-        } else if (timeLeft === 0 && !testCompleted) {
-            setTestCompleted(true);
+        } else if (timeLeft === 0 && testStarted && currentPhase === 'test') {
+            handleCompleteTest();
         }
-    }, [timeLeft, testCompleted]);
+    }, [timeLeft, testStarted, currentPhase]);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -56,23 +67,32 @@ export default function CandidateQuestions() {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const handleAnswer = async (answer: string) => {
-        const questionId = questions[currentQuestion].id;
-        setUserAnswers((prev) => ({ ...prev, [questionId]: answer }));
+    const handleStartTest = () => {
+        setTestStarted(true);
+        setTimeLeft((testInfo?.duration || 60) * 60); // Convert minutes to seconds
+        setCurrentPhase('test');
+    };
 
-        try {
-            await axios.post('/candidate/questions/answer', { question_id: questionId, answer: answer });
-        } catch (error) {
-            console.error('Failed to save answer:', error);
+    const handleAnswerChange = (answer: string) => {
+        const questionId = questions[currentQuestion]?.id;
+        if (questionId) {
+            setUserAnswers(prev => ({
+                ...prev,
+                [questionId]: answer
+            }));
         }
     };
 
-    const nextQuestion = () => {
-        if (currentQuestion < questions.length - 1) setCurrentQuestion((prev) => prev + 1);
+    const handlePreviousQuestion = () => {
+        if (currentQuestion > 0) {
+            setCurrentQuestion(currentQuestion - 1);
+        }
     };
 
-    const previousQuestion = () => {
-        if (currentQuestion > 0) setCurrentQuestion((prev) => prev - 1);
+    const handleNextQuestion = () => {
+        if (currentQuestion < questions.length - 1) {
+            setCurrentQuestion(currentQuestion + 1);
+        }
     };
 
     const handleMarkQuestion = () => {
@@ -83,303 +103,408 @@ export default function CandidateQuestions() {
 
     const goToQuestion = (index: number) => {
         setCurrentQuestion(index);
-        setIsMobileMenuOpen(false);
     };
 
-    const progress = (Object.keys(userAnswers).length / questions.length) * 100;
+    const handleCompleteTest = async () => {
+        try {
+            // Validasi apakah semua soal sudah dijawab (opsional)
+            const totalAnswered = Object.keys(userAnswers).length;
+            if (totalAnswered === 0) {
+                alert('Mohon jawab setidaknya satu pertanyaan sebelum menyelesaikan tes.');
+                return;
+            }
 
-    const getQuestionStatus = (index: number) => {
-        const questionId = questions[index].id;
-        if (userAnswers[questionId]) {
-            return markedQuestions[index] ? 'answered-marked' : 'answered';
+            // Konfirmasi sebelum submit
+            const confirmSubmit = window.confirm(
+                `Anda telah menjawab ${totalAnswered} dari ${questions.length} pertanyaan. ` +
+                'Apakah Anda yakin ingin menyelesaikan tes ini? Jawaban tidak dapat diubah setelah diserahkan.'
+            );
+
+            if (!confirmSubmit) {
+                return;
+            }
+
+            setCurrentPhase('complete');
+            setTestCompleted(true);
+            
+            // Submit semua jawaban sekaligus ke backend
+            const response = await axios.post('/candidate/psychotest/submit', {
+                answers: userAnswers,
+                assessment_id: assessment?.id
+            });
+
+            if (response.data.success) {
+                // Tampilkan pesan sukses sebentar
+                setTimeout(() => {
+                    // Redirect ke halaman status aplikasi
+                    if (response.data.redirect_url) {
+                        window.location.href = response.data.redirect_url;
+                    } else {
+                        // Fallback redirect
+                        router.visit('/candidate/application-history');
+                    }
+                }, 3000); // 3 detik delay untuk menampilkan pesan completion
+            } else {
+                console.error('Failed to submit psychotest:', response.data.message);
+                alert('Gagal menyimpan hasil tes. Silakan coba lagi.');
+                // Kembalikan ke fase test jika gagal
+                setCurrentPhase('test');
+                setTestCompleted(false);
+            }
+        } catch (error) {
+            console.error('Error submitting psychotest:', error);
+            alert('Terjadi kesalahan. Silakan coba lagi.');
+            // Kembalikan ke fase test jika gagal
+            setCurrentPhase('test');
+            setTestCompleted(false);
         }
-        return markedQuestions[index] ? 'unmarked-marked' : 'unmarked';
-    };
-
-    const handleSubmitTest = () => {
-        // Submit test logic here
-        setTestCompleted(true);
     };
 
     const handleBackToDashboard = () => {
-        router.visit('/candidate');
+        router.visit('/candidate/application-history');
     };
 
-    // Additional stats calculation for the new navigator
-    const totalQuestions = questions.length;
-    const answeredCount = Object.keys(userAnswers).length;
-    const markedCount = markedQuestions.filter(Boolean).length;
-    const unansweredCount = totalQuestions - answeredCount;
+    const getQuestionStatus = (index: number) => {
+        const questionId = questions[index]?.id;
+        if (userAnswers[questionId]) {
+            return markedQuestions[index] ? 'answered-marked' : 'answered';
+        }
+        return markedQuestions[index] ? 'unmarked-marked' : 'unanswered';
+    };
 
-    return (
-        <div className="flex min-h-screen flex-col bg-slate-50">
-            {/* Header */}
-            <header className="sticky top-0 z-10 bg-white px-4 py-3 shadow-sm">
-                <div className="mx-auto flex max-w-7xl items-center justify-between">
-                    <h1 className="text-xl font-medium text-slate-900">PT AmbaTech</h1>
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="hidden items-center gap-2 sm:flex">
-                            <Progress value={progress} className="h-2 w-24 bg-slate-200 sm:w-32" />
-                            <span className="text-xs font-medium text-slate-600">{Math.round(progress)}%</span>
+    const getAnsweredCount = () => {
+        return Object.keys(userAnswers).length;
+    };
+
+    const getUnansweredCount = () => {
+        return questions.length - getAnsweredCount();
+    };
+
+    const getMarkedCount = () => {
+        return markedQuestions.filter(Boolean).length;
+    };
+
+    // Phase 1: Start Screen
+    if (currentPhase === 'start') {
+        return (
+            <div className="min-h-screen bg-white">
+                {/* Header */}
+                <div className="bg-white relative">
+                    <div className="max-w-7xl mx-auto px-6">
+                        <div className="flex items-center py-4">
+                            {/* Logo dihilangkan */}
                         </div>
-                        <div
-                            className={`flex items-center gap-1 rounded-full px-2 py-1 sm:px-3 sm:py-1.5 ${
-                                timeLeft < 300 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-700'
-                            }`}
-                        >
-                            <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                            <span className="font-mono text-xs font-medium sm:text-sm">{formatTime(timeLeft)}</span>
-                        </div>
-                        <Avatar className="h-8 w-8">
-                            <AvatarImage src="/api/placeholder/100/100" />
-                            <AvatarFallback>PT</AvatarFallback>
-                        </Avatar>
                     </div>
                 </div>
-            </header>
 
-            <div className="mx-auto flex w-full max-w-7xl flex-1 gap-6 px-4 py-6">
-                {/* Question Navigator - Desktop */}
-                <div className="hidden w-64 shrink-0 md:block">
-                    <div className="w-64 rounded-md bg-white shadow">
-                        <div className="p-4 pb-2">
-                            <h3 className="mb-3 text-base font-medium">Navigasi Soal</h3>
+                {/* Main Content */}
+                <div className="max-w-6xl ml-0 md:ml-40 px-6 py-16">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-4">Tes Psikotes</h2>
+                        <p className="text-gray-600 mb-12 leading-relaxed text-justify">
+                            Tes ini di rancang untuk membantu Anda untuk memahami kepribadian Anda lebih dalam. Hasil tes ini akan memberikan wawasan tentang kekuatan, kelemahan, dan preferensi Anda dalam berbagai situasi.
+                        </p>
 
-                            <div className="grid grid-cols-5 gap-2">
-                                {questions.map((_, idx) => {
-                                    const status = getQuestionStatus(idx);
-                                    return (
-                                        <div
-                                            key={idx}
-                                            className={cn(
-                                                'flex h-10 cursor-pointer items-center justify-center rounded-md text-sm',
-                                                currentQuestion === idx ? 'border-2 border-gray-500' : 'border border-gray-200',
-                                                status === 'answered' && 'bg-white',
-                                                status === 'answered-marked' && 'bg-white',
-                                                status === 'unmarked-marked' && 'bg-white',
-                                                status === 'unmarked' && !markedQuestions[idx] && 'bg-gray-100',
-                                                'relative',
-                                            )}
-                                            onClick={() => goToQuestion(idx)}
-                                        >
-                                            {status === 'answered' && (
-                                                <div className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500"></div>
-                                            )}
-                                            {(status === 'answered-marked' || status === 'unmarked-marked') && (
-                                                <div className="absolute top-1 right-1 h-2 w-2 rounded-full bg-orange-500"></div>
-                                            )}
-                                            {idx + 1}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="mt-6 space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <div className="h-5 w-5 rounded-full bg-green-500"></div>
-                                    <span className="text-sm">Dijawab</span>
+                        <div className="mb-12">
+                            <h3 className="text-xl font-bold text-gray-900 mb-6">Informasi Tes</h3>
+                            <div className="space-y-4">
+                                <div className="flex">
+                                    <span className="w-32 text-gray-700 font-medium">Tipe</span>
+                                    <span className="text-gray-900 font-medium">{testInfo?.type || 'Logic'}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-5 w-5 rounded-full bg-orange-500"></div>
-                                    <span className="text-sm">Ditandai</span>
+                                <div className="flex">
+                                    <span className="w-32 text-gray-700 font-medium">Durasi</span>
+                                    <span className="text-gray-900 font-medium">{testInfo?.duration || 60} menit</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-5 w-5 rounded-full bg-gray-200"></div>
-                                    <span className="text-sm">Belum Dijawab</span>
+                                <div className="flex">
+                                    <span className="w-32 text-gray-700 font-medium">Jumlah Soal</span>
+                                    <span className="text-gray-900 font-medium">{testInfo?.totalQuestions || questions.length} Soal</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div className="mx-4 my-4 rounded-md bg-gray-50 p-4">
-                            <h3 className="mb-3 text-center font-medium">Status Pengerjaan</h3>
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span>Dijawab:</span>
-                                    <span className="font-medium">
-                                        {answeredCount} dari {totalQuestions}
+                                <div className="flex">
+                                    <span className="w-32 text-gray-700 font-medium">Intruksi</span>
+                                    <span className="text-gray-900 font-medium text-justify">
+                                        {testInfo?.instructions || 'Pilih jawaban yang paling sesuai dengan diri Anda. Tidak ada jawaban benar atau salah. Jawablah dengan jujur dan spontan.'}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span>Ditandai:</span>
-                                    <span className="font-medium">{markedCount}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span>Belum Dijawab:</span>
-                                    <span className="font-medium">{unansweredCount}</span>
-                                </div>
                             </div>
                         </div>
 
-                        <div className="px-4 pb-4">
-                            <button
-                                onClick={handleSubmitTest}
-                                className="w-full rounded-md bg-slate-600 py-2 text-white transition-colors hover:bg-slate-700"
-                            >
-                                Akhiri Tes
-                            </button>
+                        <button
+                            onClick={handleStartTest}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded font-medium transition-colors text-sm"
+                        >
+                            Mulai Tes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Phase 2: Test Screen
+    if (currentPhase === 'test' && questions.length > 0) {
+        const currentQuestionData = questions[currentQuestion];
+        const currentAnswer = currentQuestionData ? userAnswers[currentQuestionData.id] : '';
+
+        return (
+            <div className="min-h-screen bg-white">
+                {/* Header */}
+                <div className="bg-white shadow-sm">
+                    <div className="max-w-7xl mx-auto px-6">
+                        <div className="flex items-center justify-between py-4">
+                            <h1 className="text-xl font-medium text-slate-900">PT Mitra Karya Analitika</h1>
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1 rounded-full px-3 py-1.5 bg-slate-100 text-slate-700">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span className="font-mono text-sm font-medium">{formatTime(timeLeft)}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Question Content */}
-                <div className="flex-1">
-                    <Card className="overflow-hidden rounded-lg border-0 shadow-sm">
-                        {!testCompleted ? (
-                            <>
-                                <CardHeader className="bg-slate-800 py-4 text-white">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-sm font-bold text-slate-800 sm:h-8 sm:w-8">
-                                                {currentQuestion + 1}
-                                            </span>
-                                            <span>
-                                                Question {currentQuestion + 1} of {questions.length}
-                                            </span>
-                                        </CardTitle>
-                                        {markedQuestions[currentQuestion] && (
-                                            <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-800">
-                                                <Flag className="mr-1 h-3 w-3" /> Marked
-                                            </Badge>
-                                        )}
-                                    </div>
-
-                                    {/* Mobile Progress Bar */}
-                                    <div className="mt-3 block sm:hidden">
-                                        <Progress value={progress} className="h-1.5 bg-slate-600" />
-                                    </div>
-                                </CardHeader>
-
-                                <CardContent className="px-4 pt-6 pb-6 sm:px-6">
-                                    <p className="mb-5 text-base font-medium sm:text-lg">{questions[currentQuestion].question}</p>
-                                    <RadioGroup
-                                        value={userAnswers[questions[currentQuestion].id] || ''}
-                                        onValueChange={handleAnswer}
-                                        className="space-y-3"
-                                    >
-                                        {questions[currentQuestion].options.map((option, idx) => (
-                                            <div
-                                                key={idx}
-                                                className={cn(
-                                                    'flex items-center space-x-2 rounded-lg border p-3 sm:p-4',
-                                                    userAnswers[questions[currentQuestion].id] === option
-                                                        ? 'border-green-200 bg-green-50'
-                                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
-                                                    'transition-all',
-                                                )}
-                                            >
-                                                <RadioGroupItem value={option} id={`option-${idx}`} />
-                                                <Label htmlFor={`option-${idx}`} className="flex-grow cursor-pointer">
-                                                    {option}
-                                                </Label>
-                                            </div>
-                                        ))}
-                                    </RadioGroup>
-                                </CardContent>
-
-                                <CardFooter className="flex items-center justify-between bg-gray-50 px-4 py-4 sm:px-6">
-                                    <Button variant="outline" onClick={previousQuestion} disabled={currentQuestion === 0} className="gap-1">
-                                        <ChevronLeft className="h-4 w-4" /> Previous
-                                    </Button>
-                                    <Button
-                                        variant={markedQuestions[currentQuestion] ? 'default' : 'outline'}
-                                        onClick={handleMarkQuestion}
-                                        className={cn(
-                                            'gap-1',
-                                            markedQuestions[currentQuestion] && 'border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200',
-                                        )}
-                                    >
-                                        <Flag className="h-4 w-4" /> {markedQuestions[currentQuestion] ? 'Unmark' : 'Mark'}
-                                    </Button>
-                                    <Button onClick={nextQuestion} className="gap-1 bg-slate-800 hover:bg-slate-700">
-                                        Next <ChevronRight className="h-4 w-4" />
-                                    </Button>
-                                </CardFooter>
-                            </>
-                        ) : (
-                            <div className="p-8 text-center">
-                                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                                    <Check className="h-8 w-8 text-green-600" />
-                                </div>
-                                <h2 className="mb-2 text-2xl font-semibold">Test Completed!</h2>
-                                <p className="mb-6 text-gray-600">Thank you for completing the assessment.</p>
-                                <Button className="bg-slate-800 hover:bg-slate-700" onClick={handleBackToDashboard}>
-                                    Back to Dashboard
-                                </Button>
+                <div className="max-w-7xl w-full mx-auto px-4 py-8 flex gap-4 justify-center">
+                    {/* Main Question Area */}
+                    <div className="flex-1 max-w-3xl">
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg">
+                            {/* Question Header */}
+                            <div className="bg-blue-500 text-white px-8 py-5 rounded-t-lg">
+                                <h3 className="text-lg font-bold">Soal {currentQuestion + 1} dari {questions.length}</h3>
                             </div>
-                        )}
-                    </Card>
-                </div>
-            </div>
-
-            {/* Mobile Question Navigator Button */}
-            <div className="fixed right-4 bottom-4 z-10 md:hidden">
-                <Button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="h-12 w-12 rounded-full bg-slate-800 p-0 shadow-lg">
-                    {currentQuestion + 1}
-                </Button>
-            </div>
-
-            {/* Mobile Question Navigator Menu */}
-            {isMobileMenuOpen && (
-                <div className="fixed inset-0 z-20 flex items-end bg-black/50 md:hidden">
-                    <div className="animate-in slide-in-from-bottom w-full rounded-t-xl bg-white p-4 pb-8">
-                        <div className="mb-4 flex items-center justify-between">
-                            <h3 className="font-medium">Navigasi Soal</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(false)} className="h-8 w-8 p-0">
-                                ×
-                            </Button>
-                        </div>
-                        <ScrollArea className="h-48">
-                            <div className="grid grid-cols-6 gap-2 px-1">
-                                {questions.map((_, idx) => {
-                                    const status = getQuestionStatus(idx);
-                                    return (
-                                        <div
-                                            key={idx}
-                                            className={cn(
-                                                'flex h-10 cursor-pointer items-center justify-center rounded-md text-sm',
-                                                currentQuestion === idx ? 'border-2 border-gray-500' : 'border border-gray-200',
-                                                status === 'answered' && 'bg-white',
-                                                status === 'answered-marked' && 'bg-white',
-                                                status === 'unmarked-marked' && 'bg-white',
-                                                status === 'unmarked' && !markedQuestions[idx] && 'bg-gray-100',
-                                                'relative',
-                                            )}
-                                            onClick={() => goToQuestion(idx)}
+                            {/* Question Content */}
+                            <div className="px-4 py-6">
+                                <p className="text-gray-900 mb-6 text-lg leading-relaxed">
+                                    {currentQuestionData?.question}
+                                </p>
+                                {/* Answer Options */}
+                                <div className="space-y-3">
+                                    {currentQuestionData?.options.map((option, index) => (
+                                        <label
+                                            key={index}
+                                            className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${
+                                                currentAnswer === option 
+                                                    ? 'border-blue-500 bg-blue-50' 
+                                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                            }`}
                                         >
-                                            {status === 'answered' && (
-                                                <div className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500"></div>
-                                            )}
-                                            {(status === 'answered-marked' || status === 'unmarked-marked') && (
-                                                <div className="absolute top-1 right-1 h-2 w-2 rounded-full bg-orange-500"></div>
-                                            )}
-                                            {idx + 1}
-                                        </div>
+                                            <input
+                                                type="radio"
+                                                name={`question-${currentQuestionData.id}`}
+                                                value={option}
+                                                checked={currentAnswer === option}
+                                                onChange={(e) => handleAnswerChange(e.target.value)}
+                                                className="mt-1 mr-3 text-blue-500 w-5 h-5"
+                                            />
+                                            <span className="text-gray-900 text-base leading-relaxed">{option}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            {/* Navigation */}
+                            <div className="flex justify-between items-center px-8 py-5 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+                                <button
+                                    onClick={handlePreviousQuestion}
+                                    disabled={currentQuestion === 0}
+                                    className="text-base text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-2"
+                                >
+                                    Sebelumnya
+                                </button>
+                                <button 
+                                    onClick={handleMarkQuestion}
+                                    className="text-base text-gray-600 hover:text-gray-800 flex items-center px-5 py-2"
+                                >
+                                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd" />
+                                    </svg>
+                                    {markedQuestions[currentQuestion] ? 'Hapus Tanda' : 'Tandai Soal'}
+                                </button>
+                                <button
+                                    onClick={handleNextQuestion}
+                                    disabled={currentQuestion === questions.length - 1}
+                                    className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-2 rounded text-base font-bold transition-colors"
+                                >
+                                    Selanjutnya
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Question Navigator Sidebar */}
+                    <div className="w-96">
+                        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-lg">
+                            {/* Question Grid */}
+                            <div className="grid grid-cols-3 gap-x-6 gap-y-4 mb-8 justify-items-center">
+                                {questions.map((_, index) => {
+                                    const status = getQuestionStatus(index);
+                                    
+                                    let bgColor, textColor, borderColor;
+                                    if (status === 'answered') {
+                                        bgColor = 'bg-green-500';
+                                        textColor = 'text-white';
+                                        borderColor = 'border-green-500';
+                                    } else if (status === 'answered-marked' || status === 'unmarked-marked') {
+                                        bgColor = 'bg-orange-400';
+                                        textColor = 'text-white';
+                                        borderColor = 'border-orange-400';
+                                    } else {
+                                        bgColor = index === currentQuestion ? 'bg-blue-100' : 'bg-gray-100';
+                                        textColor = 'text-gray-700';
+                                        borderColor = index === currentQuestion ? 'border-blue-400' : 'border-gray-200';
+                                    }
+                                    
+                                    return (
+                                        <button
+                                            key={index}
+                                            onClick={() => goToQuestion(index)}
+                                            className={`w-14 h-14 rounded text-lg font-bold border-2 transition-colors ${bgColor} ${textColor} ${borderColor} hover:border-gray-300`}
+                                        >
+                                            {index + 1}
+                                        </button>
                                     );
                                 })}
                             </div>
-                        </ScrollArea>
-
-                        <div className="mt-4 flex space-x-3">
-                            <div className="flex items-center gap-1">
-                                <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                                <span className="text-xs">Dijawab</span>
+                            {/* Legend */}
+                            <div className="space-y-4 mb-8 text-base">
+                                <div className="flex items-center">
+                                    <div className="w-5 h-5 bg-green-500 rounded mr-3"></div>
+                                    <span className="text-gray-700">Dijawab</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <div className="w-5 h-5 bg-orange-400 rounded mr-3"></div>
+                                    <span className="text-gray-700">Ditandai</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <div className="w-5 h-5 bg-gray-100 border border-gray-300 rounded mr-3"></div>
+                                    <span className="text-gray-700">Belum Dijawab</span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                                <div className="h-3 w-3 rounded-full bg-orange-500"></div>
-                                <span className="text-xs">Ditandai</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <div className="h-3 w-3 rounded-full bg-gray-200"></div>
-                                <span className="text-xs">Belum</span>
+                            {/* Status Summary */}
+                            <div className="border-t border-gray-200 pt-8 bg-gray-50 rounded p-6 -mx-2 mt-4">
+                                <h4 className="font-bold text-gray-900 mb-4 text-center text-lg">Status Pengerjaan</h4>
+                                <div className="space-y-3 text-base">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Dijawab :</span>
+                                        <span className="font-bold text-gray-900">{getAnsweredCount()} dari {questions.length}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Ditandai :</span>
+                                        <span className="font-bold text-gray-900">{getMarkedCount()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Belum Dijawab :</span>
+                                        <span className="font-bold text-gray-900">{getUnansweredCount()}</span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleCompleteTest}
+                                    className="w-full mt-8 bg-blue-500 hover:bg-blue-600 text-white py-4 rounded font-bold text-lg transition-colors"
+                                >
+                                    Akhiri Tes
+                                </button>
                             </div>
                         </div>
-
-                        <Button onClick={handleSubmitTest} className="mt-4 w-full bg-slate-600 hover:bg-slate-700">
-                            Akhiri Tes
-                        </Button>
                     </div>
                 </div>
-            )}
+            </div>
+        );
+    }
+
+    // Phase 3: Completion Screen
+    if (currentPhase === 'complete' || testCompleted) {
+        const [countdown, setCountdown] = useState(3);
+        
+        useEffect(() => {
+            if (currentPhase === 'complete') {
+                const timer = setInterval(() => {
+                    setCountdown(prev => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+                
+                return () => clearInterval(timer);
+            }
+        }, [currentPhase]);
+
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="text-center max-w-2xl px-6">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                        Psychotest Berhasil Diselesaikan!
+                    </h2>
+                    <p className="text-gray-600 mb-8 text-sm">
+                        Terima kasih telah menyelesaikan tes psikologi. Hasil tes Anda telah disimpan dan akan segera diproses oleh tim rekrutmen.
+                    </p>
+                    
+                    {countdown > 0 && (
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-blue-800 text-sm">
+                                Anda akan diarahkan ke halaman status aplikasi dalam {countdown} detik...
+                            </p>
+                        </div>
+                    )}
+                    
+                    <div className="w-full max-w-2xl mb-8" style={{ textAlign: 'left', marginLeft: 0 }}>
+                        <h3 className="text-xl font-bold text-gray-900 mb-6">Langkah selanjutnya</h3>
+                        <div className="space-y-4">
+                            <div className="flex items-start space-x-3">
+                                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <span className="text-green-600 text-sm font-bold">✓</span>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-900 mb-1">Analisis Hasil</h4>
+                                    <p className="text-gray-600 text-sm">Hasil tes Anda akan dianalisis oleh tim ahli kami dalam 1-2 hari kerja.</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start space-x-3">
+                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <span className="text-blue-600 text-sm font-bold">2</span>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-900 mb-1">Notifikasi Email</h4>
+                                    <p className="text-gray-600 text-sm">Anda akan menerima notifikasi melalui email setelah hasil tes siap.</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start space-x-3">
+                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <span className="text-blue-600 text-sm font-bold">3</span>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-900 mb-1">Tahap Selanjutnya</h4>
+                                    <p className="text-gray-600 text-sm">Pantau status aplikasi Anda untuk mengetahui perkembangan tahap selanjutnya.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button
+                        onClick={handleBackToDashboard}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded font-medium transition-colors text-sm"
+                    >
+                        Lihat Status Aplikasi
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    
+    // Loading or error state
+    return (
+        <div className="min-h-screen bg-white flex items-center justify-center">
+            <div className="text-center">
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600">Memuat tes...</p>
+            </div>
         </div>
     );
 }

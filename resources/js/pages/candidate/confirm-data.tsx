@@ -1,41 +1,109 @@
-import React, { useState } from "react";
-import { ChevronRight, AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { AlertCircle, CheckCircle } from "lucide-react";
 import { Head, Link, usePage } from "@inertiajs/react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInstagram, faXTwitter, faLinkedin, faYoutube, faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { faPhone, faEnvelope, faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
-import { faUser } from '@fortawesome/free-solid-svg-icons';
 
-type User = {
-  id: number;
-  name: string;
-  email: string;
+type Completeness = {
+  profile: boolean;
+  education: boolean;
+  skills: boolean;
+  work_experience: boolean;
+  organization: boolean;
+  achievements: boolean;
+  social_media: boolean;
+  additional_data: boolean;
+  overall_complete: boolean;
 };
 
 type PageProps = {
   auth: {
-    user: User | null;
+    user: {
+      id: number;
+      name: string;
+      email: string;
+    } | null;
+  };
+  completeness: Completeness;
+  job_id?: string;
+  flash?: {
+    warning?: string;
+    success?: string;
+    error?: string;
   };
 };
 
 const ConfirmData = () => {
-  const { props } = usePage<PageProps>();
-  const auth = props.auth;
+  const { completeness, job_id, flash } = usePage<PageProps>().props;
+  const [showAlert, setShowAlert] = useState<boolean>(!!flash?.warning);
+  
+  useEffect(() => {
+    if (flash?.warning) {
+      setShowAlert(true);
+      
+      // Auto-hide alert after 5 seconds
+      const timer = setTimeout(() => {
+        setShowAlert(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [flash?.warning]);
 
   const sections = [
-    { title: "Data Pribadi", content: "Lengkapi data pribadi Anda", link: "/profile/data-pribadi" },
-    { title: "Pendidikan", content: "Lengkapi riwayat pendidikan Anda", link: "/profile/pendidikan" },
-    { title: "Pengalaman Kerja", content: "Masukkan pengalaman kerja Anda ", link: "/profile/pengalaman-kerja" },
-    { title: "Organisasi", content: "Lengkapi organisasi Anda ", link: "/profile/organisasi" },
-    { title: "Prestasi", content: "Masukkan prestasi Anda", link: "/profile/prestasi" },
-    { title: "Social Media", content: "Tambahkan akun media sosial Anda", link: "/profile/sosial-media" },
-    { title: "Data Tambahan", content: "Isi data tambahan", link: "/profile/data-tambahan" },
+    { 
+      title: "Data Pribadi", 
+      isComplete: completeness?.profile,
+      isRequired: true
+    },
+    { 
+      title: "Pendidikan", 
+      isComplete: completeness?.education,
+      isRequired: true
+    },
+    { 
+      title: "Skills/Kemampuan", 
+      isComplete: completeness?.skills,
+      isRequired: true
+    },
+    { 
+      title: "Pengalaman Kerja", 
+      isComplete: completeness?.work_experience,
+      isOptional: true 
+    },
+    { 
+      title: "Organisasi", 
+      isComplete: completeness?.organization,
+      isOptional: true 
+    },
+    { 
+      title: "Prestasi", 
+      isComplete: completeness?.achievements,
+      isOptional: true 
+    },
+    { 
+      title: "Social Media", 
+      isComplete: completeness?.social_media,
+      isOptional: true 
+    },
+    {
+      title: "Data Tambahan",
+      isComplete: completeness?.additional_data,
+      isOptional: true
+    }
   ];
 
-  const [openSection, setOpenSection] = useState<string | null>(null);
+  // Cek apakah ada data wajib yang belum lengkap
+  const hasIncompleteRequired = sections.some(section => 
+    section.isRequired && !section.isComplete
+  );
 
-  const toggleSection = (title: string) => {
-    setOpenSection(openSection === title ? null : title);
+  // Fungsi untuk mendapatkan warna ikon
+  const getIconColor = (isComplete: boolean, isOptional: boolean) => {
+    if (isComplete) return "text-green-500"; // Sudah terisi = hijau
+    if (isOptional) return "text-yellow-500"; // Opsional belum terisi = kuning
+    return "text-red-500"; // Wajib belum terisi = merah
   };
 
   return (
@@ -49,7 +117,7 @@ const ConfirmData = () => {
           <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
             <Link href="/profile" className="text-black hover:text-blue-600">Profil</Link>
             <Link href="/lowongan" className="text-black hover:text-blue-600">Lowongan Pekerjaan</Link>
-            <Link href="/lamaran" className="text-black hover:text-blue-600">Lamaran</Link>
+            <Link href="/candidate/application-history" className="text-black hover:text-blue-600">Lamaran</Link>
           </nav>
           <div className="flex items-center">
             <a href="#" className="block w-[40px] h-[40px]">
@@ -72,59 +140,88 @@ const ConfirmData = () => {
           Sebelum melamar pekerjaan ini, pastikan Anda telah melengkapi data pada profil Anda
         </p>
 
-        {/* Checklist Sections */}
-        <div className="space-y-3">
-          {sections.map((section, idx) => {
-            const isOpen = openSection === section.title;
+        {/* Flash Message */}
+        {showAlert && flash?.warning && (
+          <div className="mb-6 rounded border border-yellow-400 bg-yellow-50 px-4 py-3 text-center text-sm text-yellow-800">
+            {flash.warning}
+          </div>
+        )}
 
+        {/* Status Kelengkapan Data */}
+        {hasIncompleteRequired ? (
+          <div className="mb-6 rounded border border-red-500 bg-red-50 px-4 py-3 text-center text-sm text-red-700">
+            Harap lengkapi profil Anda terlebih lanjut untuk melamar pekerjaan ini.
+          </div>
+        ) : (
+          <div className="mb-6 rounded border border-green-500 bg-green-50 px-4 py-3 text-center text-sm text-green-700">
+            Data profil wajib Anda sudah lengkap! Anda dapat melanjutkan proses lamaran.
+          </div>
+        )}
+
+        {/* All Sections without dropdown */}
+        <div className="space-y-3 mb-6">
+          {sections.map((section, idx) => {
+            const isComplete = section.isComplete;
+            const isOptional = section.isOptional || false;
+            const Icon = isComplete ? CheckCircle : AlertCircle;
+            const iconColor = getIconColor(isComplete, isOptional);
+            
             return (
-              <div key={idx} className="rounded-md border shadow-sm overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggleSection(section.title)}
-                  className={`w-full px-4 py-3 flex justify-between items-center text-left ${
-                    isOpen ? "border-b border-gray-200" : "border-gray-100"
-                  } `}
-                >
-                  <div className="flex items-center gap-2 text-sm text-black">
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <span>{section.title}</span>
-                  </div>
-                  <ChevronRight
-                    className={`w-4 h-4 text-gray-600 transform transition-transform duration-200 ${
-                      isOpen ? "rotate-90" : ""
-                    }`}
-                  />
-                </button>
-                {isOpen && (
-                  <div className="bg-gray-50 px-4 py-3 text-sm text-gray-700 border-t">
-                    <span>
-                      {section.content}{" "}
-                      <Link href={section.link} className="text-blue-600 underline">
-                        di sini
-                      </Link>{" "}
-                      untuk dapat melamar ke pekerjaan ini.
-                    </span>
-                  </div>
-                )}
+              <div
+                key={idx}
+                className="flex items-center w-full px-4 py-3 text-left bg-white border border-gray-200 rounded-md shadow-sm"
+              >
+                <div className="flex items-center gap-2 flex-1">
+                  <Icon className={`w-5 h-5 flex-shrink-0 ${iconColor}`} />
+                  {/* Menggunakan style inline untuk memastikan warna teks konsisten */}
+                  <span className="text-sm" style={{ color: '#000000' }}>
+                    {section.title}
+                    {isOptional && (
+                      <span className="ml-2 text-xs text-gray-500">(Opsional)</span>
+                    )}
+                  </span>
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* Warning Alert */}
-        <div className="mt-6 rounded border border-red-500 bg-red-50 px-4 py-2 text-center text-sm text-red-700">
-          Harap lengkapi profil Anda terlebih lanjut untuk melamar pekerjaan ini.
+        {/* Lengkapi Profile Button */}
+        <div className="text-center mb-6">
+          <Link
+            href="/profile"
+            className="px-8 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium"
+          >
+            Lengkapi Profile
+          </Link>
         </div>
 
         {/* Submit Button */}
         <div className="text-center mt-6">
-          <button
-            className="px-8 py-2 border border-blue-300 text-blue-800 bg-blue-50 hover:bg-blue-100 rounded font-medium mb-10"
-            disabled
-          >
-            Lamar
-          </button>
+          {completeness?.overall_complete && job_id ? (
+            <Link
+              href={`/candidate/apply/${job_id}`}
+              method="post"
+              as="button"
+              className="px-8 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium mb-10"
+            >
+              Lamar
+            </Link>
+          ) : job_id ? (
+            <button
+              disabled
+              className="px-8 py-2 border border-blue-300 text-blue-800 bg-blue-50 rounded font-medium mb-10 opacity-60 cursor-not-allowed"
+            >
+              Lamar
+            </button>
+          ) : (
+            <Link
+              href="/lowongan"
+              className="px-8 py-2 bg-gray-600 text-white hover:bg-gray-700 rounded font-medium mb-10"
+            >
+              Kembali ke Daftar Lowongan
+            </Link>
+          )}
         </div>
       </main>
 

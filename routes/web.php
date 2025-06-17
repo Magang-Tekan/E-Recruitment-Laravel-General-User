@@ -257,12 +257,13 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     Route::get('/tests/psychotest/{assessment_id?}', [CandidateController::class, 'showPsychotest'])
         ->name('candidate.tests.psychotest');
     
-    // API untuk menyimpan jawaban
-    Route::post('/questions/answer', [CandidateController::class, 'saveQuestionAnswer'])
-        ->name('candidate.questions.answer');
-
-    // Route untuk dashboard kandidat
-    Route::get('/dashboard', [CandidateController::class, 'dashboard'])->name('candidate.dashboard');
+    // Route untuk submit psychotest
+    Route::post('/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
+        ->name('candidate.psychotest.submit');
+    
+    // Route untuk melihat status aplikasi
+    Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])
+        ->name('candidate.application.status');
 });
 
 // No redirect needed as the route is defined above and in candidate.php
@@ -272,7 +273,13 @@ Route::get('/lowongan', function() {
     return redirect('/job-hiring-landing-page');
 });
 
-
+Route::middleware(['auth'])->group(function () {
+    // Route confirm-data dengan parameter job_id
+    Route::get('/candidate/confirm-data/{job_id?}', [CandidateController::class, 'showConfirmData'])
+        ->name('candidate.confirm-data');
+    
+    // Route yang sudah ada...
+});
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

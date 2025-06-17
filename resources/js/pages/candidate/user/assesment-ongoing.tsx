@@ -1,6 +1,6 @@
 import React from "react";
 
-const AssesmentOngoing = () => {  
+const AssesmentOngoing: React.FC = () => {  
   return (
     <div className="relative max-w-full">
       <div className="z-10 w-5 h-5 bg-[#2b7fff] rounded-full absolute left-12"></div>

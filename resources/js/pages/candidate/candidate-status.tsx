@@ -1,10 +1,30 @@
+import React from 'react';
+import { usePage } from '@inertiajs/react';
 import AdministrationPassed from './user/administration-passed';
 import AssesmentOngoing from './user/assesment-ongoing';
 import AssesmentPrep from './user/assesment-prep';
 import InterviewPending from './user/interview-pending';
 
 
+interface PageProps {
+  application: {
+    id: number;
+    job_title: string;
+    company_name: string;
+    status: string;
+    applied_date: string;
+    assessment_id?: number; // ID assessment untuk psychotest
+  };
+  user: {
+    name: string;
+    profile_image?: string;
+  };
+  [key: string]: any; // Add index signature for Inertia PageProps compatibility
+}
+
 const CandidateStatus = () => {
+  const { application, user } = usePage<PageProps>().props;
+  
   return (
     <div className="min-h-screen bg-[#f9fafb]">
       <nav className="bg-white shadow-md px-11 py-4 relative flex items-center justify-between">
@@ -16,8 +36,10 @@ const CandidateStatus = () => {
           <li><a href="/candidate/application-history" className="hover:text-blue-600">Lamaran</a></li>
         </ul>
 
-        <img src="../images/profileicon.png" alt="Profile Icon"
-        className="w-6"
+        <img 
+          src={user.profile_image || "../images/profileicon.png"} 
+          alt="Profile Icon"
+          className="w-6 h-6 object-cover rounded-full"
         />
       </nav>
 
@@ -26,7 +48,7 @@ const CandidateStatus = () => {
           <div className="flex items-start space-x-6">
             <div className="py-3">
             <img
-              src="../images/profileicon.png"
+              src={user.profile_image || "../images/profileicon.png"}
               alt="Profile"
               className="w-[130px] h-[130px] rounded-full object-cover border-4 border-white shadow"
             />
@@ -34,17 +56,17 @@ const CandidateStatus = () => {
 
             <div>
               <h2 className="text-[30px] font-semibold text-gray-800">
-                Candidate Name
+                {user.name}
               </h2>
               <div className="space-y-1 mt-2">
                 <div className="text-gray-800 font-normal text-[18px]">
-                  Posisi yang dilamar : Hardware Engineer
+                  Posisi yang dilamar : {application.job_title}
                 </div>
                 <div className="text-gray-800 font-medium text-[18px]">
-                  PT AUTENTIKA KARYA ANALITIKA
+                  {application.company_name}
                 </div>
                 <div className="inline-block px-4 py-1 rounded-lg bg-[#dee9fe] text-[#2b7fff] font-medium text-[14px] mt-2">
-                  Lamaran : 5 Mei 2025
+                  Lamaran : {application.applied_date}
                 </div>
               </div>
             </div>
@@ -65,7 +87,8 @@ const CandidateStatus = () => {
           <AdministrationPassed />
           <AssesmentOngoing />
           <InterviewPending />
-          <AssesmentPrep />
+          {/* Teruskan assessment_id ke AssesmentPrep */}
+          <AssesmentPrep assessmentId={application.assessment_id} />
         </div>
       </div>
     </div>

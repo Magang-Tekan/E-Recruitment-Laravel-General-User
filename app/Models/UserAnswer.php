@@ -18,7 +18,13 @@ class UserAnswer extends Model
     protected $fillable = [
         'user_id',
         'question_id',
-        'choice_id'
+        'assessment_id',
+        'answer',
+        'answered_at'
+    ];
+
+    protected $casts = [
+        'answered_at' => 'datetime'
     ];
 
     /**
@@ -38,45 +44,10 @@ class UserAnswer extends Model
     }
 
     /**
-     * Get the choice that the user selected.
+     * Get the assessment that owns the answer.
      */
-    public function choice(): BelongsTo
+    public function assessment(): BelongsTo
     {
-        return $this->belongsTo(Choice::class);
-    }
-
-    /**
-     * Check if the answer is correct.
-     *
-     * @return bool
-     */
-    public function isCorrect(): bool
-    {
-        return $this->choice && $this->choice->is_correct;
-    }
-    
-    /**
-     * Get the user's score for a specific assessment.
-     *
-     * @param int $userId
-     * @param int $assessmentId
-     * @return int
-     */
-    public static function getUserScore(int $userId, int $assessmentId): int
-    {
-        // Get all answers for this user and assessment
-        $answers = static::whereHas('question', function($query) use ($assessmentId) {
-            $query->where('assessment_id', $assessmentId);
-        })
-        ->where('user_id', $userId)
-        ->with('choice')
-        ->get();
-        
-        // Count correct answers
-        $correctAnswers = $answers->filter(function($answer) {
-            return $answer->isCorrect();
-        })->count();
-        
-        return $correctAnswers;
+        return $this->belongsTo(Assessment::class);
     }
 }
