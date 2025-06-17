@@ -348,7 +348,7 @@ export default function Welcome(props: WelcomeProps) {
                                 Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan
                                 pelanggan
                             </p>
-                            <div className="flex space-x-4 text-xl text-blue-600">
+                            <div className="flex space-x-6 text-xl text-blue-600">
                                 {/* Instagram - Dropdown untuk dua akun */}
                                 <div className="relative group">
                                     <a href="#" className="group-hover:text-blue-800">
@@ -365,11 +365,6 @@ export default function Welcome(props: WelcomeProps) {
                                         </a>
                                     </div>
                                 </div>
-
-                                {/* Twitter/X */}
-                                <a href="https://twitter.com/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
-                                    <i className="fab fa-x-twitter"></i>
-                                </a>
 
                                 {/* LinkedIn - Dropdown untuk dua perusahaan */}
                                 <div className="relative group">
