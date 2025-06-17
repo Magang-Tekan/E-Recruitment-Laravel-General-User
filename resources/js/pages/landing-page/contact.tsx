@@ -161,7 +161,10 @@ export default function ContactPage() {
     padding: 24px;
     width: 100%;
     max-width: 480px;
+    height: 407.5px;
     margin: 0 auto;
+    padding-left: 48px; // geser isi ke kanan
+    padding-top: 55px; // geser isi ke bawah
 
     @media (min-width: 1024px) {
       margin: 0;
@@ -236,33 +239,11 @@ export default function ContactPage() {
             <Subtitle>Let us know how we can help.</Subtitle>
 
             <CardContainer>
-              {/* Form from ContactPerson.tsx */}
-              <FormContainer>
-                <StyledForm>
-                  <StyledLabel>Nama Lengkap</StyledLabel>
-                  <StyledInput
-                    type="text"
-                    placeholder="Masukkan nama lengkap Anda"
-                  />
-                  <StyledLabel>Email</StyledLabel>
-                  <StyledInput
-                    type="email"
-                    placeholder="Masukkan email Anda"
-                  />
-                  <StyledLabel>Pesan</StyledLabel>
-                  <StyledTextarea
-                    placeholder="Masukkan pesan Anda"
-                  />
-                  <SubmitButton type="submit">Kirim</SubmitButton>
-                </StyledForm>
-              </FormContainer>
-
-              {/* Combined contact information */}
-              <div>
+              {/* Bubble di kiri */}
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
                 {contacts.length > 0 ? (
-                  // Display contacts from the database if available
                   contacts.map((contact: { id: number; email: string; phone: string; address: string }) => (
-                    <Card key={contact.id}>
+                    <Card key={contact.id} style={{ width: '100%', maxWidth: 480 }}>
                       <CardIconWrapper>
                         <IconImage src="/images/chat-to-support.png" alt="Chat Icon" />
                       </CardIconWrapper>
@@ -275,8 +256,7 @@ export default function ContactPage() {
                     </Card>
                   ))
                 ) : (
-                  // Display contact information from ContactPerson.tsx if no database contacts
-                  <ContactInfoCard>
+                  <ContactInfoCard style={{ width: '100%', maxWidth: 480, marginTop: 25 }}>
                     <ContactInfoItem>
                       <ContactIconWrapper>
                         <FaRegCommentDots className="text-[#1DA1F2] text-2xl" />
@@ -323,11 +303,32 @@ export default function ContactPage() {
                   </ContactInfoCard>
                 )}
               </div>
+
+              {/* Form di kanan, ukurannya sama */}
+              <FormContainer style={{ maxWidth: 480, width: '100%' }}>
+                <StyledForm>
+                  <StyledLabel>Nama Lengkap</StyledLabel>
+                  <StyledInput
+                    type="text"
+                    placeholder="Masukkan nama lengkap Anda"
+                  />
+                  <StyledLabel>Email</StyledLabel>
+                  <StyledInput
+                    type="email"
+                    placeholder="Masukkan email Anda"
+                  />
+                  <StyledLabel>Pesan</StyledLabel>
+                  <StyledTextarea
+                    placeholder="Masukkan pesan Anda"
+                  />
+                  <SubmitButton type="submit">Kirim</SubmitButton>
+                </StyledForm>
+              </FormContainer>
             </CardContainer>
           </ContactContainer>
         </PageWrapper>
          {/* Footer */}
-         <footer className="bg-[#f6fafe] py-16">
+         <footer className="bg-[#f6fafe] py-16 mt-20">
                     <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
                         {/* Kolom 1 */}
                         <div>
