@@ -306,20 +306,66 @@ export default function ContactPage() {
 
               {/* Form di kanan, ukurannya sama */}
               <FormContainer style={{ maxWidth: 480, width: '100%' }}>
-                <StyledForm>
+                <StyledForm
+                  onSubmit={(e) => {
+                    e.preventDefault();
+
+                    // Get form values
+                    const form = e.currentTarget;
+                    const formData = new FormData(form);
+                    const name = formData.get('name') as string;
+                    const email = formData.get('email') as string;
+                    const message = formData.get('message') as string;
+
+                    // Validate
+                    if (!name || !email || !message) {
+                      alert('Harap isi semua field yang diperlukan');
+                      return;
+                    }
+
+                    // Submit to backend
+                    fetch(route('contact.submit'), {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                      },
+                      body: JSON.stringify({ name, email, message }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                      if (data.success) {
+                        alert(data.message);
+                        form.reset();  // Clear form on success
+                      } else {
+                        alert('Terjadi kesalahan. Silakan coba lagi.');
+                      }
+                    })
+                    .catch(error => {
+                      console.error('Error:', error);
+                      alert('Terjadi kesalahan. Silakan coba lagi.');
+                    });
+                  }}
+                >
                   <StyledLabel>Nama Lengkap</StyledLabel>
                   <StyledInput
                     type="text"
+                    name="name"
                     placeholder="Masukkan nama lengkap Anda"
+                    required
                   />
                   <StyledLabel>Email</StyledLabel>
                   <StyledInput
                     type="email"
+                    name="email"
                     placeholder="Masukkan email Anda"
+                    required
                   />
                   <StyledLabel>Pesan</StyledLabel>
                   <StyledTextarea
+                    name="message"
                     placeholder="Masukkan pesan Anda"
+                    required
                   />
                   <SubmitButton type="submit">Kirim</SubmitButton>
                 </StyledForm>

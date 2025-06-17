@@ -113,4 +113,16 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Email Address for Notifications
+    |--------------------------------------------------------------------------
+    |
+    | This is the email address for the HR or admin team that will receive
+    | notifications from the system, such as contact form submissions.
+    |
+    */
+
+    'admin_email' => env('ADMIN_EMAIL', 'autentik.info@gmail.com'),
+
 ];

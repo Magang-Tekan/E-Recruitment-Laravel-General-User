@@ -16,6 +16,18 @@ Route::middleware(['auth', 'verified', 'role:'.UserRole::HR->value])
     ->name('admin.')
     ->group(function () {
         Route::get('/', [UserController::class, 'index'])->name('dashboard');
+
+        // Contact Messages routes
+        Route::prefix('contact-messages')
+            ->name('contact-messages.')
+            ->controller(\App\Http\Controllers\ContactMessagesController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/{contactMessage}', 'show')->name('show');
+                Route::delete('/{contactMessage}', 'destroy')->name('destroy');
+                Route::patch('/{contactMessage}/mark-read', 'markAsRead')->name('mark-read');
+            });
+
         Route::prefix('users')
             ->name('users.')
             ->group(function () {
