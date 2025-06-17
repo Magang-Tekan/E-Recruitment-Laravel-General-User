@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 interface WelcomeProps {
     vacancies: JobOpening[];
+    companies: Company[]; // Tambahkan tipe untuk companies
 }
 
 interface JobOpening {
@@ -20,14 +21,21 @@ interface JobOpening {
     department: string;
 }
 
+// Definisi interface untuk Company
+interface Company {
+    id: number;
+    name: string;
+    description: string;
+    logo: string;
+}
+
 const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 };
 
 export default function Welcome(props: WelcomeProps) {
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { vacancies } = props;
+    // Destructure companies dari props
+    const { vacancies, companies } = props;
     const { auth } = usePage<SharedData>().props;
 
     const backgroundImages = [
@@ -166,15 +174,22 @@ export default function Welcome(props: WelcomeProps) {
                         <p className="mx-auto mb-[48px] max-w-[672px] text-center text-[16px] text-gray-600">
                             Kami menawarkan lingkungan kerja yang mendukung, peluang pengembangan karier, serta benefit kompetitif.
                         </p>
-                        <div className="grid grid-cols-1 justify-center gap-[100px] px-[100px] sm:grid-cols-2 md:grid-cols-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                             {benefitCards.map((card, index) => (
-                                <div
-                                    key={index}
-                                    className="flex h-[261px] w-full max-w-[245px] flex-col justify-start rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
-                                >
-                                    <img src={card.icon} alt={card.title} className="mb-3 h-10 w-10 object-contain" />
-                                    <h3 className="mb-2 font-semibold text-gray-800">{card.title}</h3>
-                                    <p className="text-sm leading-relaxed text-gray-600">{card.description}</p>
+                                <div key={index} className="rounded-lg border border-gray-200 p-6 shadow-sm h-full">
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                                            <img src={card.icon} alt="" className="w-full h-full" />
+                                        </div>
+                                        
+                                        <h3 className="text-lg font-semibold mb-3 text-center">
+                                            {card.title}
+                                        </h3>
+                                        
+                                        <p className="text-sm text-gray-600 text-center w-full overflow-hidden">
+                                            {card.description}
+                                        </p>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -185,19 +200,20 @@ export default function Welcome(props: WelcomeProps) {
                     <div className="container mx-auto px-6">
                         <h2 className="mb-[40px] text-[24px] font-bold md:text-[32px]">Perusahaan Kami</h2>
                         <div className="mb-[40px] flex flex-col justify-center gap-[60px] md:flex-row">
+                            {/* Perusahaan 1 - Hardcoded */}
                             <div className="mx-auto flex w-[528px] items-start gap-4 text-left">
                                 <img src="/images/autentik-logo.png" alt="PT AUTENTIK" className="mt-1 h-[60px] w-[60px]" />
                                 <div>
                                     <h3 className="mb-1 font-semibold">PT AUTENTIK KARYA ANALITIKA</h3>
                                     <p className="text-sm text-gray-600">
-                                        Adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan
-                                        pelanggan
+                                        Adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
                                     </p>
                                 </div>
                             </div>
 
+                            {/* Perusahaan 2 - Hardcoded */}
                             <div className="mx-auto flex w-[528px] items-start gap-4 text-left">
-                                <img src="/images/mitra-logo.png" alt="PT AUTENTIK" className="mt-1 h-[60px] w-[60px]" />
+                                <img src="/images/mitra-logo.png" alt="PT MITRA" className="mt-1 h-[60px] w-[60px]" />
                                 <div>
                                     <h3 className="mb-1 font-semibold">PT MITRA KARYA ANALITIKA</h3>
                                     <p className="text-sm text-gray-600">
@@ -333,19 +349,52 @@ export default function Welcome(props: WelcomeProps) {
                                 pelanggan
                             </p>
                             <div className="flex space-x-4 text-xl text-blue-600">
-                                <a href="#">
-                                    <i className="fab fa-instagram"></i>
-                                </a>
-                                <a href="#">
+                                {/* Instagram - Dropdown untuk dua akun */}
+                                <div className="relative group">
+                                    <a href="#" className="group-hover:text-blue-800">
+                                        <i className="fab fa-instagram"></i>
+                                    </a>
+                                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-48">
+                                        <a href="https://www.instagram.com/mikacares.id" target="_blank" rel="noopener noreferrer" 
+                                           className="block py-1 hover:text-blue-800">
+                                            @mikacares.id
+                                        </a>
+                                        <a href="https://www.instagram.com/autentik.co.id" target="_blank" rel="noopener noreferrer"
+                                           className="block py-1 hover:text-blue-800">
+                                            @autentik.co.id
+                                        </a>
+                                    </div>
+                                </div>
+
+                                {/* Twitter/X */}
+                                <a href="https://twitter.com/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
                                     <i className="fab fa-x-twitter"></i>
                                 </a>
-                                <a href="#">
-                                    <i className="fab fa-linkedin-in"></i>
-                                </a>
-                                <a href="#">
+
+                                {/* LinkedIn - Dropdown untuk dua perusahaan */}
+                                <div className="relative group">
+                                    <a href="#" className="group-hover:text-blue-800">
+                                        <i className="fab fa-linkedin-in"></i>
+                                    </a>
+                                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-64">
+                                        <a href="https://www.linkedin.com/company/pt-mitra-karya-analitika" target="_blank" rel="noopener noreferrer" 
+                                           className="block py-1 hover:text-blue-800">
+                                            PT Mitra Karya Analitika
+                                        </a>
+                                        <a href="https://www.linkedin.com/company/pt-autentik-karya-analitika" target="_blank" rel="noopener noreferrer"
+                                           className="block py-1 hover:text-blue-800">
+                                            PT Autentik Karya Analitika
+                                        </a>
+                                    </div>
+                                </div>
+
+                                {/* YouTube */}
+                                <a href="https://www.youtube.com/@mikacares" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
                                     <i className="fab fa-youtube"></i>
                                 </a>
-                                <a href="#">
+
+                                {/* WhatsApp */}
+                                <a href="https://wa.me/6281770555554" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
                                     <i className="fab fa-whatsapp"></i>
                                 </a>
                             </div>

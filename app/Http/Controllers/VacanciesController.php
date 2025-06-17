@@ -17,7 +17,7 @@ class VacanciesController extends Controller
     public function index()
     {
         try {
-            // Query vacancies with relationships
+            // Ambil data lowongan
             $vacancies = Vacancies::with(['company', 'jobType', 'department'])
                 ->orderBy('created_at', 'desc')
                 ->take(6) // Limit to 6 jobs for the welcome page
@@ -37,8 +37,12 @@ class VacanciesController extends Controller
                     ];
                 });
 
+            // Ambil data perusahaan
+            $companies = Companies::all();
+
             return Inertia::render('welcome', [
                 'vacancies' => $vacancies,
+                'companies' => $companies
             ]);
         } catch (\Exception $e) {
             Log::error('Error in VacanciesController@index: ' . $e->getMessage());
