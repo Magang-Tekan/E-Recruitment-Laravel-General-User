@@ -23,9 +23,10 @@ Route::middleware(['auth'])
                 Route::get('/', [JobsController::class, 'index'])->name('index');
                 Route::post('/{id}/apply', [JobsController::class, 'apply'])->name('apply');
             });
-            
+
         Route::get('/job/{id}', [JobsController::class, 'detail'])->name('candidate.job.detail');
         Route::get('/application-history', [ApplicationHistoryController::class, 'index'])->name('candidate.application-history');
+        Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])->name('candidate.application.status');
     });
 
 // Route::middleware(['auth'])->group(function () {

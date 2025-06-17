@@ -45,7 +45,7 @@ class CandidateController extends Controller
     {
         $user = Auth::user();
         $education = CandidatesEducations::where('user_id', $user->id)->first(); // Tambahkan ini
-        
+
         // Ambil semua data gender dari master_genders
         $genders = MasterGender::all();
 
@@ -72,13 +72,13 @@ class CandidateController extends Controller
         $user = Auth::user();
         $profile = CandidatesProfiles::where('user_id', $user->id)->first();
         $education = CandidatesEducations::where('user_id', $user->id)->first();
-        
+
         // Format profile data jika ada
         $profileData = $profile ? $profile->toArray() : null;
-        
+
         // Log data untuk debugging
         \Log::info('Profile data being sent to frontend:', ['profile' => $profileData]);
-        
+
         return Inertia::render('PersonalData', [
             'profile' => $profileData,
             'education' => $education,
@@ -158,19 +158,19 @@ class CandidateController extends Controller
                     'errors' => $e->errors()
                 ], 422);
             }
-            
+
             return back()->withErrors($e->errors());
-            
+
         } catch (\Exception $e) {
             \Log::error('Error saving profile data: ' . $e->getMessage());
-            
+
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Terjadi kesalahan saat menyimpan data'
                 ], 500);
             }
-            
+
             return back()->with('flash', [
                 'type' => 'error',
                 'message' => 'Terjadi kesalahan saat menyimpan data'
@@ -230,7 +230,7 @@ class CandidateController extends Controller
                 'user_id' => Auth::id(),
                 ...$validated
             ]);
-            
+
             // Get fresh data with major
             $education->refresh();
             $major = \App\Models\MasterMajor::find($education->major_id);
@@ -268,9 +268,9 @@ class CandidateController extends Controller
     {
         try {
             \Log::info('Getting education data for user: ' . Auth::id());
-            
+
             $education = CandidatesEducations::where('user_id', Auth::id())->first();
-            
+
             if (!$education) {
                 \Log::info('No education data found');
                 return response()->json(null);
@@ -278,7 +278,7 @@ class CandidateController extends Controller
 
             // Get major data
             $major = \App\Models\MasterMajor::find($education->major_id);
-            
+
             $educationData = [
                 'id' => $education->id,
                 'education_level' => $education->education_level,
@@ -292,14 +292,14 @@ class CandidateController extends Controller
             ];
 
             \Log::info('Education data retrieved:', $educationData);
-            
+
             return response()->json($educationData);
 
         } catch (\Exception $e) {
             \Log::error('Error getting education data: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Error getting education data',
-                'error' => $e->getMessage() 
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -863,21 +863,15 @@ class CandidateController extends Controller
 
             \Log::info('Starting CV generation for user: ' . $userId);
 
-            // Validate user authentication
-            if (!$user) {
-                throw new \Exception('User not authenticated');
-            }
+            // Validate user data completeness
+            $this->validateUserDataForCV($userId);
 
-            // Get all required data with error checking
+            // Get all required data
             $profile = CandidatesProfiles::where('user_id', $userId)->firstOrFail();
-            
+
             $educations = CandidatesEducations::where('user_id', $userId)
                 ->orderBy('year_in', 'desc')
                 ->get();
-
-            if ($educations->isEmpty()) {
-                throw new \Exception('No education data found');
-            }
 
             // Map educations with majors
             $educations = $educations->map(function($education) {
@@ -897,6 +891,8 @@ class CandidateController extends Controller
 
             $achievements = CandidatesAchievements::where('user_id', $userId)->get();
 
+            $skills = Skills::where('user_id', $userId)->get();
+
             $data = [
                 'user' => $user,
                 'profile' => $profile,
@@ -904,22 +900,66 @@ class CandidateController extends Controller
                 'workExperiences' => $workExperiences,
                 'organizations' => $organizations,
                 'achievements' => $achievements,
+                'skills' => $skills
             ];
 
             \Log::info('Generating PDF with data:', ['userId' => $userId]);
 
+            // Create PDF
             $pdf = PDF::loadView('cv.template', $data);
-            
-            // Set paper size and orientation
             $pdf->setPaper('a4', 'portrait');
 
-            return $pdf->stream('cv.pdf');
+            // Create a unique filename
+            $filename = 'CV_' . $user->name . '_' . date('Y-m-d_His') . '.pdf';
+            $sanitized_filename = str_replace(' ', '_', $filename);
+
+            // Define storage path
+            $path = 'cv/' . $userId;
+            $fullPath = $path . '/' . $sanitized_filename;
+
+            // Ensure the directory exists
+            Storage::disk('public')->makeDirectory($path);
+
+            // Save PDF to storage
+            Storage::disk('public')->put($fullPath, $pdf->output());
+
+            \Log::info('PDF file generated and saved', ['path' => $fullPath]);
+
+            // Save to database
+            $cvRecord = CandidateCV::create([
+                'user_id' => $userId,
+                'cv_filename' => $sanitized_filename,
+                'cv_path' => $fullPath,
+                'file_size' => Storage::disk('public')->size($fullPath),
+                'is_active' => true,
+                'download_count' => 0
+            ]);
+
+            // Mark previous CVs as inactive
+            CandidateCV::where('user_id', $userId)
+                ->where('id', '!=', $cvRecord->id)
+                ->update(['is_active' => false]);
+
+            // Return response with download URL
+            return response()->json([
+                'success' => true,
+                'message' => 'CV berhasil digenerate!',
+                'data' => [
+                    'id' => $cvRecord->id,
+                    'filename' => $sanitized_filename,
+                    'download_url' => url('/candidate/cv/download/' . $cvRecord->id),
+                    'created_at' => $cvRecord->created_at->format('Y-m-d H:i:s')
+                ]
+            ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error generating CV: ' . $e->getMessage());
+            \Log::error('Error generating CV: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error generating CV: ' . $e->getMessage()
+                'message' => 'Gagal generate CV: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -1627,22 +1667,22 @@ public function getProfileImage()
     try {
         $userId = Auth::id();
         $profile = CandidatesProfiles::where('user_id', $userId)->first();
-        
+
         if ($profile && $profile->profile_image) {
-                // Generate public URL for the image
-            $imageUrl = Storage::disk('public')->url($profile->profile_image);
-            
+            // Generate public URL for the image
+            $imageUrl = asset('storage/' . $profile->profile_image);
+
             return response()->json([
                 'success' => true,
                 'image' => $imageUrl
             ]);
         }
-        
+
         return response()->json([
             'success' => false,
             'message' => 'No profile image found'
         ]);
-        
+
     } catch (\Exception $e) {
         \Log::error('Error getting profile image: ' . $e->getMessage());
         return response()->json([
@@ -1661,7 +1701,7 @@ public function uploadProfileImage(Request $request)
 
         $userId = Auth::id();
         $profile = CandidatesProfiles::where('user_id', $userId)->first();
-        
+
         if (!$profile) {
             $profile = CandidatesProfiles::create(['user_id' => $userId]);
         }
@@ -1671,14 +1711,18 @@ public function uploadProfileImage(Request $request)
             Storage::disk('public')->delete($profile->profile_image);
         }
 
+        // Pastikan direktori profile-images ada
+        Storage::disk('public')->makeDirectory('profile-images');
+
         // Store new image
         $file = $request->file('profile_image');
         $filename = time() . '_' . $userId . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs('profile-images', $filename, 'public');
 
+        // Update kolom profile_image sesuai dengan skema database
         $profile->update(['profile_image' => $path]);
 
-        // Generate public URL for the image - this is the key fix
+        // Generate public URL for the image
         $imageUrl = asset('storage/' . $path);
 
         return response()->json([
@@ -1691,7 +1735,7 @@ public function uploadProfileImage(Request $request)
         \Log::error('Error uploading profile image: ' . $e->getMessage());
         return response()->json([
             'success' => false,
-            'message' => 'Error uploading profile image'
+            'message' => 'Error uploading profile image: ' . $e->getMessage()
         ], 500);
     }
 }
@@ -1701,7 +1745,7 @@ public function getAllEducations()
         $educations = CandidatesEducations::where('user_id', Auth::id())
             ->orderBy('year_in', 'desc')
             ->get();
-            
+
         // Join dengan master_majors untuk mendapatkan nama jurusan
         $educations = $educations->map(function($education) {
             $major = \App\Models\MasterMajor::find($education->major_id);
@@ -1751,10 +1795,15 @@ public function deleteEducation($id)
         ], 500);
     }
 }
+
 public function updateEducation(Request $request, $id)
 {
     try {
         \Log::info('Updating education data. Request:', $request->all());
+
+        $education = CandidatesEducations::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
 
         $validated = $request->validate([
             'education_level' => 'required|string',
@@ -1766,18 +1815,13 @@ public function updateEducation(Request $request, $id)
             'year_out' => 'nullable|integer'
         ]);
 
-        \Log::info('Validated data:', $validated);
+        \Log::info('Validated data for education update:', $validated);
 
-        // Find education record by ID and user_id for security
-        $education = CandidatesEducations::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
-
-        // Update the record
+        // Update education record
         $education->update($validated);
-        
-        // Get fresh data with major
         $education->refresh();
+
+        // Get major data to include in the response
         $major = \App\Models\MasterMajor::find($education->major_id);
 
         $responseData = [
@@ -1800,6 +1844,13 @@ public function updateEducation(Request $request, $id)
             'data' => $responseData
         ]);
 
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        \Log::error('Validation error updating education: ' . json_encode($e->errors()));
+        return response()->json([
+            'success' => false,
+            'message' => 'Validasi gagal',
+            'errors' => $e->errors()
+        ], 422);
     } catch (\Exception $e) {
         \Log::error('Error updating education data: ' . $e->getMessage());
         return response()->json([
@@ -1808,116 +1859,38 @@ public function updateEducation(Request $request, $id)
         ], 500);
     }
 }
-public function deleteAchievement($id)
+
+/**
+ * Get candidate profile data for API requests
+ */
+public function getProfile()
 {
     try {
-        $achievement = CandidatesAchievements::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
+        $userId = Auth::id();
+        $user = Auth::user();
+        $profile = CandidatesProfiles::where('user_id', $userId)->first();
 
-        // Hapus file sertifikat jika ada
-        if ($achievement->certificate_file) {
-            Storage::disk('public')->delete($achievement->certificate_file);
+        // Add image URL if profile exists and has an image
+        if ($profile && $profile->profile_image) {
+            $profile->image_url = asset('storage/' . $profile->profile_image);
         }
-        
-        // Hapus file pendukung jika ada
-        if ($achievement->supporting_file) {
-            Storage::disk('public')->delete($achievement->supporting_file);
-        }
-
-        $achievement->delete();
 
         return response()->json([
             'success' => true,
-            'message' => 'Prestasi berhasil dihapus!'
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+            'profile' => $profile
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error deleting achievement: ' . $e->getMessage());
+        \Log::error('Error getting profile data: ' . $e->getMessage());
         return response()->json([
             'success' => false,
-            'message' => 'Gagal menghapus prestasi'
+            'message' => 'Error retrieving profile data'
         ], 500);
     }
-}
-
-/**
- * Menampilkan halaman psikotes
- */
-public function showPsychotest($assessment_id = null)
-{
-        // Jika assessment_id tidak diberikan, ambil assessment untuk psychotest
-    if (!$assessment_id) {
-        // Coba ambil dari tabel assessments (sesuaikan query berdasarkan struktur tabel)
-        $assessment = Assessment::first(); // Ambil assessment pertama jika belum ada tipe
-        
-        if (!$assessment) {
-            return redirect()->route('candidate.dashboard')
-                ->with('error', 'Psikotes tidak tersedia');
-        }
-        $assessment_id = $assessment->id;
-    }
-
-    // Ambil data assessment
-    $assessment = Assessment::findOrFail($assessment_id);
-    
-    // Ambil pertanyaan-pertanyaan untuk assessment ini
-    $questions = Question::where('assessment_id', $assessment_id)
-        ->get()
-        ->map(function ($question) {
-            return [
-                'id' => $question->id,
-                'question' => $question->question_text,
-                'options' => $question->options ?? []
-            ];
-        });
-    
-    // Ambil jawaban user jika sudah ada
-    $userAnswers = UserAnswer::where('user_id', auth()->id())
-        ->where('question_id', $questions->pluck('id')->toArray())
-        ->pluck('choice_id', 'question_id')
-        ->toArray();
-    
-    // Render halaman dengan data
-    return Inertia::render('candidate/tests/candidate-psychotest', [
-        'questions' => $questions,
-        'userAnswers' => $userAnswers,
-        'assessment' => [
-            'id' => $assessment->id,
-            'title' => $assessment->title ?? 'Psychotest',
-            'description' => $assessment->description ?? 'Silahkan jawab pertanyaan berikut'
-        ]
-    ]);
-}
-
-/**
- * Menyimpan jawaban pengguna
- */
-public function saveQuestionAnswer(Request $request)
-{
-    $validated = $request->validate([
-        'question_id' => 'required|exists:questions,id',
-        'answer' => 'required|string'
-    ]);
-    
-    // Dapatkan assessment_id dari question
-    $question = Question::findOrFail($validated['question_id']);
-    
-    // Simpan atau update jawaban
-    UserAnswer::updateOrCreate(
-        [
-            'user_id' => auth()->id(),
-            'assessment_id' => $question->assessment_id,
-            'question_id' => $validated['question_id']
-        ],
-        [
-            'answer' => $validated['answer']
-        ]
-    );
-    
-    return response()->json([
-        'success' => true,
-        'message' => 'Jawaban berhasil disimpan'
-    ]);
 }
 }
