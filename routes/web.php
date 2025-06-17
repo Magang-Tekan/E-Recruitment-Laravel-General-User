@@ -239,7 +239,17 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     Route::get('/job/{id}', [JobsController::class, 'detail'])->name('candidate.job.detail');
     Route::post('/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
 
-    // Removed application history route - now handled in candidate.php
+
+    // Routes untuk Psychotest
+    Route::get('/tests/psychotest/{assessment_id?}', [CandidateController::class, 'showPsychotest'])
+        ->name('candidate.tests.psychotest');
+    
+    // API untuk menyimpan jawaban
+    Route::post('/questions/answer', [CandidateController::class, 'saveQuestionAnswer'])
+        ->name('candidate.questions.answer');
+
+    // Route untuk dashboard kandidat
+    Route::get('/dashboard', [CandidateController::class, 'dashboard'])->name('candidate.dashboard');
 });
 
 // No redirect needed as the route is defined above and in candidate.php
@@ -249,15 +259,7 @@ Route::get('/lowongan', function() {
     return redirect('/job-hiring-landing-page');
 });
 
-// HAPUS ROUTE EDUCATION YANG DUPLIKAT INI JUGA
-// Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
-//     // Route untuk form data pribadi (GET)
-//     Route::get('/data-pribadi', [CandidateController::class, 'profile'])
-//         ->name('candidate.data-pribadi');
-//
-//     Route::get('/education', [CandidateController::class, 'getEducation']);
-//     Route::post('/education', [CandidateController::class, 'storeEducation']);
-// });
+
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('choices', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('question_id');
-            $table->string('question', 255); // ← ini sebenarnya lebih tepat disebut 'choice'
+            $table->string('choice', 255); // Diubah dari 'question' menjadi 'choice'
             $table->boolean('is_correct')->default(false);
             $table->timestamps();
 

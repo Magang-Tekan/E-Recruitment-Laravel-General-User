@@ -19,17 +19,25 @@ interface Question {
     options: string[];
 }
 
+interface Assessment {
+    id: number;
+    title: string;
+    description: string;
+    duration: number; // dalam menit
+}
+
 type PageProps = InertiaPageProps & {
     questions: Question[];
     userAnswers: Record<number, string>;
+    assessment: Assessment;
 };
 
 export default function CandidateQuestions() {
-    const { questions, userAnswers: initialUserAnswers } = usePage<PageProps>().props;
+    const { questions, userAnswers: initialUserAnswers, assessment } = usePage<PageProps>().props;
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [userAnswers, setUserAnswers] = useState<Record<number, string>>(initialUserAnswers || {});
     const [markedQuestions, setMarkedQuestions] = useState(Array(questions.length).fill(false));
-    const [timeLeft, setTimeLeft] = useState(30 * 60); // Timer 30 menit
+    const [timeLeft, setTimeLeft] = useState(assessment.duration * 60); // Timer sesuai durasi assessment
     const [testCompleted, setTestCompleted] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 

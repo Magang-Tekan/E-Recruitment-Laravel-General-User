@@ -41,7 +41,17 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        setLocalFormData(formData);
+        // Ensure all values are strings, not null
+        setLocalFormData({
+            id: formData.id,
+            education_level: formData.education_level || '',
+            faculty: formData.faculty || '',
+            major_id: formData.major_id || '',
+            institution_name: formData.institution_name || '',
+            gpa: formData.gpa || '',
+            year_in: formData.year_in || '',
+            year_out: formData.year_out || '',
+        });
     }, [formData]);
 
     // Fetch majors from API

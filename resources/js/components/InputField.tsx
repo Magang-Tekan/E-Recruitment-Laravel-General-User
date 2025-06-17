@@ -4,7 +4,7 @@ interface InputFieldProps {
   label: string;
   name: string;
   type?: string;
-  value: string | number;
+  value: string | number | undefined; // Tambahkan undefined sebagai pilihan
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   required?: boolean;
@@ -29,6 +29,9 @@ const InputField: React.FC<InputFieldProps> = ({
   max,
   className = '',
 }) => {
+  // Ensure value is never null
+  const safeValue = value === null || value === undefined ? '' : value;
+
   return (
     <div className="mb-5"> {/* Increase bottom margin from default to mb-5 */}
       <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-2"> {/* Increase label bottom margin from mb-1 to mb-2 */}
@@ -38,7 +41,7 @@ const InputField: React.FC<InputFieldProps> = ({
         type={type}
         id={name}
         name={name}
-        value={value}
+        value={safeValue} // Use safe value here
         onChange={onChange}
         placeholder={placeholder}
         required={required}

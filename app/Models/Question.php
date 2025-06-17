@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Question extends Model
 {
@@ -19,6 +20,7 @@ class Question extends Model
         'assessment_id',
         'question_text',
         'options',
+        'question_type',
     ];
 
     /**
@@ -36,5 +38,13 @@ class Question extends Model
     public function assessment(): BelongsTo
     {
         return $this->belongsTo(Assessment::class);
+    }
+
+    /**
+     * Get the choices for the question.
+     */
+    public function choices(): HasMany
+    {
+        return $this->hasMany(Choice::class);
     }
 }

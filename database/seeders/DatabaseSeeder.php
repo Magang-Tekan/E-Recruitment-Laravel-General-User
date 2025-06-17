@@ -34,6 +34,8 @@ class DatabaseSeeder extends Seeder
             InterviewsSeeder::class,
             ApplicationHistorySeeder::class,
             JobSeeder::class,
+            QuestionSeeder::class,
+            ChoiceSeeder::class,
         ]);
     }
 }

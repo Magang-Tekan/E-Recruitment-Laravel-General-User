@@ -27,6 +27,9 @@ use Inertia\Inertia;
 use Illuminate\Validation\ValidationException;
 use App\Models\MasterGender;
 use App\Models\Job;
+use App\Models\Assessment;
+use App\Models\Question;
+use App\Models\UserAnswer;
 
 class CandidateController extends Controller
 {
@@ -486,6 +489,29 @@ class CandidateController extends Controller
         ], 200);
     }
 
+    public function deleteOrganization($id)
+    {
+        try {
+            $organization = CandidatesOrganizations::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+
+            $organization->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Organisasi berhasil dihapus!'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error deleting organization: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus organisasi'
+            ], 500);
+        }
+    }
+
     public function storeAchievement(Request $request)
     {
         try {
@@ -686,6 +712,30 @@ class CandidateController extends Controller
             'status' => 'success',
             'message' => 'Social media berhasil diperbarui'
         ]);
+    }
+
+    public function deleteSocialMedia($id)
+    {
+        try {
+            // Cari data social media berdasarkan ID dan user_id (untuk keamanan)
+            $socialMedia = CandidatesSocialMedia::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+
+            $socialMedia->delete();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Social media berhasil dihapus'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error deleting social media: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal menghapus social media'
+            ], 500);
+        }
     }
 
     public function storeEnglishCertification(Request $request)
@@ -1700,5 +1750,174 @@ public function deleteEducation($id)
             'message' => 'Gagal menghapus data pendidikan'
         ], 500);
     }
+}
+public function updateEducation(Request $request, $id)
+{
+    try {
+        \Log::info('Updating education data. Request:', $request->all());
+
+        $validated = $request->validate([
+            'education_level' => 'required|string',
+            'faculty' => 'required|string',
+            'major_id' => 'required|exists:master_majors,id',
+            'institution_name' => 'required|string',
+            'gpa' => 'required|numeric|between:0,4',
+            'year_in' => 'required|integer',
+            'year_out' => 'nullable|integer'
+        ]);
+
+        \Log::info('Validated data:', $validated);
+
+        // Find education record by ID and user_id for security
+        $education = CandidatesEducations::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Update the record
+        $education->update($validated);
+        
+        // Get fresh data with major
+        $education->refresh();
+        $major = \App\Models\MasterMajor::find($education->major_id);
+
+        $responseData = [
+            'id' => $education->id,
+            'education_level' => $education->education_level,
+            'faculty' => $education->faculty,
+            'major_id' => (string)$education->major_id,
+            'major' => $major ? $major->name : null,
+            'institution_name' => $education->institution_name,
+            'gpa' => $education->gpa,
+            'year_in' => $education->year_in,
+            'year_out' => $education->year_out
+        ];
+
+        \Log::info('Education updated successfully:', $responseData);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data pendidikan berhasil diperbarui',
+            'data' => $responseData
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error updating education data: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Error updating education data: ' . $e->getMessage()
+        ], 500);
+    }
+}
+public function deleteAchievement($id)
+{
+    try {
+        $achievement = CandidatesAchievements::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Hapus file sertifikat jika ada
+        if ($achievement->certificate_file) {
+            Storage::disk('public')->delete($achievement->certificate_file);
+        }
+        
+        // Hapus file pendukung jika ada
+        if ($achievement->supporting_file) {
+            Storage::disk('public')->delete($achievement->supporting_file);
+        }
+
+        $achievement->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Prestasi berhasil dihapus!'
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error deleting achievement: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal menghapus prestasi'
+        ], 500);
+    }
+}
+
+/**
+ * Menampilkan halaman psikotes
+ */
+public function showPsychotest($assessment_id = null)
+{
+        // Jika assessment_id tidak diberikan, ambil assessment untuk psychotest
+    if (!$assessment_id) {
+        // Coba ambil dari tabel assessments (sesuaikan query berdasarkan struktur tabel)
+        $assessment = Assessment::first(); // Ambil assessment pertama jika belum ada tipe
+        
+        if (!$assessment) {
+            return redirect()->route('candidate.dashboard')
+                ->with('error', 'Psikotes tidak tersedia');
+        }
+        $assessment_id = $assessment->id;
+    }
+
+    // Ambil data assessment
+    $assessment = Assessment::findOrFail($assessment_id);
+    
+    // Ambil pertanyaan-pertanyaan untuk assessment ini
+    $questions = Question::where('assessment_id', $assessment_id)
+        ->get()
+        ->map(function ($question) {
+            return [
+                'id' => $question->id,
+                'question' => $question->question_text,
+                'options' => $question->options ?? []
+            ];
+        });
+    
+    // Ambil jawaban user jika sudah ada
+    $userAnswers = UserAnswer::where('user_id', auth()->id())
+        ->where('question_id', $questions->pluck('id')->toArray())
+        ->pluck('choice_id', 'question_id')
+        ->toArray();
+    
+    // Render halaman dengan data
+    return Inertia::render('candidate/tests/candidate-psychotest', [
+        'questions' => $questions,
+        'userAnswers' => $userAnswers,
+        'assessment' => [
+            'id' => $assessment->id,
+            'title' => $assessment->title ?? 'Psychotest',
+            'description' => $assessment->description ?? 'Silahkan jawab pertanyaan berikut'
+        ]
+    ]);
+}
+
+/**
+ * Menyimpan jawaban pengguna
+ */
+public function saveQuestionAnswer(Request $request)
+{
+    $validated = $request->validate([
+        'question_id' => 'required|exists:questions,id',
+        'answer' => 'required|string'
+    ]);
+    
+    // Dapatkan assessment_id dari question
+    $question = Question::findOrFail($validated['question_id']);
+    
+    // Simpan atau update jawaban
+    UserAnswer::updateOrCreate(
+        [
+            'user_id' => auth()->id(),
+            'assessment_id' => $question->assessment_id,
+            'question_id' => $validated['question_id']
+        ],
+        [
+            'answer' => $validated['answer']
+        ]
+    );
+    
+    return response()->json([
+        'success' => true,
+        'message' => 'Jawaban berhasil disimpan'
+    ]);
 }
 }

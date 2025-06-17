@@ -134,28 +134,39 @@ const ListEducationForm: React.FC = () => {
     }
 
     if (isAdding || editingId) {
+        // Find education data if editing
+        const educationToEdit = editingId 
+            ? educations.find(edu => edu.id === editingId) 
+            : null;
+        
+        // Ensure all field values are strings, not null
+        const defaultFormData = {
+            education_level: '',
+            faculty: '',
+            major_id: '',
+            institution_name: '',
+            gpa: '',
+            year_in: '',
+            year_out: ''
+        };
+        
+        // Merge existing data with defaults, ensuring string values
+        const formData = educationToEdit 
+            ? {
+                id: educationToEdit.id,
+                education_level: educationToEdit.education_level || '',
+                faculty: educationToEdit.faculty || '',
+                major_id: educationToEdit.major_id || '',
+                institution_name: educationToEdit.institution_name || '', 
+                gpa: educationToEdit.gpa || '',
+                year_in: educationToEdit.year_in || '',
+                year_out: educationToEdit.year_out || ''
+            } 
+            : defaultFormData;
+        
         return (
             <TambahPendidikanForm
-                formData={editingId 
-                    ? educations.find(edu => edu.id === editingId) || {
-                        education_level: '',
-                        faculty: '',
-                        major_id: '',
-                        institution_name: '',
-                        gpa: '',
-                        year_in: '',
-                        year_out: ''
-                    }
-                    : {
-                        education_level: '',
-                        faculty: '',
-                        major_id: '',
-                        institution_name: '',
-                        gpa: '',
-                        year_in: '',
-                        year_out: ''
-                    }
-                }
+                formData={formData}
                 onSubmit={handleSubmit}
                 onChange={(e) => {}}
                 onBack={() => {
