@@ -20,6 +20,10 @@ Route::get('/job-hiring-landing-page', [VacanciesController::class, 'getVacancie
 Route::get('/job-detail/{id}', [VacanciesController::class, 'show'])->name('job.detail');
 Route::post('/reset-password', [ResetPasswordController::class, 'update'])->name('password.update');
 
+Route::get('/ContactPerson', function () {
+    return Inertia::render('ContactPerson');
+})->name('ContactPerson');
+
 Route::get('/data-pribadi', function () {
         return Inertia::render('DataPribadiForm');
     })->name('data.pribadi');
