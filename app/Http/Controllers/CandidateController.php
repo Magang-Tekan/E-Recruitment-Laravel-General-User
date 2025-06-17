@@ -25,7 +25,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Validation\ValidationException;
-use App\Models\MasterGender;
 use App\Models\Job;
 use App\Models\Assessment;
 use App\Models\Question;
@@ -44,23 +43,22 @@ class CandidateController extends Controller
     public function dashboard()
     {
         $user = Auth::user();
-        $education = CandidatesEducations::where('user_id', $user->id)->first(); // Tambahkan ini
+        $education = CandidatesEducations::where('user_id', $user->id)->first();
 
-        // Ambil semua data gender dari master_genders
-        $genders = MasterGender::all();
+        // Definisikan array gender secara langsung sesuai dengan yang ada di model CandidatesProfiles
+        $genders = [
+            ['value' => 'male', 'label' => 'Pria'],
+            ['value' => 'female', 'label' => 'Wanita']
+        ];
 
         return Inertia::render('PersonalData', [
-            'education' => $education, // Tambahkan ini
+            'education' => $education,
             'user' => [
                 'name' => $user->name,
                 'email' => $user->email,
             ],
-            'genders' => $genders->map(function($gender) {
-                return [
-                    'value' => $gender->name,
-                    'label' => $gender->name
-                ];
-            })
+            // Gunakan array gender langsung tanpa mapping
+            'genders' => $genders
         ]);
     }
 
@@ -1890,6 +1888,38 @@ public function getProfile()
         return response()->json([
             'success' => false,
             'message' => 'Error retrieving profile data'
+        ], 500);
+    }
+}
+public function deleteAchievement($id)
+{
+    try {
+        $achievement = CandidatesAchievements::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Hapus file sertifikat jika ada
+        if ($achievement->certificate_file) {
+            Storage::disk('public')->delete($achievement->certificate_file);
+        }
+        
+        // Hapus file pendukung jika ada
+        if ($achievement->supporting_file) {
+            Storage::disk('public')->delete($achievement->supporting_file);
+        }
+
+        $achievement->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Prestasi berhasil dihapus!'
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error deleting achievement: ' . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal menghapus prestasi'
         ], 500);
     }
 }
