@@ -30,6 +30,7 @@ Route::get('/data-pribadi', function () {
 
 Route::get('/contact', [ContactsController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactsController::class, 'store'])->name('contact.store');
+Route::post('/contact/submit', [ContactsController::class, 'submitMessage'])->name('contact.submit');
 
 Route::get('/about-us', function () {
     $aboutUs = \App\Models\AboutUs::with('companies')->get();
