@@ -24,6 +24,7 @@ class CandidateController extends Controller
     $completeness = [
         'profile' => false,
         'education' => false,
+        'skills' => false,
         'work_experience' => false,
         'organization' => false,
         'achievements' => false,

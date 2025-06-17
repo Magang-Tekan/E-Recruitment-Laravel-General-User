@@ -78,13 +78,13 @@ const ConfirmData = () => {
             const isOpen = openSection === section.title;
 
             return (
-              <div key={idx} className="border rounded-md shadow-sm">
+              <div key={idx} className="rounded-md border shadow-sm overflow-hidden">
                 <button
                   type="button"
                   onClick={() => toggleSection(section.title)}
                   className={`w-full px-4 py-3 flex justify-between items-center text-left ${
-                    isOpen ? "border-red-500" : "border-gray-300"
-                  } border rounded-md`}
+                    isOpen ? "border-b border-gray-200" : "border-gray-100"
+                  } `}
                 >
                   <div className="flex items-center gap-2 text-sm text-black">
                     <AlertCircle className="w-4 h-4 text-red-500" />
