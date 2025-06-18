@@ -5,13 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Certifications extends Model
+class CandidatesCourses extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'certification_name',
+        'course_name',
         'certificate_file'
     ];
 

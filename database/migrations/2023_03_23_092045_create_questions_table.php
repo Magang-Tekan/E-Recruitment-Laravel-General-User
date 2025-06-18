@@ -11,15 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        
-        Schema::dropIfExists('english_certifications');
-        
-        
-        Schema::create('english_certifications', function (Blueprint $table) {
+        Schema::create('questions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('name'); 
-            $table->string('certificate_file')->nullable();
+            $table->text('question_text');
+            $table->string('question_type');
+            $table->json('options')->nullable();
             $table->timestamps();
         });
     }
@@ -29,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('english_certifications');
+        Schema::dropIfExists('questions');
     }
 };

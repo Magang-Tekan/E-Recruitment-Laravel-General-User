@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Vacancies;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -23,14 +24,13 @@ class DatabaseSeeder extends Seeder
             DepartmentsTableSeeder::class,
             SelectionSeeder::class,
             CompaniesTableSeeder::class,
-            JobTypesTableSeeder::class,
+            VacanciesTypesTableSeeder::class,
             CandidatesEducationSeeder::class,
             SelectionSeeder::class,
             PeriodsSeeder::class,
             VacanciesSeeder::class,
             VacanciesPeriodsSeeder::class,
             ApplicationsSeeder::class,
-            AssessmentsSeeder::class,
             InterviewsSeeder::class,
             ApplicationHistorySeeder::class,
             JobSeeder::class,

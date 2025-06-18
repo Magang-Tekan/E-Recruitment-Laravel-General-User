@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Enums\UserRole;
 use App\Models\Department;
 use App\Models\Companies;
-use App\Models\JobTypes;
+use App\Models\VacanciesTypes;
 use App\Models\User;
 use App\Models\Vacancies;
 use App\Models\MasterMajor;
@@ -35,10 +35,10 @@ class VacanciesSeeder extends Seeder
             ['description' => 'Perusahaan yang bergerak di bidang jasa pengujian dan analisa.', 'address' => 'Jakarta']
         );
 
-        $fullTime = JobTypes::firstOrCreate(['name' => 'Full Time']);
-        $partTime = JobTypes::firstOrCreate(['name' => 'Part Time']);
-        $contract = JobTypes::firstOrCreate(['name' => 'Contract']);
-        $intern = JobTypes::firstOrCreate(['name' => 'Internship']);
+        $fullTime = VacanciesTypes::firstOrCreate(['name' => 'Full Time']);
+        $partTime = VacanciesTypes::firstOrCreate(['name' => 'Part Time']);
+        $contract = VacanciesTypes::firstOrCreate(['name' => 'Contract']);
+        $intern = VacanciesTypes::firstOrCreate(['name' => 'Internship']);
 
         $vacancies = [
             [

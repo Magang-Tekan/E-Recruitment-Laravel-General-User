@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('title');
             $table->foreignId('department_id')->constrained('department');
             $table->foreignId('company_id')->constrained('companies');
-            $table->foreignId('type_id')->constrained('job_types');
+            $table->foreignId('type_id')->constrained('vacancies_types');
             $table->string('location');
             $table->json('requirements');
             $table->json('benefits')->nullable();

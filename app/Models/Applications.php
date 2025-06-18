@@ -8,8 +8,7 @@ class Applications extends Model
 {
     protected $fillable = [
         'user_id',
-        'vacancies_id',
-        'selection_id',
+        'vacancies_period_id',
         'resume_path',
         'cover_letter_path',
     ];
@@ -24,15 +23,14 @@ class Applications extends Model
 
     /**
      * Relasi ke lowongan
-     * Pastikan menggunakan nama kolom yang benar (vacancies_id)
      */
-    public function vacancy()
+    public function vacancyPeriod()
     {
-        return $this->belongsTo(Vacancies::class, 'vacancies_id');
+        return $this->belongsTo(VacanciesPeriods::class, 'vacancies_period_id');
     }
 
     /**
-     * Alias untuk relasi vacancy, untuk kompatibilitas dengan kode yang menggunakan job
+     * Relasi ke lowongan (alias)
      */
     public function job()
     {
@@ -40,10 +38,18 @@ class Applications extends Model
     }
 
     /**
-     * Relasi ke selection (replacing status relation)
+     * Relasi ke riwayat aplikasi - untuk mendapatkan informasi seleksi
      */
-    public function selection()
+    public function history()
     {
-        return $this->belongsTo(Selections::class, 'selection_id');
+        return $this->hasMany(ApplicationsHistory::class, 'application_id');
+    }
+
+    /**
+     * Method untuk mendapatkan seleksi terbaru
+     */
+    public function currentSelection()
+    {
+        return $this->history()->latest()->first()?->selection;
     }
 }

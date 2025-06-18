@@ -4,37 +4,40 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Question extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array
-     */
     protected $fillable = [
-        'assessment_id',
         'question_text',
-        'options',
+        'question_type',
+        'options'
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array
+     * The question packs that belong to the question.
      */
-    protected $casts = [
-        'options' => 'array',
-    ];
-
-    /**
-     * Get the assessment that owns the question.
-     */
-    public function assessment(): BelongsTo
+    public function questionPacks(): BelongsToMany
     {
-        return $this->belongsTo(Assessment::class);
+        return $this->belongsToMany(QuestionPacks::class, 'pack_question', 'question_id', 'question_pack_id');
+    }
+
+    /**
+     * The choices that belong to the question.
+     */
+    public function choices(): HasMany
+    {
+        return $this->hasMany(Choice::class);
+    }
+
+    /**
+     * Get the correct choice for this question.
+     */
+    public function correctChoice()
+    {
+        return $this->choices()->where('is_correct', true)->first();
     }
 }

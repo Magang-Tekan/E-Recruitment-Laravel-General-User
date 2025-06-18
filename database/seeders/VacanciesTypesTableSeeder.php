@@ -6,13 +6,13 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
-class JobTypesTableSeeder extends Seeder
+class VacanciesTypesTableSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('job_types')->delete();
+        DB::table('vacancies_types')->delete();
 
-        DB::table('job_types')->insert([
+        DB::table('vacancies_types')->insert([
             [
                 'id' => 1,
                 'name' => 'Full Time',
