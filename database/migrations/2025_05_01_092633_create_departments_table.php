@@ -8,7 +8,7 @@ class CreateDepartmentTable extends Migration
 {
     public function up()
     {
-        Schema::create('department', function (Blueprint $table) {
+        Schema::create('departments', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->timestamps();
@@ -17,6 +17,6 @@ class CreateDepartmentTable extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('department');
+        Schema::dropIfExists('departments');
     }
 }
