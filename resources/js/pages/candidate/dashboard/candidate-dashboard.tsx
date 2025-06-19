@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
   import { Phone, Mail, MapPin } from 'lucide-react';
 
-  function Dashboard() {
+  // Add Props interface at the top
+  interface Props {
+    user: {
+      name: string;
+      email: string;
+    };
+  }
+
+  // Update function signature to accept props
+  function Dashboard({ user }: Props) {
     const [showDropdown, setShowDropdown] = useState(false);
 
     useEffect(() => {
@@ -59,7 +68,7 @@ import React, { useState, useEffect } from 'react';
                     className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded border border-gray-200 z-10 focus:outline focus:outline-2 focus:outline-[#0047FF]"
                     tabIndex={0} // agar bisa focus dan outline muncul saat klik
                   >
-                    <div className="p-4  border-b flex items-center space-x-3">
+                    <div className="p-4 border-b flex items-center space-x-3">
                       <div className="w-10 h-10 border-3 border-[#0047FF] rectangled-full flex items-center justify-center text-[#0047FF]">
                         <svg
                           className="w-5 h-5"
@@ -76,21 +85,15 @@ import React, { useState, useEffect } from 'react';
                         </svg>
                       </div>
                       <div>
-                        <div className="text-[#0047FF] font-bold">PUTRI ANGRAENI</div>
+                        <div className="text-[#0047FF] font-bold">{user.name}</div>
                         <div className="text-gray-600 text-sm font-medium">
-                          putriangraeni@gmail.com
+                          {user.email}
                         </div>
                       </div>
                     </div>
                     <div className="p-2">
                       <a href="/candidate/profile" className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black">
                         Profil Saya
-                      </a>
-                      <a href="/candidate/jobs" className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black">
-                        Lowongan Pekerjaan
-                      </a>
-                      <a href="/candidate/application-history" className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black">
-                        Lamaran
                       </a>
                       <form method="POST" action="/logout">
                         <input type="hidden" name="_token" value={document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''} />

@@ -2287,46 +2287,12 @@ public function dashboard()
 {
     $user = Auth::user();
 
-    // Get recent applications
-    $recentApplications = Applications::where('user_id', $user->id)
-        ->with(['vacancy', 'selection']) 
-        ->latest()
-        ->take(5)
-        ->get();
-
-    // Get application statistics
-    $applicationStats = [
-        'total' => Applications::where('user_id', $user->id)->count(),
-        'in_progress' => Applications::where('user_id', $user->id)
-            ->whereHas('selection', function($query) {
-                $query->where('name', '!=', 'Selesai');
-            })->count(),
-        'completed' => Applications::where('user_id', $user->id)
-            ->whereHas('selection', function($query) {
-                $query->where('name', '=', 'Selesai');
-            })->count()
-    ];
-
-    // Check profile completeness
-    $completenessResponse = $this->checkApplicationDataCompleteness();
-    $completenessData = json_decode($completenessResponse->getContent(), true);
-
     return Inertia::render('candidate/dashboard/candidate-dashboard', [
         'user' => [
             'name' => $user->name,
             'email' => $user->email,
         ],
-        'recentApplications' => $recentApplications->map(function ($application) {
-            return [
-                'id' => $application->id,
-                'vacancy_title' => $application->vacancy->title ?? 'Unknown Position',
-                'company_name' => $application->vacancy->company->name ?? 'Unknown Company',
-                'status' => $application->selection->name ?? 'Unknown Status',
-                'applied_date' => $application->created_at->format('d M Y'),
-            ];
-        }),
-        'stats' => $applicationStats,
-        'completeness' => $completenessData['completeness'] ?? null,
+        // ...other data
     ]);
 }
 }

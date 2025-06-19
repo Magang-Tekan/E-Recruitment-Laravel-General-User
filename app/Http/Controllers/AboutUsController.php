@@ -9,11 +9,19 @@ class AboutUsController extends Controller
 {
     public function index()
     {
-        // Ambil semua data perusahaan
-        $companies = Companies::all();
-
-        return Inertia::render('landing-page/about-us', [
-            'companies' => $companies,
-        ]);
+        try {
+            $aboutUs = \App\Models\AboutUs::with('company')->get();
+            
+            return Inertia::render('landing-page/about-us', [
+                'aboutUs' => $aboutUs
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error loading about us data: ' . $e->getMessage());
+            
+            // Return empty array if error occurs
+            return Inertia::render('landing-page/about-us', [
+                'aboutUs' => []
+            ]);
+        }
     }
 }

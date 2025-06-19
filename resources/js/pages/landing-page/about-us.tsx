@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import PropTypes from 'prop-types';
 import React from 'react';
 import { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
@@ -109,6 +110,9 @@ const CompanySlider: React.FC<CompanySliderProps> = ({ title, description, image
 export default function AboutUs(props: AboutUsProps) {
     const { auth } = usePage<{ auth: { user: unknown } }>().props;
 
+    // Add default values and null checks
+    const aboutUsData = props.aboutUs && props.aboutUs.length > 0 ? props.aboutUs[0] : null;
+
     return (
         <>
             {/* Navbar */}
@@ -166,12 +170,19 @@ export default function AboutUs(props: AboutUsProps) {
             <section className="relative bg-white pt-20 pb-20 text-gray-800">
                 <div className="relative z-10 px-6 text-center">
                     <h1 className="mb-4 text-5xl font-bold text-blue-600">MITRA KARYA GROUP</h1>
-                    {props.aboutUs[0] && (
+                    {aboutUsData ? (
                         <div className="mb-8">
                             <h2 className="text-2xl font-bold mb-2">Visi</h2>
-                            <p className="mb-4">{props.aboutUs[0].vision}</p>
+                            <p className="mb-4">{aboutUsData.vision}</p>
                             <h2 className="text-2xl font-bold mb-2">Misi</h2>
-                            <p>{props.aboutUs[0].mission}</p>
+                            <p>{aboutUsData.mission}</p>
+                        </div>
+                    ) : (
+                        <div className="mb-8">
+                            <h2 className="text-2xl font-bold mb-2">Visi</h2>
+                            <p className="mb-4">Menjadi perusahaan teknologi terkemuka yang memberikan solusi inovatif.</p>
+                            <h2 className="text-2xl font-bold mb-2">Misi</h2>
+                            <p>Mengembangkan teknologi yang bermanfaat bagi masyarakat dan memberikan layanan terbaik.</p>
                         </div>
                     )}
                 </div>
@@ -282,3 +293,39 @@ export default function AboutUs(props: AboutUsProps) {
         </>
     );
 }
+
+// Add proper TypeScript interface
+interface AboutUsData {
+    id: number;
+    company_id: number;
+    vision: string;
+    mission: string;
+    created_at: string;
+    updated_at: string;
+    company?: {
+        id: number;
+        name: string;
+    };
+}
+
+interface AboutUsProps {
+    aboutUs: AboutUsData[];
+}
+
+// Add prop types validation if needed
+AboutUs.propTypes = {
+    aboutUs: PropTypes.arrayOf(
+        PropTypes.shape({
+            id: PropTypes.number.isRequired,
+            company_id: PropTypes.number.isRequired,
+            vision: PropTypes.string.isRequired,
+            mission: PropTypes.string.isRequired,
+            created_at: PropTypes.string,
+            updated_at: PropTypes.string,
+            company: PropTypes.shape({
+                id: PropTypes.number,
+                name: PropTypes.string
+            })
+        })
+    )
+};
