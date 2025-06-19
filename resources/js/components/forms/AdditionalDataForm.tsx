@@ -7,7 +7,6 @@ interface DataTambahanFormProps {
     onTambahKursus: () => void;
     onTambahSertifikasi: () => void;
     onTambahBahasa: () => void;
-    onTambahEnglishCert: () => void;
     onNext?: () => void;
 }
 
@@ -38,7 +37,7 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
     onTambahKursus,
     onTambahSertifikasi,
     onTambahBahasa,
-    onTambahEnglishCert,
+   
     onNext
 }) => {
     const [state, setState] = useState<DataTambahanFormState>({
@@ -52,13 +51,13 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         kursus: SavedDataItem[];
         sertifikasi: SavedDataItem[];
         bahasa: SavedDataItem[];
-        englishCert: SavedDataItem[];
+       
     }>({
         skills: [],
         kursus: [],
         sertifikasi: [],
         bahasa: [],
-        englishCert: []
+       
     });
 
     const [loading, setLoading] = useState(false);
@@ -70,7 +69,7 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         fetchCoursesData();
         fetchCertificationsData();
         fetchLanguagesData(); // Uncomment ini
-        fetchEnglishCertificationsData(); // Uncomment ini
+       
     }, []);
 
     // Fetch functions
@@ -133,19 +132,6 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         }
     };
 
-    const fetchEnglishCertificationsData = async () => {
-        try {
-            const response = await axios.get('/candidate/english-certifications');
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    englishCert: response.data.data || []
-                }));
-            }
-        } catch (error) {
-            console.error('Error fetching english certifications:', error);
-        }
-    };
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -707,130 +693,7 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         }
     };
 
-    // English Certification handlers
-    const handleEditEnglishCert = (englishCert: SavedDataItem) => {
-        setState(prev => ({
-            ...prev,
-            activeForm: 'englishCert',
-            editingId: englishCert.id,
-            formData: {
-                ...prev.formData,
-                englishCert: {
-                    name: englishCert.name || '',
-                    file: null
-                }
-            }
-        }));
-    };
-
-    const handleEnglishCertSubmit = async () => {
-        const englishCertData = state.formData.englishCert;
-        if (!englishCertData?.name) {
-            setMessage({
-                type: 'error',
-                text: 'Nama sertifikat harus diisi'
-            });
-            return;
-        }
-
-        setLoading(true);
-        setMessage(null);
-
-        const formData = new FormData();
-        formData.append('name', englishCertData.name);
-        if (englishCertData.file) {
-            formData.append('certificate_file', englishCertData.file);
-        }
-
-        try {
-            let response;
-            
-            if (state.editingId) {
-                formData.append('_method', 'PUT');
-                response = await axios.post(`/candidate/english-certifications/${state.editingId}`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    }
-                });
-            } else {
-                // PERBAIKI URL INI
-                response = await axios.post('/candidate/english-certifications', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    }
-                });
-            }
-
-            if (response.data.success) {
-                setState(prev => ({
-                    ...prev,
-                    activeForm: null,
-                    editingId: null,
-                    formData: {
-                        ...prev.formData,
-                        englishCert: { name: '', file: null }
-                    }
-                }));
-
-                setMessage({
-                    type: 'success',
-                    text: state.editingId ? 'Sertifikat berhasil diupdate!' : 'Sertifikat berhasil disimpan!'
-                });
-
-                // Refresh data
-                await fetchEnglishCertificationsData(); // Enable ini
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
-            }
-        } catch (error: any) {
-            console.error('Error saving english cert:', error);
-            setMessage({
-                type: 'error',
-                text: error.response?.data?.message || 'Gagal menyimpan sertifikat'
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleDeleteEnglishCert = async (id: number) => {
-        if (!confirm('Apakah Anda yakin ingin menghapus sertifikat ini?')) {
-            return;
-        }
-
-        setLoading(true);
-
-        try {
-            // PERBAIKI URL INI
-            const response = await axios.delete(`/candidate/english-certifications/${id}`);
-
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    englishCert: prev.englishCert.filter(cert => cert.id !== id)
-                }));
-                setMessage({
-                    type: 'success',
-                    text: 'Sertifikat berhasil dihapus!'
-                });
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
-            }
-        } catch (error: any) {
-            console.error('Error deleting english cert:', error);
-            setMessage({
-                type: 'error',
-                text: error.response?.data?.message || 'Gagal menghapus sertifikat'
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    
     // Forms
     if (state.activeForm === 'skills') {
         return (
@@ -999,49 +862,6 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
                     }))}
                     hideSubmitButton={false}
                     onSubmit={handleLanguageSubmit}
-                    loading={loading}
-                    submitButtonText={state.editingId ? "Update" : "Save & Next"}
-                />
-            </div>
-        );
-    }
-
-    if (state.activeForm === 'englishCert') {
-        return (
-            <div className="bg-white rounded-lg shadow-sm">
-                {message && (
-                    <div
-                        className={`p-4 mb-4 rounded ${
-                            message.type === 'success' 
-                                ? 'bg-green-100 text-green-700' 
-                                : 'bg-red-100 text-red-700'
-                        }`}
-                    >
-                        {message.text}
-                    </div>
-                )}
-                
-                <TwoColumnForm
-                    title={state.editingId ? "Edit Sertifikat Bahasa Inggris" : "Sertifikat Bahasa Inggris"}
-                    inputLabel="Nama Sertifikat"
-                    inputName="englishCertName"
-                    inputValue={state.formData.englishCert?.name || ''}
-                    inputPlaceholder="Masukkan nama sertifikat (TOEFL, IELTS, dll)"
-                    fileLabel="Upload Sertifikat"
-                    fileName="englishCertFile"
-                    onInputChange={handleInputChange}
-                    onFileChange={handleFileChange}
-                    onBack={() => setState(prev => ({ 
-                        ...prev, 
-                        activeForm: null, 
-                        editingId: null,
-                        formData: {
-                            ...prev.formData,
-                            englishCert: { name: '', file: null }
-                        }
-                    }))}
-                    hideSubmitButton={false}
-                    onSubmit={handleEnglishCertSubmit}
                     loading={loading}
                     submitButtonText={state.editingId ? "Update" : "Save & Next"}
                 />
@@ -1290,63 +1110,6 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
                     </button>
                 </section>
 
-                {/* English Certification section - TAMBAHKAN INI */}
-                <section>
-                    <h3 className="text-lg font-semibold mb-2 text-black">Sertifikat Bahasa Inggris</h3>
-                    <p className="text-sm text-gray-600 mb-4">Apakah Anda memiliki sertifikat bahasa Inggris?</p>
-                    
-                    {savedData.englishCert && savedData.englishCert.length > 0 ? (
-                        savedData.englishCert.map((englishCert) => (
-                            <div key={englishCert.id} className="border rounded-lg p-4 mb-3 bg-gray-50">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h4 className="font-medium text-black">{englishCert.name}</h4>
-                                        {englishCert.certificate_file && (
-                                            <p className="text-sm text-gray-600">
-                                                <a 
-                                                    href={`/storage/${englishCert.certificate_file}`} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="text-blue-600 hover:underline"
-                                                >
-                                                    Lihat Sertifikat
-                                                </a>
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <button
-                                            onClick={() => handleEditEnglishCert(englishCert)}
-                                            className="text-blue-600 hover:text-blue-800 text-sm"
-                                            disabled={loading}
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteEnglishCert(englishCert.id)}
-                                            className="text-red-600 hover:text-red-800 text-sm"
-                                            disabled={loading}
-                                        >
-                                            Hapus
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-sm text-gray-500 italic">Belum ada sertifikat bahasa Inggris</p>
-                    )}
-                    
-                    <button
-                        type="button"
-                        onClick={() => setState(prev => ({ ...prev, activeForm: 'englishCert' }))}
-                        className="text-blue-600 text-sm hover:text-blue-700"
-                    >
-                        + Tambah Sertifikat Bahasa Inggris
-                    </button>
-                </section>
-
-          
               
             </div>
         </div>

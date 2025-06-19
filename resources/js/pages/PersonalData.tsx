@@ -625,9 +625,6 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
                 onTambahBahasa={() => {
                     console.log('Tambah bahasa clicked');
                 }}
-                onTambahEnglishCert={() => {
-                    console.log('Tambah English certification clicked');
-                }}
             />
         );
     };

@@ -190,7 +190,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('candidate.courses.index');
     Route::post('/candidate/courses', [CandidateController::class, 'storeCourse'])
         ->name('candidate.courses.store');
-    // Tambahkan rute delete untuk kursus
+    Route::put('/candidate/courses/{id}', [CandidateController::class, 'updateCourse'])  // Add this line
+        ->name('candidate.courses.update');
     Route::delete('/candidate/courses/{id}', [CandidateController::class, 'deleteCourse'])
         ->name('candidate.courses.delete');
 });
@@ -201,21 +202,12 @@ Route::middleware(['auth'])->group(function () {
         ->name('candidate.certifications.index');
     Route::post('/candidate/certifications', [CandidateController::class, 'storeCertification'])
         ->name('candidate.certifications.store');
-    // Tambahkan rute delete untuk sertifikasi
+    Route::put('/candidate/certifications/{id}', [CandidateController::class, 'updateCertification'])  // Add this line
+        ->name('candidate.certifications.update');
     Route::delete('/candidate/certifications/{id}', [CandidateController::class, 'deleteCertification'])
         ->name('candidate.certifications.delete');
 });
 
-// English Certifications routes
-Route::middleware(['auth'])->group(function () {
-    Route::get('/candidate/english-certifications', [CandidateController::class, 'indexEnglishCertifications'])
-        ->name('candidate.english-certifications.index');
-    Route::post('/candidate/english-certifications', [CandidateController::class, 'storeEnglishCertification'])
-        ->name('candidate.english-certifications.store');
-    // Tambahkan rute delete untuk sertifikasi bahasa Inggris
-    Route::delete('/candidate/english-certifications/{id}', [CandidateController::class, 'deleteEnglishCertification'])
-        ->name('candidate.english-certifications.delete');
-});
 
 // CV Generation routes
 Route::middleware(['auth'])->group(function () {
@@ -261,6 +253,10 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     // Route untuk melihat status aplikasi
     Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])
         ->name('candidate.application.status');
+
+    Route::post('/skills', [CandidateController::class, 'storeSkill']);
+    Route::get('/skills', [CandidateController::class, 'indexSkills']);
+    Route::delete('/skills/{id}', [CandidateController::class, 'deleteSkill']);
 });
 
 // No redirect needed as the route is defined above and in candidate.php
