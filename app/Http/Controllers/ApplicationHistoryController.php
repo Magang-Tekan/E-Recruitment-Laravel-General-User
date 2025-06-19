@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Applications;
+use App\Models\ApplicationsHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -226,6 +227,43 @@ class ApplicationHistoryController extends Controller
             return redirect()->route('candidate.application-history')
                 ->with('error', 'Gagal menampilkan detail lamaran: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Di method yang menampilkan halaman candidate-status
+     */
+    public function showStatus($applicationId)
+    {
+        $user = Auth::user();
+        $application = Applications::where('id', $applicationId)
+            ->where('user_id', $user->id)
+            ->with(['job', 'job.company'])
+            ->firstOrFail();
+            
+        // Ambil data assessment yang terkait dengan aplikasi ini
+        $applicationHistory = ApplicationsHistory::where('application_id', $applicationId)
+            ->where('assessments_id', '!=', null)
+            ->first();
+        
+        $assessmentId = $applicationHistory ? $applicationHistory->assessments_id : null;
+            
+        // Siapkan data untuk halaman status
+        $data = [
+            'application' => [
+                'id' => $application->id,
+                'job_title' => $application->job->title,
+                'company_name' => $application->job->company->name,
+                'status' => $application->status,
+                'applied_date' => $application->created_at->format('d M Y'),
+                'assessment_id' => $assessmentId, // Teruskan ID assessment
+            ],
+            'user' => [
+                'name' => $user->name,
+                'profile_image' => $user->candidateProfile ? asset('storage/' . $user->candidateProfile->profile_image) : null,
+            ]
+        ];
+            
+        return Inertia::render('candidate/candidate-status', $data);
     }
 
     /**

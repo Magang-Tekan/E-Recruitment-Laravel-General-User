@@ -65,17 +65,11 @@ const OrganisasiListForm: React.FC<OrganisasiListFormProps> = ({ onAdd, onEdit }
     }, []);
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Apakah Anda yakin ingin menghapus organisasi ini?')) {
-            return;
-        }
-
         try {
             await axios.delete(`/candidate/organization/${id}`);
             
-            // Update local state
-            setOrganizations(organizations.filter(org => org.id !== id));
-            
-            // Show success message
+            // Refresh data setelah delete
+            fetchOrganizations();
             setMessage({
                 type: 'success',
                 text: 'Data organisasi berhasil dihapus!'

@@ -25,39 +25,84 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Validation\ValidationException;
-use App\Models\MasterGender;
 use App\Models\Job;
+use App\Models\Assessment;
+use App\Models\Question;
+use App\Models\UserAnswer;
 
 class CandidateController extends Controller
 {
-    // public function dashboard()
-    // {
-    //     $user = Auth::user();
+    public function checkApplicationDataCompleteness()
+{
+    $userId = Auth::id();
 
-    //     return Inertia::render('candidate/dashboard', [
-    //         'users' => $user,
-    //     ]);
-    // }
-    public function dashboard()
+    $completeness = [
+        'profile' => false,
+        'education' => false,
+        'skills' => false,
+        'work_experience' => false,
+        'organization' => false,
+        'achievements' => false,
+        'social_media' => false,
+        'additional_data' => true, // Set default ke true untuk menghindari error
+        'overall_complete' => false
+    ];
+
+    // Data Pribadi
+    $profile = CandidatesProfiles::where('user_id', $userId)->first();
+    $completeness['profile'] = $profile && $profile->phone_number && $profile->address && $profile->date_of_birth;
+
+    // Pendidikan
+    $education = CandidatesEducations::where('user_id', $userId)->first();
+    $completeness['education'] = (bool) $education;
+
+    // Skill
+    $skillsCount = Skills::where('user_id', $userId)->count();
+    $completeness['skills'] = $skillsCount > 0;
+
+    // Pengalaman Kerja
+    $completeness['work_experience'] = CandidatesWorkExperiences::where('user_id', $userId)->exists();
+
+    // Organisasi
+    $completeness['organization'] = CandidatesOrganizations::where('user_id', $userId)->exists();
+
+    // Prestasi
+    $completeness['achievements'] = CandidatesAchievements::where('user_id', $userId)->exists();
+
+    // Social Media
+    $completeness['social_media'] = CandidatesSocialMedia::where('user_id', $userId)->exists();
+
+    // Hapus atau ubah referensi ke CandidatesAdditionalData
+    // $completeness['additional_data'] = CandidatesAdditionalData::where('user_id', $userId)->exists();
+
+    // Kelengkapan total minimal 3
+    $completeness['overall_complete'] = $completeness['profile'] &&
+                                        $completeness['education'] &&
+                                        $completeness['skills'];
+
+    return response()->json([
+        'completeness' => $completeness
+    ]);
+}
+    public function index()
     {
         $user = Auth::user();
-        $education = CandidatesEducations::where('user_id', $user->id)->first(); // Tambahkan ini
+        $education = CandidatesEducations::where('user_id', $user->id)->first();
 
-        // Ambil semua data gender dari master_genders
-        $genders = MasterGender::all();
+        // Definisikan array gender secara langsung sesuai dengan yang ada di model CandidatesProfiles
+        $genders = [
+            ['value' => 'male', 'label' => 'Pria'],
+            ['value' => 'female', 'label' => 'Wanita']
+        ];
 
         return Inertia::render('PersonalData', [
-            'education' => $education, // Tambahkan ini
+            'education' => $education,
             'user' => [
                 'name' => $user->name,
                 'email' => $user->email,
             ],
-            'genders' => $genders->map(function($gender) {
-                return [
-                    'value' => $gender->name,
-                    'label' => $gender->name
-                ];
-            })
+            // Gunakan array gender langsung tanpa mapping
+            'genders' => $genders
         ]);
     }
 
@@ -117,7 +162,6 @@ class CandidateController extends Controller
                 'about_me.required' => 'Tentang saya harus diisi',
                 'place_of_birth.required' => 'Tempat lahir harus diisi',
                 'date_of_birth.required' => 'Tanggal lahir harus diisi',
-                'date_of_birth.date' => 'Format tanggal lahir tidak valid',
                 'address.required' => 'Alamat harus diisi',
                 'province.required' => 'Provinsi harus diisi',
                 'city.required' => 'Kota harus diisi',
@@ -486,6 +530,29 @@ class CandidateController extends Controller
         ], 200);
     }
 
+    public function deleteOrganization($id)
+    {
+        try {
+            $organization = CandidatesOrganizations::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+
+            $organization->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Organisasi berhasil dihapus!'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error deleting organization: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus organisasi'
+            ], 500);
+        }
+    }
+
     public function storeAchievement(Request $request)
     {
         try {
@@ -686,6 +753,30 @@ class CandidateController extends Controller
             'status' => 'success',
             'message' => 'Social media berhasil diperbarui'
         ]);
+    }
+
+    public function deleteSocialMedia($id)
+    {
+        try {
+            // Cari data social media berdasarkan ID dan user_id (untuk keamanan)
+            $socialMedia = CandidatesSocialMedia::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+
+            $socialMedia->delete();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Social media berhasil dihapus'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error deleting social media: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal menghapus social media'
+            ], 500);
+        }
     }
 
     public function storeEnglishCertification(Request $request)
@@ -1840,6 +1931,350 @@ public function getProfile()
         return response()->json([
             'success' => false,
             'message' => 'Error retrieving profile data'
+        ], 500);
+    }
+}
+public function deleteAchievement($id)
+{
+    try {
+        $achievement = CandidatesAchievements::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Hapus file sertifikat jika ada
+        if ($achievement->certificate_file) {
+            Storage::disk('public')->delete($achievement->certificate_file);
+        }
+        
+        // Hapus file pendukung jika ada
+        if ($achievement->supporting_file) {
+            Storage::disk('public')->delete($achievement->supporting_file);
+        }
+
+        $achievement->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Prestasi berhasil dihapus!'
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error deleting achievement: ' . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal menghapus prestasi'
+        ], 500);
+    }
+}
+
+/**
+ * Menampilkan halaman konfirmasi data sebelum melamar
+ */
+public function showConfirmData($job_id = null)
+{
+    // Dapatkan status kelengkapan data
+    $completenessData = $this->checkApplicationDataCompleteness();
+    $completeness = json_decode($completenessData->getContent(), true);
+    
+    return Inertia::render('candidate/confirm-data', [
+        'completeness' => $completeness['completeness'],
+        'job_id' => $job_id,
+        'flash' => [
+            'warning' => 'Mohon lengkapi data yang diperlukan sebelum melamar pekerjaan'
+        ]
+    ]);
+}
+
+public function showPsychotest($assessmentId = null)
+{
+    $user = Auth::user();
+    
+    if (!$assessmentId) {
+        return redirect('/candidate')
+            ->with('error', 'ID Assessment tidak ditemukan');
+    }
+    
+    try {
+        // Ambil assessment berdasarkan ID
+        $assessment = Assessment::findOrFail($assessmentId);
+        
+        // Ambil pertanyaan untuk assessment ini
+        $rawQuestions = Question::where('assessment_id', $assessmentId)->get();
+        
+        // Debug: Log raw questions
+        \Log::info('Raw questions from database:', ['questions' => $rawQuestions->toArray()]);
+        
+        // Format questions untuk frontend
+        $questions = $rawQuestions->map(function($question) {
+            // Debug: Log setiap question yang sedang diproses
+            \Log::info('Processing question:', [
+                'id' => $question->id,
+                'question_text' => $question->question_text,
+                'options' => $question->options
+            ]);
+            
+            // Pastikan options ada dan valid
+            $options = [];
+            if (!empty($question->options) && is_array($question->options)) {
+                $options = $question->options;
+            } else {
+                // Fallback: ambil dari tabel choices jika options kosong
+                $choices = \App\Models\Choice::where('question_id', $question->id)->get();
+                $options = $choices->pluck('choice')->toArray();
+            }
+            
+            return [
+                'id' => $question->id,
+                'question' => $question->question_text, // Pastikan menggunakan question_text
+                'options' => $options
+            ];
+        });
+        
+        // Debug: Log final questions
+        \Log::info('Final formatted questions:', ['questions' => $questions->toArray()]);
+        
+        // Ambil jawaban user jika ada
+        $userAnswers = UserAnswer::where('user_id', $user->id)
+            ->where('assessment_id', $assessmentId)
+            ->get()
+            ->pluck('answer', 'question_id')
+            ->toArray();
+        
+        // Debug: Log user answers
+        \Log::info('User answers:', ['answers' => $userAnswers]);
+        
+        return Inertia::render('candidate/tests/candidate-psychotest', [
+            'assessment' => $assessment,
+            'questions' => $questions,
+            'userAnswers' => $userAnswers
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('Error loading psychotest: ' . $e->getMessage());
+        return redirect('/candidate')
+            ->with('error', 'Terjadi kesalahan saat memuat tes: ' . $e->getMessage());
+    }
+}
+
+public function saveQuestionAnswer(Request $request)
+{
+    $validated = $request->validate([
+        'question_id' => 'required|exists:questions,id',
+        'answer' => 'required|string'
+    ]);
+    
+    $user = Auth::user();
+    
+    // Ambil question untuk mendapatkan assessment_id
+    $question = Question::find($validated['question_id']);
+    if (!$question) {
+        return response()->json(['error' => 'Question not found'], 404);
+    }
+    
+    // Simpan atau update jawaban user
+    UserAnswer::updateOrCreate(
+        [
+            'user_id' => $user->id,
+            'question_id' => $validated['question_id'],
+            'assessment_id' => $question->assessment_id
+        ],
+        [
+            'answer' => $validated['answer']
+        ]
+    );
+    
+    return response()->json(['success' => true]);
+}
+
+/**
+ * Submit psychotest answers dan update application history
+ */
+public function submitPsychotest(Request $request)
+{
+    try {
+        $user = Auth::user();
+        
+        // Log request data untuk debugging
+        \Log::info('Psychotest submission request data:', [
+            'user_id' => $user->id,
+            'request_data' => $request->all()
+        ]);
+        
+        $validated = $request->validate([
+            'answers' => 'required|array',
+            'answers.*' => 'required|string',
+            'assessment_id' => 'required|integer'
+        ]);
+
+        // Validasi assessment exists
+        $assessment = Assessment::find($validated['assessment_id']);
+        if (!$assessment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Assessment tidak ditemukan'
+            ], 404);
+        }
+
+        \Log::info('Psychotest submission started', [
+            'user_id' => $user->id,
+            'answers_count' => count($validated['answers']),
+            'assessment_id' => $validated['assessment_id']
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            // 1. Simpan semua jawaban ke tabel user_answers
+            foreach ($validated['answers'] as $questionId => $answer) {
+                // Validasi question_id exists dan belongs to assessment
+                $question = Question::where('id', $questionId)
+                    ->where('assessment_id', $validated['assessment_id'])
+                    ->first();
+                
+                if (!$question) {
+                    \Log::warning("Invalid question ID: {$questionId} for assessment {$validated['assessment_id']}");
+                    continue; // Skip invalid question instead of throwing exception
+                }
+
+                // Simpan atau update jawaban
+                UserAnswer::updateOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'question_id' => $questionId,
+                        'assessment_id' => $validated['assessment_id']
+                    ],
+                    [
+                        'answer' => $answer,
+                        'answered_at' => now()
+                    ]
+                );
+                
+                \Log::info("Saved answer for question {$questionId}: {$answer}");
+            }
+
+            // 2. Cari application yang sedang dalam tahap psychotest untuk user ini
+            $application = Applications::where('user_id', $user->id)
+                ->latest()
+                ->first();
+
+            if (!$application) {
+                \Log::warning('No application found for user: ' . $user->id);
+                // Buat response sukses tapi tanpa update application history
+                DB::commit();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Psychotest berhasil diselesaikan (tanpa aplikasi terkait)',
+                    'data' => [
+                        'answers_count' => count($validated['answers']),
+                        'application_id' => null,
+                        'next_stage' => null
+                    ],
+                    'redirect_url' => '/candidate/application-history'
+                ]);
+            }
+
+            // 3. Update application history untuk menandai psychotest selesai
+            $applicationHistory = ApplicationsHistory::updateOrCreate(
+                [
+                    'application_id' => $application->id,
+                    'selections_id' => $application->selection_id ?? 1 // Default value jika null
+                ],
+                [
+                    'status' => 'completed',
+                    'notes' => sprintf(
+                        'Psychotest telah diselesaikan pada %s. Total %d pertanyaan dijawab.',
+                        now()->format('d M Y H:i'),
+                        count($validated['answers'])
+                    ),
+                    'completed_at' => now(),
+                    'assessments_id' => $validated['assessment_id']
+                ]
+            );
+
+            // 4. Cari tahap selanjutnya (opsional)
+            $nextSelection = null;
+            if ($application->selection_id) {
+                $nextSelection = \App\Models\Selections::where('id', '>', $application->selection_id)
+                    ->orderBy('id', 'asc')
+                    ->first();
+
+                if ($nextSelection) {
+                    $application->update([
+                        'selection_id' => $nextSelection->id,
+                        'updated_at' => now()
+                    ]);
+
+                    // Buat history entry untuk tahap selanjutnya
+                    ApplicationsHistory::create([
+                        'application_id' => $application->id,
+                        'selections_id' => $nextSelection->id,
+                        'status' => 'pending',
+                        'notes' => 'Menunggu tahap ' . $nextSelection->name,
+                        'created_at' => now()
+                    ]);
+
+                    \Log::info('Application moved to next stage', [
+                        'application_id' => $application->id,
+                        'next_stage' => $nextSelection->name
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            \Log::info('Psychotest submission completed successfully', [
+                'application_id' => $application->id,
+                'answers_saved' => count($validated['answers']),
+                'next_stage' => $nextSelection ? $nextSelection->name : 'no_next_stage'
+            ]);
+
+            // Generate redirect URL
+            $redirectUrl = '/candidate/application-history';
+            if ($application) {
+                // Cek apakah route candidate.application.status exists
+                try {
+                    $redirectUrl = route('candidate.application.status', $application->id);
+                } catch (\Exception $e) {
+                    \Log::warning('Route candidate.application.status not found, using fallback');
+                    $redirectUrl = '/candidate/application-history';
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Psychotest berhasil diselesaikan',
+                'data' => [
+                    'answers_count' => count($validated['answers']),
+                    'application_id' => $application->id,
+                    'next_stage' => $nextSelection ? $nextSelection->name : null
+                ],
+                'redirect_url' => $redirectUrl
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            throw $e;
+        }
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        \Log::error('Validation error in psychotest submission:', $e->errors());
+        return response()->json([
+            'success' => false,
+            'message' => 'Data tidak valid',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        \Log::error('Error submitting psychotest: ' . $e->getMessage(), [
+            'user_id' => Auth::id(),
+            'line' => $e->getLine(),
+            'file' => $e->getFile(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan saat menyimpan hasil tes: ' . $e->getMessage()
         ], 500);
     }
 }

@@ -78,6 +78,15 @@ Route::middleware(['auth', 'verified'])->get('/redirect', function () {
     : redirect()->route('user.profile');
 })->name('dashboard');
 
+Route::get('/confirm-data', function () {
+    return Inertia::render('candidate/profile/confirm-data');
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/candidate/applicant-completeness', [CandidateController::class, 'checkApplicationDataCompleteness']) 
+        ->name('candidate.applicant-completeness'); 
+});
+
 
 Route::post('/candidate/data-pribadi', [CandidateController::class, 'storeDataPribadi'])
     ->name('candidate.data-pribadi.store');
@@ -244,7 +253,18 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     Route::get('/job/{id}', [JobsController::class, 'detail'])->name('candidate.job.detail');
     Route::post('/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
 
-    // Removed application history route - now handled in candidate.php
+
+    // Routes untuk Psychotest
+    Route::get('/tests/psychotest/{assessment_id?}', [CandidateController::class, 'showPsychotest'])
+        ->name('candidate.tests.psychotest');
+    
+    // Route untuk submit psychotest
+    Route::post('/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
+        ->name('candidate.psychotest.submit');
+    
+    // Route untuk melihat status aplikasi
+    Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])
+        ->name('candidate.application.status');
 });
 
 // No redirect needed as the route is defined above and in candidate.php
@@ -254,15 +274,13 @@ Route::get('/lowongan', function() {
     return redirect('/job-hiring-landing-page');
 });
 
-// HAPUS ROUTE EDUCATION YANG DUPLIKAT INI JUGA
-// Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
-//     // Route untuk form data pribadi (GET)
-//     Route::get('/data-pribadi', [CandidateController::class, 'profile'])
-//         ->name('candidate.data-pribadi');
-//
-//     Route::get('/education', [CandidateController::class, 'getEducation']);
-//     Route::post('/education', [CandidateController::class, 'storeEducation']);
-// });
+Route::middleware(['auth'])->group(function () {
+    // Route confirm-data dengan parameter job_id
+    Route::get('/candidate/confirm-data/{job_id?}', [CandidateController::class, 'showConfirmData'])
+        ->name('candidate.confirm-data');
+    
+    // Route yang sudah ada...
+});
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

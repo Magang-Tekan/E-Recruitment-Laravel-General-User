@@ -34,9 +34,9 @@ class Question extends Model
     }
 
     /**
-     * Get the correct choice for this question.
+    * Get the correct choice for this question.
      */
-    public function correctChoice()
+    public function correctChoices(): HasMany
     {
         return $this->choices()->where('is_correct', true)->first();
     }

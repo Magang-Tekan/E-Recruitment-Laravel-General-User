@@ -215,7 +215,7 @@ const TambahPengalamanForm: React.FC<TambahPengalamanFormProps> = ({
                         name="deskripsi"
                         value={formData.deskripsi}
                         onChange={handleChange}
-                        placeholder="Masukkan deskripsi pekerjaan min. 100 karakter"
+                        placeholder="Masukkan deskripsi pekerjaan min. 10 karakter"
                         className="w-full border border-gray-300 rounded px-3 py-2 text-sm h-32 
                             focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                     />
