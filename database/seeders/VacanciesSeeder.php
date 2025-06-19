@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\UserRole;
-use App\Models\Companies;
+use App\Models\Company;
 use App\Models\User;
 use App\Models\Vacancies;
 use App\Models\QuestionPack;
@@ -21,7 +21,7 @@ class VacanciesSeeder extends Seeder
     {
         // Get required data
         $user = User::where('role', UserRole::HR->value)->first() ?? User::factory()->create(['role' => UserRole::HR->value]);
-        $companies = Companies::all();
+        $companies = Company::all();
         $questionPacks = QuestionPack::all();
         $departments = Department::all(); // Changed from Departement to Department
         $majors = MasterMajor::all();
