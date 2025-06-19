@@ -2,20 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
-class VacanciesTypes extends Model
+class VacancyType extends Model
 {
-     use HasFactory;
+    use HasFactory;
 
     protected $fillable = [
         'name',
-        'description',
     ];
 
     public function vacancies()
     {
-        return $this->hasMany(Vacancies::class, 'type_id');
+        return $this->hasMany(Vacancies::class, 'vacancy_type_id');
     }
 }

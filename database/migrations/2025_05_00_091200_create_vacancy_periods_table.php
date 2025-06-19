@@ -11,12 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('choices', function (Blueprint $table) {
+        Schema::create('vacancy_periods', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('question_id')->constrained('questions')->onDelete('cascade');
-            $table->string('choice_text');
-            $table->boolean('is_correct')->default(false);
+            $table->foreignId('vacancy_id')->constrained()->onDelete('cascade');
+            $table->foreignId('period_id')->constrained()->onDelete('cascade');
             $table->timestamps();
+            
+            // Ensure each period is only added once per vacancy
+            $table->unique(['vacancy_id', 'period_id']);
         });
     }
 
@@ -25,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('choices');
+        Schema::dropIfExists('vacancy_periods');
     }
 };

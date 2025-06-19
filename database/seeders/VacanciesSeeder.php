@@ -3,367 +3,333 @@
 namespace Database\Seeders;
 
 use App\Enums\UserRole;
-use App\Models\Department;
 use App\Models\Companies;
-use App\Models\VacanciesTypes;
 use App\Models\User;
 use App\Models\Vacancies;
+use App\Models\QuestionPack;
+use App\Models\Department;
 use App\Models\MasterMajor;
+use App\Models\VacancyType;
 use Illuminate\Database\Seeder;
 
 class VacanciesSeeder extends Seeder
 {
+    /**
+     * Run the database seeds.
+     */
     public function run(): void
     {
+        // Get required data
         $user = User::where('role', UserRole::HR->value)->first() ?? User::factory()->create(['role' => UserRole::HR->value]);
-        $departments = Department::pluck('id', 'name');
+        $companies = Companies::all();
+        $questionPacks = QuestionPack::all();
+        $departments = Department::all(); // Changed from Departement to Department
+        $majors = MasterMajor::all();
+        $vacancyTypes = VacancyType::all();
+        
+        // Check if dependencies exist
+        if ($companies->isEmpty()) {
+            $this->command->info('No companies found. Running CompanySeeder first.');
+            $this->call(CompanySeeder::class);
+            $companies = Company::all();
+        }
 
-        // Ambil jurusan dari master_majors
-        $ti = MasterMajor::where('name', 'Teknik Informatika')->first();
-        $manajemen = MasterMajor::where('name', 'Manajemen')->first();
-        $komunikasi = MasterMajor::where('name', 'Komunikasi')->first();
-        $dkv = MasterMajor::where('name', 'Desain Komunikasi Visual')->first();
-        $psikologi = MasterMajor::where('name', 'Psikologi')->first();
-        $akuntansi = MasterMajor::where('name', 'Akuntansi')->first();
+        if ($questionPacks->isEmpty()) {
+            $this->command->info('No question packs found. Running QuestionPackSeeder first.');
+            $this->call(QuestionPackSeeder::class);
+            $questionPacks = QuestionPack::all();
+        }
 
-        $mka = Companies::firstOrCreate(
-            ['name' => 'PT MITRA KARYA ANALITIKA'],
-            ['description' => 'Perusahaan teknologi yang berfokus pada pengembangan hardware.', 'address' => 'Semarang']
-        );
-        $aka = Companies::firstOrCreate(
-            ['name' => 'PT AUTENTIK KARYA ANALITIKA'],
-            ['description' => 'Perusahaan yang bergerak di bidang jasa pengujian dan analisa.', 'address' => 'Jakarta']
-        );
+        if ($departments->isEmpty()) {
+            $this->command->info('No departments found. Running DepartementSeeder first.');
+            $this->call(DepartementSeeder::class);
+            $departments = Departement::all();
+        }
 
-        $fullTime = VacanciesTypes::firstOrCreate(['name' => 'Full Time']);
-        $partTime = VacanciesTypes::firstOrCreate(['name' => 'Part Time']);
-        $contract = VacanciesTypes::firstOrCreate(['name' => 'Contract']);
-        $intern = VacanciesTypes::firstOrCreate(['name' => 'Internship']);
+        if ($majors->isEmpty()) {
+            $this->command->info('No majors found. Running MasterMajorSeeder first.');
+            $this->call(MasterMajorSeeder::class);
+            $majors = MasterMajor::all();
+        }
 
-        $vacancies = [
+        if ($vacancyTypes->isEmpty()) {
+            $this->command->info('No vacancy types found. Running VacancyTypeSeeder first.');
+            $this->call(VacancyTypeSeeder::class);
+            $vacancyTypes = VacancyType::all();
+        }
+
+        // Indonesian job vacancies data
+        $vacanciesData = [
             [
-                'title' => 'FRONTEND DEVELOPER',
-                'department_id' => $departments['IT'],
-                'company_id' => $mka->id,
-                'type_id' => $fullTime->id,
-                'location' => 'Semarang',
-                'major_id' => $ti?->id, // <--- filter jurusan
-                'requirements' => [
-                    'Min. S1 Teknik Informatika/Sistem Informasi',
-                    'Menguasai React.js, Vue.js, atau Angular',
-                ],
-                'job_description' => 'Mengembangkan dan memelihara aplikasi web.',
-                'benefits' => ['BPJS', 'Gaji di atas UMR'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'MARKETING INTERN',
-                'department_id' => $departments['Marketing'],
-                'company_id' => $aka->id,
-                'type_id' => $intern->id,
+                'title' => 'Software Engineer',
+                'department' => 'Teknologi Informasi',
+                'major' => 'Teknik Informatika',
+                'vacancy_type' => 'Full Time',
                 'location' => 'Jakarta',
-                'major_id' => $komunikasi?->id,
+                'salary' => 'Rp. 8.000.000 - 15.000.000',
                 'requirements' => [
-                    'Mahasiswa semester akhir',
-                    'Jurusan Marketing/Komunikasi',
+                    'Lulusan S1 Teknik Informatika atau Ilmu Komputer',
+                    'Pengalaman minimal 2 tahun dalam pengembangan software',
+                    'Menguasai bahasa pemrograman Java, Python, atau JavaScript',
+                    'Familiar dengan framework seperti Spring, React, atau Angular',
+                    'Memiliki kemampuan problem solving yang baik',
+                    'Mampu bekerja dalam tim dan komunikatif'
                 ],
-                'job_description' => 'Membantu tim marketing.',
-                'benefits' => ['Uang Transport', 'Sertifikat'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'UI/UX DESIGNER',
-                'department_id' => $departments['IT'],
-                'company_id' => $mka->id,
-                'type_id' => $partTime->id,
-                'location' => 'Semarang',
-                'major_id' => $dkv?->id,
-                'requirements' => [
-                    'Min. D3 Desain Komunikasi Visual',
-                ],
-                'job_description' => 'Mendesain tampilan aplikasi web dan mobile.',
-                'benefits' => ['BPJS', 'Gaji Proyek'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'HR INTERN',
-                'department_id' => $departments['HR'],
-                'company_id' => $aka->id,
-                'type_id' => $intern->id,
-                'location' => 'Jakarta',
-                'major_id' => $psikologi?->id,
-                'requirements' => [
-                    'Mahasiswa Psikologi/Manajemen',
-                ],
-                'job_description' => 'Membantu proses rekrutmen dan administrasi HR.',
-                'benefits' => ['Uang Saku', 'Sertifikat'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'BUSINESS EXECUTIVE',
-                'department_id' => $departments['Marketing'],
-                'company_id' => $mka->id,
-                'type_id' => $fullTime->id,
-                'location' => 'Semarang',
-                'requirements' => [
-                    'Laki-laki atau perempuan',
-                    'SMK Analis Kimia, D3 Analis Kimia atau relevan',
-                    'Berpengalaman di bidang marketing minimal 1 tahun',
-                    'Komunikatif, Cekatan, Jujur, teliti dan bersedia mobile working',
-                ],
-                'job_description' => 'Melakukan penjualan produk dan jasa perusahaan kepada customer.',
-                'benefits' => ['BPJS', 'Gaji UMR', 'Tunjangan Hari Raya'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'BACKEND DEVELOPER',
-                'department_id' => $departments['IT'],
-                'company_id' => $mka->id,
-                'type_id' => $fullTime->id,
-                'location' => 'Semarang',
-                'requirements' => [
-                    'S1 Teknik Informatika/Sistem Informasi',
-                    'Menguasai PHP/Laravel atau Node.js',
-                    'Pengalaman dengan REST API',
-                    'Paham database MySQL/PostgreSQL',
-                ],
-                'job_description' => 'Mengembangkan backend system dan API untuk aplikasi perusahaan.',
-                'benefits' => ['BPJS', 'Gaji di atas UMR', 'WFH Option', 'Training'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'QA ENGINEER',
-                'department_id' => $departments['IT'],
-                'company_id' => $mka->id,
-                'type_id' => $contract->id,
-                'location' => 'Semarang',
-                'requirements' => [
-                    'S1 Teknik Informatika/Sistem Informasi',
-                    'Pengalaman minimal 1 tahun di QA',
-                    'Menguasai automation testing',
-                    'Teliti dan detail',
-                ],
-                'job_description' => 'Melakukan pengujian aplikasi dan membuat laporan bug.',
-                'benefits' => ['BPJS', 'Bonus Proyek', 'Training'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'DATA ANALYST INTERN',
-                'department_id' => $departments['IT'],
-                'company_id' => $aka->id,
-                'type_id' => $intern->id,
-                'location' => 'Jakarta',
-                'requirements' => [
-                    'Mahasiswa semester akhir',
-                    'Menguasai Excel dan dasar SQL',
-                    'Mampu membuat laporan data',
-                    'Komunikatif',
-                ],
-                'job_description' => 'Membantu tim dalam analisa data dan pembuatan laporan.',
-                'benefits' => ['Uang Saku', 'Sertifikat', 'Pengalaman Kerja'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'MOBILE APP DEVELOPER',
-                'department_id' => $departments['IT'],
-                'company_id' => $mka->id,
-                'type_id' => $fullTime->id,
-                'location' => 'Semarang',
-                'requirements' => [
-                    'S1 Teknik Informatika/Sistem Informasi',
-                    'Menguasai Flutter atau React Native',
-                    'Pengalaman membuat aplikasi Android/iOS',
-                    'Mampu bekerja dalam tim',
-                ],
-                'job_description' => 'Mengembangkan aplikasi mobile untuk kebutuhan perusahaan.',
-                'benefits' => ['BPJS', 'Gaji di atas UMR', 'Remote Working'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'CONTENT CREATOR',
-                'department_id' => $departments['Marketing'],
-                'company_id' => $aka->id,
-                'type_id' => $partTime->id,
-                'location' => 'Jakarta',
-                'requirements' => [
-                    'Min. SMA/SMK',
-                    'Kreatif membuat konten digital',
-                    'Menguasai aplikasi editing foto/video',
-                    'Aktif di media sosial',
-                ],
-                'job_description' => 'Membuat konten promosi untuk media sosial perusahaan.',
-                'benefits' => ['Uang Transport', 'Bonus Konten', 'Sertifikat'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'PROJECT MANAGER',
-                'department_id' => $departments['IT'],
-                'company_id' => $mka->id,
-                'type_id' => $contract->id,
-                'location' => 'Semarang',
-                'major_id' => $manajemen?->id, // <-- pastikan ini ID jurusan Manajemen
-                'requirements' => [
-                    'S1 Manajemen',
-                    'Pengalaman minimal 2 tahun sebagai PM',
-                    'Mampu memimpin tim',
-                    'Komunikatif dan bertanggung jawab',
-                ],
-                'job_description' => 'Mengelola proyek pengembangan aplikasi dari awal hingga selesai.',
-                'benefits' => ['BPJS', 'Bonus Proyek', 'Training'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'HR INTERN',
-                'department_id' => $departments['HR'],
-                'company_id' => $aka->id,
-                'type_id' => $intern->id,
-                'location' => 'Jakarta',
-                'major_id' => $psikologi?->id,
-                'requirements' => [
-                    'Mahasiswa Psikologi/Manajemen',
-                ],
-                'job_description' => 'Membantu proses rekrutmen dan administrasi HR.',
-                'benefits' => ['Uang Saku', 'Sertifikat'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'CUSTOMER SUPPORT',
-                'department_id' => $departments['Marketing'],
-                'company_id' => $mka->id,
-                'type_id' => $fullTime->id,
-                'location' => 'Semarang',
-                'requirements' => [
-                    'Min. D3 Semua Jurusan',
-                    'Komunikatif dan sabar',
-                    'Berpengalaman di bidang customer service',
-                    'Mampu bekerja shift',
-                ],
-                'job_description' => 'Memberikan layanan dan solusi kepada pelanggan.',
-                'benefits' => ['BPJS', 'Gaji UMR', 'Tunjangan Shift'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'GRAPHIC DESIGNER',
-                'department_id' => $departments['Marketing'],
-                'company_id' => $aka->id,
-                'type_id' => $partTime->id,
-                'location' => 'Jakarta',
-                'requirements' => [
-                    'Min. D3 Desain Grafis',
-                    'Menguasai CorelDraw, Photoshop, Illustrator',
-                    'Kreatif dan inovatif',
-                    'Berpengalaman membuat materi promosi',
-                ],
-                'job_description' => 'Membuat desain grafis untuk kebutuhan promosi perusahaan.',
-                'benefits' => ['Uang Transport', 'Bonus Proyek', 'Sertifikat'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'SYSTEM ANALYST',
-                'department_id' => $departments['IT'],
-                'company_id' => $mka->id,
-                'type_id' => $contract->id,
-                'location' => 'Semarang',
-                'requirements' => [
-                    'S1 Teknik Informatika/Sistem Informasi',
-                    'Pengalaman minimal 2 tahun sebagai System Analyst',
-                    'Mampu membuat dokumentasi sistem',
-                    'Komunikatif',
-                ],
-                'job_description' => 'Menganalisa kebutuhan sistem dan membuat dokumentasi teknis.',
-                'benefits' => ['BPJS', 'Bonus Proyek', 'Training'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'MARKETING INTERN',
-                'department_id' => $departments['Marketing'],
-                'company_id' => $aka->id,
-                'type_id' => $intern->id,
-                'location' => 'Jakarta',
-                'requirements' => [
-                    'Mahasiswa semester akhir',
-                    'Jurusan Marketing/Komunikasi',
-                    'Kreatif dan inovatif',
-                    'Mampu menggunakan social media untuk marketing',
-                ],
-                'job_description' => 'Membantu tim marketing dalam kampanye digital dan analisis pasar.',
-                'benefits' => ['Uang Transport', 'Sertifikat', 'Training'],
-                'user_id' => $user->id,
-            ],
-            [
-                'title' => 'HARDWARE ENGINEER',
-                'department_id' => $departments['IT'],
-                'company_id' => $aka->id,
-                'type_id' => $fullTime->id,
-                'location' => 'Semarang',
-                'requirements' => [
-                    "Associate/Bachelor's degree in Electrical Engineering, Mechatronics, Electromechanics, or related fields;",
-                    "Advanced knowledge of robotics, embedded programming, PCB layout, and PCB design;",
-                    "Not color blind",
-                    "Willing to be placed in Semarang City"
-                ],
-                'job_description' => "An expert who designs, develops, and tests hardware, including PCB design and electronic component integration, for applications such as robotics and embedded systems.\n\nIf you are interested in electronics, robotics, and PCB design and want to work in an innovative environment, you are the right candidate for this position.",
                 'benefits' => [
-                    "Basic Salary",
-                    "Training",
-                    "Other benefits"
-                ],
-                'user_id' => $user->id,
+                    'Gaji kompetitif sesuai pengalaman',
+                    'Asuransi kesehatan keluarga',
+                    'Tunjangan transport dan makan',
+                    'Program training dan sertifikasi',
+                    'Flexible working hours',
+                    'Annual bonus dan THR'
+                ]
             ],
             [
-                'title' => 'STAFF ACCOUNTING',
-                'department_id' => $departments['Akuntansi'],
-                'company_id' => $mka->id,
-                'type_id' => $fullTime->id,
-                'location' => 'Semarang',
-                'major_id' => $akuntansi?->id, // <-- pastikan ini ID jurusan Akuntansi
+                'title' => 'Digital Marketing Specialist',
+                'department' => 'Pemasaran',
+                'major' => 'Ilmu Komunikasi',
+                'vacancy_type' => 'Full Time',
+                'location' => 'Bandung',
+                'salary' => 'Rp. 5.000.000 - 9.000.000',
                 'requirements' => [
-                    'S1 Akuntansi',
-                    'Menguasai software akuntansi',
-                    'Teliti dan bertanggung jawab',
+                    'Lulusan S1 Marketing, Komunikasi, atau bidang terkait',
+                    'Pengalaman minimal 1 tahun di digital marketing',
+                    'Menguasai Google Ads, Facebook Ads, Instagram Ads',
+                    'Familiar dengan SEO/SEM dan Google Analytics',
+                    'Kreatif dan up-to-date dengan tren digital',
+                    'Kemampuan analisis data yang baik'
                 ],
-                'job_description' => 'Mengelola laporan keuangan perusahaan.',
-                'benefits' => ['BPJS', 'Gaji UMR', 'Tunjangan Hari Raya'],
-                'user_id' => $user->id,
+                'benefits' => [
+                    'Gaji pokok + komisi performance',
+                    'BPJS Kesehatan dan Ketenagakerjaan',
+                    'Tunjangan pulsa dan internet',
+                    'Pelatihan digital marketing berkala',
+                    'Kesempatan mengikuti seminar dan workshop',
+                    'Career development program'
+                ]
             ],
             [
-                'title' => 'PSYCHOLOGIST STAFF',
-                'department_id' => $departments['HR'],
-                'company_id' => $mka->id,
-                'type_id' => $fullTime->id,
-                'location' => 'Semarang',
-                'major_id' => $psikologi?->id, // <-- jurusan Psikologi
+                'title' => 'Financial Analyst',
+                'department' => 'Keuangan dan Akuntansi',
+                'major' => 'Akuntansi',
+                'vacancy_type' => 'Full Time',
+                'location' => 'Surabaya',
+                'salary' => 'Rp. 6.000.000 - 10.000.000',
                 'requirements' => [
-                    'S1 Psikologi',
-                    'Berpengalaman dalam asesmen psikologi',
-                    'Mampu melakukan konseling karyawan',
-                    'Komunikatif dan empati tinggi',
+                    'Lulusan S1 Akuntansi, Keuangan, atau Ekonomi',
+                    'Pengalaman 1-3 tahun di bidang finance/accounting',
+                    'Menguasai Microsoft Excel tingkat advanced',
+                    'Familiar dengan software akuntansi (SAP, Oracle, dll)',
+                    'Memiliki sertifikasi Brevet A/B (nilai plus)',
+                    'Detail oriented dan analytical thinking'
                 ],
-                'job_description' => 'Melakukan asesmen, konseling, dan pengembangan SDM di perusahaan.',
-                'benefits' => ['BPJS', 'Gaji Kompetitif', 'Tunjangan Kesehatan'],
-                'user_id' => $user->id,
+                'benefits' => [
+                    'Gaji kompetitif',
+                    'Asuransi kesehatan keluarga',
+                    'Tunjangan makan dan transport',
+                    'Program sertifikasi profesi',
+                    'Bonus tahunan',
+                    'Jenjang karir yang jelas'
+                ]
             ],
             [
-                'title' => 'RECRUITMENT SPECIALIST',
-                'department_id' => $departments['HR'],
-                'company_id' => $aka->id,
-                'type_id' => $fullTime->id,
+                'title' => 'Human Resources Generalist',
+                'department' => 'Sumber Daya Manusia',
+                'major' => 'Psikologi',
+                'vacancy_type' => 'Full Time',
+                'location' => 'Yogyakarta',
+                'salary' => 'Rp. 4.500.000 - 7.500.000',
+                'requirements' => [
+                    'Lulusan S1 Psikologi, Manajemen SDM, atau bidang terkait',
+                    'Pengalaman minimal 2 tahun di bidang HR',
+                    'Memahami employment law dan regulasi ketenagakerjaan',
+                    'Menguasai proses recruitment dan selection',
+                    'Kemampuan komunikasi dan interpersonal yang baik',
+                    'Familiar dengan HRIS dan payroll system'
+                ],
+                'benefits' => [
+                    'Gaji pokok kompetitif',
+                    'BPJS Kesehatan dan Ketenagakerjaan',
+                    'Tunjangan kesehatan keluarga',
+                    'Program pelatihan HR',
+                    'Flexible working arrangement',
+                    'THR dan bonus kinerja'
+                ]
+            ],
+            [
+                'title' => 'Data Analyst',
+                'department' => 'Data Analytics',
+                'major' => 'Statistika',
+                'vacancy_type' => 'Full Time',
                 'location' => 'Jakarta',
-                'major_id' => $psikologi?->id, // <-- jurusan Psikologi
+                'salary' => 'Rp. 7.000.000 - 12.000.000',
                 'requirements' => [
-                    'S1 Psikologi',
-                    'Pengalaman minimal 1 tahun di bidang rekrutmen',
-                    'Mampu melakukan interview dan psikotes',
-                    'Mampu bekerja dalam tim',
+                    'Lulusan S1 Statistika, Matematika, atau Teknik Informatika',
+                    'Pengalaman minimal 1 tahun dalam data analysis',
+                    'Menguasai SQL, Python, R, atau tools analytics lainnya',
+                    'Familiar dengan data visualization tools (Tableau, Power BI)',
+                    'Kemampuan statistical analysis dan machine learning',
+                    'Critical thinking dan problem solving'
                 ],
-                'job_description' => 'Bertanggung jawab dalam proses rekrutmen dan seleksi karyawan.',
-                'benefits' => ['BPJS', 'Bonus Rekrutmen', 'Sertifikat'],
-                'user_id' => $user->id,
+                'benefits' => [
+                    'Gaji kompetitif',
+                    'Asuransi kesehatan premium',
+                    'Learning budget untuk course online',
+                    'Remote working flexibility',
+                    'Stock option program',
+                    'Annual company retreat'
+                ]
             ],
+            [
+                'title' => 'Project Manager',
+                'department' => 'Project Management',
+                'major' => 'Teknik Industri',
+                'vacancy_type' => 'Full Time',
+                'location' => 'Medan',
+                'salary' => 'Rp. 9.000.000 - 16.000.000',
+                'requirements' => [
+                    'Lulusan S1 Teknik Industri, Manajemen, atau bidang terkait',
+                    'Pengalaman minimal 3 tahun sebagai Project Manager',
+                    'Memiliki sertifikasi PMP atau Prince2 (nilai plus)',
+                    'Menguasai project management tools (MS Project, Jira, Trello)',
+                    'Leadership dan team management skills',
+                    'Kemampuan komunikasi dan negosiasi yang excellent'
+                ],
+                'benefits' => [
+                    'Gaji pokok tinggi + project bonus',
+                    'Asuransi kesehatan keluarga premium',
+                    'Tunjangan jabatan dan representasi',
+                    'Program leadership development',
+                    'Car allowance',
+                    'Profit sharing program'
+                ]
+            ],
+            [
+                'title' => 'UI/UX Designer',
+                'department' => 'Design',
+                'major' => 'Desain Komunikasi Visual',
+                'vacancy_type' => 'Full Time',
+                'location' => 'Bali',
+                'salary' => 'Rp. 6.000.000 - 11.000.000',
+                'requirements' => [
+                    'Lulusan S1 DKV, Desain Produk, atau bidang terkait',
+                    'Portfolio yang menunjukkan kemampuan UI/UX design',
+                    'Menguasai Figma, Sketch, Adobe XD, dan Photoshop',
+                    'Pemahaman user research dan usability testing',
+                    'Up-to-date dengan design trends dan best practices',
+                    'Kemampuan presentasi dan storytelling'
+                ],
+                'benefits' => [
+                    'Gaji kompetitif',
+                    'Creative workspace environment',
+                    'Allowance untuk design tools dan software',
+                    'Konferensi dan workshop design',
+                    'Flexible working hours',
+                    'Unlimited creative freedom'
+                ]
+            ],
+            [
+                'title' => 'Sales Executive',
+                'department' => 'Sales',
+                'major' => 'Manajemen',
+                'vacancy_type' => 'Full Time',
+                'location' => 'Semarang',
+                'salary' => 'Rp. 4.000.000 - 8.000.000',
+                'requirements' => [
+                    'Lulusan S1 semua jurusan, diutamakan Manajemen atau Marketing',
+                    'Pengalaman sales minimal 1 tahun (fresh graduate welcome)',
+                    'Target oriented dan result driven',
+                    'Kemampuan komunikasi dan presentasi yang baik',
+                    'Memiliki kendaraan dan SIM A',
+                    'Bersedia melakukan perjalanan dinas'
+                ],
+                'benefits' => [
+                    'Gaji pokok + komisi tanpa batas',
+                    'Tunjangan BBM dan maintenance kendaraan',
+                    'Incentive trip untuk top performer',
+                    'Career advancement yang cepat',
+                    'Sales training intensif',
+                    'Bonus achievement bulanan'
+                ]
+            ],
+            [
+                'title' => 'Content Creator',
+                'department' => 'Content Management',
+                'major' => 'Ilmu Komunikasi',
+                'vacancy_type' => 'Part Time',
+                'location' => 'Remote',
+                'salary' => 'Rp. 3.000.000 - 6.000.000',
+                'requirements' => [
+                    'Lulusan SMA/S1 semua jurusan',
+                    'Portfolio content creation (video, foto, tulisan)',
+                    'Menguasai aplikasi editing (Canva, Adobe, Capcut)',
+                    'Pemahaman social media trends dan algoritma',
+                    'Kreatif, inovatif, dan storytelling skills',
+                    'Kemampuan riset dan copywriting'
+                ],
+                'benefits' => [
+                    'Flexible working time',
+                    'Work from anywhere',
+                    'Creative freedom',
+                    'Performance based salary',
+                    'Access to premium design tools',
+                    'Networking opportunities'
+                ]
+            ],
+            [
+                'title' => 'Customer Service Representative',
+                'department' => 'Customer Service',
+                'major' => 'Ilmu Komunikasi',
+                'vacancy_type' => 'Full Time',
+                'location' => 'Jakarta',
+                'salary' => 'Rp. 3.500.000 - 5.500.000',
+                'requirements' => [
+                    'Lulusan D3/S1 semua jurusan',
+                    'Fresh graduate atau pengalaman customer service',
+                    'Kemampuan komunikasi yang excellent',
+                    'Sabar, empati, dan problem solving skills',
+                    'Familiar dengan CRM system',
+                    'Shift kerja dan multitasking'
+                ],
+                'benefits' => [
+                    'Gaji pokok + tunjangan shift',
+                    'BPJS Kesehatan dan Ketenagakerjaan',
+                    'Meal allowance',
+                    'Customer service training',
+                    'Performance bonus',
+                    'Career development program'
+                ]
+            ]
         ];
 
-        foreach ($vacancies as $vacancy) {
-            Vacancies::create($vacancy);
+        // Create vacancies
+        foreach ($vacanciesData as $vacancyData) {
+            $department = $departments->where('name', $vacancyData['department'])->first();
+            $major = $majors->where('name', $vacancyData['major'])->first();
+            $vacancyType = $vacancyTypes->where('name', $vacancyData['vacancy_type'])->first();
+            $company = $companies->random(); // Get a random company
+            $questionPack = $questionPacks->random();
+
+            // Fallback if specific department/major/type not found
+            if (!$department) $department = $departments->random();
+            if (!$major) $major = $majors->random();
+            if (!$vacancyType) $vacancyType = $vacancyTypes->random();
+
+            Vacancies::create([
+                'title' => $vacancyData['title'],
+                'department_id' => $department->id,
+                'major_id' => $major->id,
+                'vacancy_type_id' => $vacancyType->id,
+                'location' => $vacancyData['location'],
+                'salary' => $vacancyData['salary'],
+                'requirements' => json_encode($vacancyData['requirements']),
+                'benefits' => json_encode($vacancyData['benefits']),
+                'user_id' => $user->id,
+                'company_id' => $company->id, // Changed from $companies->id to $company->id
+                'question_pack_id' => $questionPack->id,
+            ]);
         }
+
+        $this->command->info('Successfully created ' . count($vacanciesData) . ' vacancies with Indonesian data.');
     }
 }

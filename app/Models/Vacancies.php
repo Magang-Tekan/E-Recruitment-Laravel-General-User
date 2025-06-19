@@ -2,66 +2,103 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Vacancies extends Model
 {
     use HasFactory;
-
+    
+    // Explicitly set the table name to ensure consistency
+    protected $table = 'vacancies';
+    
     protected $fillable = [
-        'title',
-        'location',
-        'type_id',
+        'user_id',
         'company_id',
+        'title',
         'department_id',
         'major_id',
+        'vacancy_type_id',
+        'location',
+        'salary',
         'requirements',
-        'job_description',
         'benefits',
-        'user_id',
+        'question_pack_id'
     ];
     
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'requirements' => 'array',
         'benefits' => 'array',
     ];
+    
+    /**
+     * Get the periods associated with this vacancy.
+     */
+    public function periods()
+    {
+        return $this->belongsToMany(Periods::class, 'vacancy_periods', 'vacancy_id', 'period_id');
+    }
 
     /**
-     * Relasi ke perusahaan
+     * Get the company associated with this vacancy.
      */
     public function company()
     {
-        return $this->belongsTo(Companies::class, 'company_id');
+        return $this->belongsTo(Company::class);
     }
-
+    
     /**
-     * Relasi ke tipe pekerjaan
+     * Get the question pack associated with this vacancy.
      */
-    public function jobType()
+    public function questionPack()
     {
-        return $this->belongsTo(JobTypes::class, 'type_id');
+        return $this->belongsTo(QuestionPack::class);
     }
-
+    
     /**
-     * Relasi ke departemen
+     * Get the applicants associated with this vacancy through the vacancy_period table.
      */
-    public function department()
+    public function applicants()
     {
-        return $this->belongsTo(Department::class, 'department_id');
+        return $this->hasManyThrough(
+            Applicant::class,
+            VacancyPeriods::class,
+            'vacancy_id', // Foreign key on vacancy_periods table
+            'vacancy_period_id', // Foreign key on applicants table
+            'id', // Local key on vacancies table
+            'id' // Local key on vacancy_periods table
+        );
     }
 
     /**
-     * Relasi ke jurusan
+     * Get the user who created this vacancy.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+    
+    /**
+     * Get the department associated with this vacancy.
+     */
+    public function departement()
+    {
+        return $this->belongsTo(Departement::class, 'department_id');
+    }
+    
+    /**
+     * Get the major associated with this vacancy.
      */
     public function major()
     {
         return $this->belongsTo(MasterMajor::class, 'major_id');
+    }
+    
+    /**
+     * Get the vacancy type associated with this vacancy.
+     */
+    public function vacancyType()
+    {
+        return $this->belongsTo(VacancyType::class, 'vacancy_type_id');
     }
 }

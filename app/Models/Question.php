@@ -13,8 +13,7 @@ class Question extends Model
 
     protected $fillable = [
         'question_text',
-        'question_type',
-        'options'
+        'question_type'
     ];
 
     /**
@@ -22,7 +21,7 @@ class Question extends Model
      */
     public function questionPacks(): BelongsToMany
     {
-        return $this->belongsToMany(QuestionPacks::class, 'pack_question', 'question_id', 'question_pack_id');
+        return $this->belongsToMany(QuestionPack::class, 'pack_question', 'question_id', 'question_pack_id');
     }
 
     /**
@@ -34,9 +33,9 @@ class Question extends Model
     }
 
     /**
-    * Get the correct choice for this question.
+     * Get the correct choice for this question.
      */
-    public function correctChoices(): HasMany
+    public function correctChoice()
     {
         return $this->choices()->where('is_correct', true)->first();
     }

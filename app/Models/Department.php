@@ -2,31 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Vacancies;
+use Illuminate\Database\Eloquent\Model;
 
-class Department extends Model
+class Department extends Model  // Changed from Departement to Department
 {
     use HasFactory;
-    protected $table = 'department';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<string>
-     */
     protected $fillable = [
         'name',
     ];
 
-    /**
-     * Get the vacancies associated with the department.
-     */
-    public function vacancies(): HasMany
+    public function vacancies()
     {
-        return $this->hasMany(Vacancies::class);
+        return $this->hasMany(Vacancies::class, 'department_id');
     }
-
 }

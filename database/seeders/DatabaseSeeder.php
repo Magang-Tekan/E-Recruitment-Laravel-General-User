@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Vacancies;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,29 +12,40 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            // Core data - hapus DatabaseSeeder dari sini
             UserSeeder::class,
-            MasterMajorSeeder::class,
-            CandidatesProfilesSeeder::class,
-            CandidatesWorkExperiencesSeeder::class,
-            CandidatesOrganizationsSeeder::class,
-            CandidatesAchievementsSeeder::class,
-            CandidatesSocialMediaSeeder::class,
             SuperAdminSeeder::class,
-            DepartmentsTableSeeder::class,
-            SelectionSeeder::class,
-            CompaniesTableSeeder::class,
-            VacanciesTypesTableSeeder::class,
-            CandidatesEducationSeeder::class,
-            SelectionSeeder::class,
-            PeriodsSeeder::class,
+            
+            // Company related
+            CompaniesSeeder::class,
+            DepartmentsSeeder::class,
+            ContactsSeeder::class,
+            
+            // Vacancy related
+            VacanciesTypesSeeder::class,
             VacanciesSeeder::class,
-            VacanciesPeriodsSeeder::class,
+            PeriodsSeeder::class,
+           
+            
+            
+            // Candidate related
+            CandidatesAchievementsSeeder::class,
+            CandidatesEducationSeeder::class,
+            CandidatesOrganizationsSeeder::class,
+            CandidatesProfilesSeeder::class,
+            CandidatesSocialMediaSeeder::class,
+            CandidatesWorkExperiencesSeeder::class,
+            
+            // Application related
             ApplicationsSeeder::class,
-            InterviewsSeeder::class,
             ApplicationHistorySeeder::class,
-            JobSeeder::class,
+            
+            // Question related
+            QuestionPackSeeder::class,
             QuestionSeeder::class,
-            ChoiceSeeder::class,
+            
+            // Master data
+            MasterMajorSeeder::class,
         ]);
     }
 }

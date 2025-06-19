@@ -2,29 +2,39 @@
 
 namespace Database\Seeders;
 
+use App\Models\Applications;
+use App\Models\User;
+use App\Models\VacancyPeriods;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class ApplicationsSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('applications')->insert([
-            [
-                // Corrected column name to match migration: vacancies_period_id (singular)
-                'user_id' => 2,
-                'vacancies_period_id' => 2,
-                'created_at' => Carbon::now()->subDays(1),
-                'updated_at' => Carbon::now()->subDays(1),
-            ],
-            [
-                // Corrected column name to match migration: vacancies_period_id (singular)
-                'user_id' => 3,
-                'vacancies_period_id' => 2,
-                'created_at' => Carbon::now()->subDays(1),
-                'updated_at' => Carbon::now()->subDays(1),
-            ],
-        ]);
+        // Get required data
+        $users = User::where('role', 'candidate')->take(5)->get();
+        $vacancyPeriods = VacancyPeriods::all();
+
+        if ($users->isEmpty() || $vacancyPeriods->isEmpty()) {
+            $this->command->error('Missing required data. Please seed users and vacancy periods first.');
+            return;
+        }
+
+        foreach ($users as $user) {
+            // Each user applies to 1-2 vacancies
+            $selectedVacancyPeriods = $vacancyPeriods->random(rand(1, 2));
+
+            foreach ($selectedVacancyPeriods as $vacancyPeriod) {
+                Applications::create([
+                    'user_id' => $user->id,
+                    'vacancy_period_id' => $vacancyPeriod->id,
+                    'resume_path' => 'resumes/user_' . $user->id . '_resume.pdf',
+                    'cover_letter_path' => 'cover_letters/user_' . $user->id . '_cover.pdf',
+                    'status_id' => 1, // Assuming 1 is 'Applied' or initial status
+                ]);
+            }
+        }
+
+        $this->command->info('Applications seeded successfully.');
     }
 }

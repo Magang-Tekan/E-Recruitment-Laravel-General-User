@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->text('question_text');
             $table->string('question_type');
-            $table->json('options')->nullable();
             $table->timestamps();
         });
     }

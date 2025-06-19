@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Companies;
 
-class CompaniesTableSeeder extends Seeder
+class CompaniesSeeder extends Seeder
 {
     public function run(): void
     {

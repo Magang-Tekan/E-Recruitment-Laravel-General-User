@@ -3,53 +3,30 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Applications extends Model
 {
     protected $fillable = [
         'user_id',
-        'vacancies_period_id',
+        'vacancy_period_id',
         'resume_path',
         'cover_letter_path',
+        'status_id',
     ];
 
-    /**
-     * Relasi ke user
-     */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Relasi ke lowongan
-     */
-    public function vacancyPeriod()
+    public function vacancyPeriod(): BelongsTo
     {
-        return $this->belongsTo(VacanciesPeriods::class, 'vacancies_period_id');
+        return $this->belongsTo(VacancyPeriods::class);
     }
 
-    /**
-     * Relasi ke lowongan (alias)
-     */
-    public function job()
+    public function status(): BelongsTo
     {
-        return $this->belongsTo(Vacancies::class, 'vacancies_id');
-    }
-
-    /**
-     * Relasi ke riwayat aplikasi - untuk mendapatkan informasi seleksi
-     */
-    public function history()
-    {
-        return $this->hasMany(ApplicationsHistory::class, 'application_id');
-    }
-
-    /**
-     * Method untuk mendapatkan seleksi terbaru
-     */
-    public function currentSelection()
-    {
-        return $this->history()->latest()->first()?->selection;
+        return $this->belongsTo(Status::class);
     }
 }
