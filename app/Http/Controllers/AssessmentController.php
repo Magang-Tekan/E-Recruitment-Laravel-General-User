@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Assessment;
+use App\Models\QuestionPacks;
 use App\Models\Question;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,11 +27,13 @@ class AssessmentController extends Controller
 
             DB::beginTransaction();
 
-            $assessment = Assessment::create([
-                'title' => $validated['title'],
+            $questionPack = QuestionPacks::create([
+                'pack_name' => $validated['title'],
                 'description' => $validated['description'],
                 'test_type' => $validated['test_type'],
                 'duration' => $validated['duration'],
+                'user_id' => auth()->id(),
+                'status' => 'active',
             ]);
 
             foreach ($validated['questions'] as $questionData) {
@@ -39,8 +41,8 @@ class AssessmentController extends Controller
 
                 if (count($options) >= 2) {
                     $questionAttributes = [
-                        'assessment_id' => $assessment->id,
                         'question_text' => $questionData['question'],
+                        'question_type' => 'multiple_choice',
                         'options' => $options,
                     ];
 
@@ -48,24 +50,27 @@ class AssessmentController extends Controller
                         $questionAttributes['correct_answer'] = $questionData['correct_answer'];
                     }
 
-                    Question::create($questionAttributes);
+                    $question = Question::create($questionAttributes);
+
+                    // Attach the question to the question pack
+                    $questionPack->questions()->attach($question->id);
                 }
             }
 
             DB::commit();
 
             return redirect()->route('admin.questions.info')
-                ->with('success', 'Assessment created successfully with '.count($validated['questions']).' questions');
+                ->with('success', 'Question Pack created successfully with '.count($validated['questions']).' questions');
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
 
             return redirect()->back()->withErrors($e->validator)->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating assessment: '.$e->getMessage());
+            Log::error('Error creating question pack: '.$e->getMessage());
 
             return redirect()->back()->withInput()
-                ->with('error', 'Failed to save assessment: '.$e->getMessage());
+                ->with('error', 'Failed to save question pack: '.$e->getMessage());
         }
     }
 }

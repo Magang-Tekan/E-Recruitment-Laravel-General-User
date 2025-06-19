@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Assessment;
+use App\Models\QuestionPacks;
 use App\Models\Question;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,10 +13,10 @@ class QuestionController extends Controller
 {
     public function store()
     {
-        $assessments = Assessment::withCount('questions')->get();
+        $questionPacks = QuestionPacks::withCount('questions')->get();
 
         return Inertia::render('admin/questions/question-management', [
-            'tests' => $assessments,
+            'tests' => $questionPacks,
         ]);
     }
 
@@ -25,23 +25,23 @@ class QuestionController extends Controller
         return Inertia::render('admin/questions/add-questions');
     }
 
-    public function edit(Assessment $assessment)
+    public function edit(QuestionPacks $questionPack)
     {
-        $assessment->load('questions');
-        Log::info('Assessment questions: '.$assessment->questions);
+        $questionPack->load('questions');
+        Log::info('Question pack questions: '.$questionPack->questions);
 
         return Inertia::render('admin/questions/edit-questions', [
-            'assessment' => $assessment,
+            'assessment' => $questionPack,
         ]);
     }
 
-    public function update(Request $request, Assessment $assessment)
+    public function update(Request $request, QuestionPacks $questionPack)
     {
         try {
             DB::beginTransaction();
 
-            $assessment->update([
-                'title' => $request->title,
+            $questionPack->update([
+                'pack_name' => $request->title,
                 'description' => $request->description,
                 'test_type' => $request->test_type,
                 'duration' => $request->duration,
@@ -49,36 +49,39 @@ class QuestionController extends Controller
 
             $questions = json_decode($request->questions, true);
 
-            $assessment->questions()->delete();
+            // Detach all questions from this question pack
+            $questionPack->questions()->detach();
 
             foreach ($questions as $questionData) {
                 if (! empty($questionData['options'])) {
-                    Question::create([
-                        'assessment_id' => $assessment->id,
+                    $question = Question::create([
                         'question_text' => $questionData['question_text'],
                         'options' => $questionData['options'],
                     ]);
+
+                    // Attach the question to the question pack
+                    $questionPack->questions()->attach($question->id);
                 }
             }
 
             DB::commit();
 
             return redirect()->route('admin.questions.info')
-                ->with('success', 'Assessment updated successfully');
+                ->with('success', 'Question pack updated successfully');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Update failed: '.$e->getMessage());
 
-            return back()->with('error', 'Failed to update assessment');
+            return back()->with('error', 'Failed to update question pack');
         }
     }
 
     public function index()
     {
-        $assessments = Assessment::withCount('questions')->get();
+        $questionPacks = QuestionPacks::withCount('questions')->get();
 
         return Inertia::render('admin/questions/question-management', [
-            'tests' => $assessments,
+            'tests' => $questionPacks,
         ]);
     }
 }

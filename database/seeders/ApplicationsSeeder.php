@@ -12,18 +12,16 @@ class ApplicationsSeeder extends Seeder
     {
         DB::table('applications')->insert([
             [
-                // Removed 'id' field to let auto-increment handle it
+                // Corrected column name to match migration: vacancies_period_id (singular)
                 'user_id' => 2,
-                'vacancies_id' => 2,
-                'selection_id' => 1,
+                'vacancies_period_id' => 2,
                 'created_at' => Carbon::now()->subDays(1),
                 'updated_at' => Carbon::now()->subDays(1),
             ],
             [
-                // Removed 'id' field to let auto-increment handle it
+                // Corrected column name to match migration: vacancies_period_id (singular)
                 'user_id' => 3,
-                'vacancies_id' => 2,
-                'selection_id' => 1,
+                'vacancies_period_id' => 2,
                 'created_at' => Carbon::now()->subDays(1),
                 'updated_at' => Carbon::now()->subDays(1),
             ],

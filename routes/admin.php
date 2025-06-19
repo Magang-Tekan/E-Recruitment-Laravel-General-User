@@ -1,11 +1,9 @@
     <?php
 
 use App\Enums\UserRole;
-use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacanciesController;
-use App\Models\Assessment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -64,18 +62,18 @@ Route::middleware(['auth', 'verified', 'role:'.UserRole::HR->value])
             ->group(function () {
                 Route::get('/', [QuestionController::class, 'store'])->name('info');
                 Route::get('/add-questions', [QuestionController::class, 'create'])->name('create');
-                Route::get('/edit/{assessment}', [QuestionController::class, 'edit'])->name('edit');
-                Route::post('/', [AssessmentController::class, 'store'])->name('store');
-                Route::put('/{assessment}', [QuestionController::class, 'update'])->name('update');
+                Route::get('/edit/{questionPack}', [QuestionController::class, 'edit'])->name('edit');
+                Route::post('/', [QuestionController::class, 'store'])->name('store');
+                Route::put('/{questionPack}', [QuestionController::class, 'update'])->name('update');
                 Route::delete('/{question}', [QuestionController::class, 'destroy'])->name('remove');
 
-                // Route::post('/debug-update/{assessment}', function(Request $request, Assessment $assessment) {
-                //     Log::info('Debug update received for assessment: ' . $assessment->id, [
+                // Route::post('/debug-update/{questionPack}', function(Request $request, QuestionPacks $questionPack) {
+                //     Log::info('Debug update received for question pack: ' . $questionPack->id, [
                 //         'request' => $request->all()
                 //     ]);
                 //     return response()->json([
                 //         'status' => 'received',
-                //         'assessment_id' => $assessment->id,
+                //         'question_pack_id' => $questionPack->id,
                 //         'data' => $request->all()
                 //     ]);
                 // })->name('debug.update');

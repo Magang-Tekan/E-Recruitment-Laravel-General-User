@@ -8,14 +8,19 @@ class CreateApplicationsTable extends Migration
 {
     public function up()
     {
+        // Hapus tabel jika sudah ada
+        Schema::dropIfExists('applications');
+
+        // Buat tabel tanpa kolom selection_id
         Schema::create('applications', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('vacancies_id')->constrained('vacancies')->onDelete('cascade');
-            $table->foreignId('selection_id')->constrained('selection')->onDelete('cascade');
-            $table->timestamps();     });
+            $table->foreignId('vacancies_period_id')->constrained('vacancies_periods')->onDelete('cascade');
+            $table->string('resume_path')->nullable();
+            $table->string('cover_letter_path')->nullable();
+            $table->timestamps();
+        });
     }
-
 
     public function down()
     {

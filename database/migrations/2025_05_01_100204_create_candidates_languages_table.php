@@ -4,14 +4,14 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateSkillsTable extends Migration
+class CreateCandidatesLanguagesTable extends Migration
 {
     public function up()
     {
-        Schema::create('skills', function (Blueprint $table) {
+        Schema::create('candidates_languages', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // Tambahkan user_id
-            $table->string('skill_name');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->string('language_name');
             $table->string('certificate_file')->nullable(); // kolom untuk upload file sertifikat
             $table->timestamps();
         });
@@ -19,6 +19,6 @@ class CreateSkillsTable extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('skills');
+        Schema::dropIfExists('candidates_languages');
     }
 }

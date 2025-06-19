@@ -17,8 +17,8 @@ return new class extends Migration
                       ->after('id');
             }
 
-            if (!Schema::hasColumn('vacancies', 'job_type_id')) {
-                $table->foreignId('job_type_id')
+            if (!Schema::hasColumn('vacancies', 'vacancies_type_id')) {
+                $table->foreignId('vacancies_type_id')
                       ->nullable()
                       ->constrained()
                       ->onDelete('cascade')
