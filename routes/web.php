@@ -13,9 +13,9 @@ use App\Models\AboutUs;
 use App\Http\Controllers\ContactsController;
 use App\Http\Controllers\PersonalDataController;
 use App\Http\Controllers\AboutUsController;
+use App\Http\Controllers\WelcomeController;
 
-Route::get('/', [VacanciesController::class, 'index'])->name('home');
-// Updated to use the same controller method as candidate/jobs
+Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
 Route::get('/job-hiring', [JobsController::class, 'index'])->name('job-hiring');
 Route::get('/job-hiring-landing-page', [VacanciesController::class, 'getVacanciesLandingPage'])->name('job-hiring-landing-page');
 Route::get('/job-detail/{id}', [VacanciesController::class, 'show'])->name('job.detail');

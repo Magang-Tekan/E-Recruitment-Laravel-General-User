@@ -36,7 +36,8 @@ class Vacancies extends Model
      */
     public function periods()
     {
-        return $this->belongsToMany(Periods::class, 'vacancy_periods', 'vacancy_id', 'period_id');
+        return $this->belongsToMany(Periods::class, 'vacancy_periods', 'vacancy_id', 'period_id')
+                    ->withTimestamps();
     }
 
     /**
@@ -81,9 +82,9 @@ class Vacancies extends Model
     /**
      * Get the department associated with this vacancy.
      */
-    public function departement()
+    public function department()
     {
-        return $this->belongsTo(Departement::class, 'department_id');
+        return $this->belongsTo(Department::class, 'department_id');
     }
     
     /**
@@ -100,5 +101,26 @@ class Vacancies extends Model
     public function vacancyType()
     {
         return $this->belongsTo(VacancyType::class, 'vacancy_type_id');
+    }
+    
+    /**
+     * Get the active end time from periods
+     */
+    public function getActiveEndTimeAttribute()
+    {
+        $periodWithEndTime = $this->periods()
+            ->orderBy('end_time', 'desc')  // Changed to match migration column name
+            ->first();
+
+        return $periodWithEndTime ? $periodWithEndTime->end_time : null;  // Changed to match migration column name
+    }
+
+    /**
+     * Check if the vacancy is expired
+     */
+    public function isExpired()
+    {
+        $endTime = $this->getActiveEndTimeAttribute();
+        return $endTime ? now()->gt($endTime) : true;
     }
 }

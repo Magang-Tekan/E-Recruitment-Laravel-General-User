@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             VacanciesTypesSeeder::class,
             VacanciesSeeder::class,
             PeriodsSeeder::class,
+            vacancyPeriodsSeeder::class,
            
             
             
