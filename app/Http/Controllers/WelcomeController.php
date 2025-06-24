@@ -13,7 +13,8 @@ class WelcomeController extends Controller
     public function index()
     {
         try {
-            $companies = Company::select('id', 'name', 'description', 'logo')
+            // Get all companies for the main content
+            $allCompanies = Company::select('id', 'name', 'description', 'logo')
                 ->orderBy('id')
                 ->get()
                 ->map(function($company) {
@@ -25,10 +26,28 @@ class WelcomeController extends Controller
                     ];
                 });
 
+            // Get companies with ID 2 for the footer first column
+            $mainCompany = Company::select('id', 'name', 'description')
+                ->where('id', 2)
+                ->first();
+
+            // Get only companies with ID 2 and 3 for footer
+            $footerCompanies = Company::select('id', 'name')
+                ->whereIn('id', [2, 3])
+                ->get()
+                ->map(function($company) {
+                    return [
+                        'id' => $company->id,
+                        'name' => $company->name
+                    ];
+                });
+
             $contacts = Contacts::select('email', 'phone', 'address')->first();
 
             return Inertia::render('welcome', [
-                'companies' => $companies,
+                'companies' => $allCompanies,
+                'mainCompany' => $mainCompany,
+                'footerCompanies' => $footerCompanies,
                 'vacancies' => Vacancies::with('company:id,name')
                     ->latest()
                     ->take(6)
@@ -40,6 +59,7 @@ class WelcomeController extends Controller
             Log::error('Error in WelcomeController: ' . $e->getMessage());
             return Inertia::render('welcome', [
                 'companies' => [],
+                'footerCompanies' => [],
                 'vacancies' => [],
                 'contacts' => null
             ]);

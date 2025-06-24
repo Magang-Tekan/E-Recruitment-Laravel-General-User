@@ -227,19 +227,13 @@ const CustomProfileHeader = ({ name, email }: { name: string; email: string }) =
                     {open && (
                         <div className="absolute right-0 mt-2 w-48 bg-white border-2 border-dashed border-gray-400 rounded shadow-lg z-50">
                             <button
-                                onClick={() => router.visit('/candidate/dashboard')} // Ubah path ke /candidate/dashboard
+                                onClick={() => router.visit('/')} 
                                 className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700"
                             >
-                                Dasbor
+                                Beranda
                             </button>
                             <button
-                                onClick={() => router.visit('/profile')}
-                                className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700"
-                            >
-                                Profil
-                            </button>
-                            <button
-                                onClick={() => router.visit('/candidate/jobs')}
+                                onClick={() => router.visit('/job-hiring-landing-page')}
                                 className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700"
                             >
                                 Lowongan Pekerjaan

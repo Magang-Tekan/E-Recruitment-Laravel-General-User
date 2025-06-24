@@ -15,6 +15,14 @@ class CompaniesSeeder extends Seeder
         Company::truncate();
 
         Company::create([
+            'id' => 1,
+            'name' => 'MITRA KARYA GROUP',
+            'description' => 'Mitra Karya Group adalah perusahaan yang bergerak di bidang teknologi dan layanan inovatif, berkomitmen untuk memberikan solusi terbaik bagi pelanggan di seluruh Indonesia.
+
+Kami percaya pada pentingnya inovasi, kualitas sumber daya manusia, dan kontribusi terhadap kemajuan teknologi untuk menciptakan nilai tambah bagi masyarakat dan mitra bisnis kami.'
+        ]);
+
+        Company::create([
             'name' => 'PT MITRA KARYA ANALITIKA',
             'description' => 'Bergerak dibidang Distribusi Kebutuhan Laboratorium, Cleanroom, Water and Waste Water Treatment Plant.',
             'logo' => 'companies/mitra-logo.png',

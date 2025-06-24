@@ -41,7 +41,20 @@ interface AboutUsData {
 }
 
 interface AboutUsProps {
-    aboutUs: AboutUsData[];
+    aboutUsData: {
+        vision: string;
+        mission: string;
+    } | null;
+    companies: {
+        id: number;
+        name: string;
+        description: string;
+    }[];
+    contacts: {
+        email: string;
+        phone: string;
+        address: string;
+    } | null;
 }
 
 const scrollToSection = (id: string) => {
@@ -107,11 +120,8 @@ const CompanySlider: React.FC<CompanySliderProps> = ({ title, description, image
     );
 };
 
-export default function AboutUs(props: AboutUsProps) {
+export default function AboutUs({ aboutUsData, companies, contacts }: AboutUsProps) {
     const { auth } = usePage<{ auth: { user: unknown } }>().props;
-
-    // Add default values and null checks
-    const aboutUsData = props.aboutUs && props.aboutUs.length > 0 ? props.aboutUs[0] : null;
 
     return (
         <>
@@ -180,116 +190,160 @@ export default function AboutUs(props: AboutUsProps) {
                     ) : (
                         <div className="mb-8">
                             <h2 className="text-2xl font-bold mb-2">Visi</h2>
-                            <p className="mb-4">Menjadi perusahaan teknologi terkemuka yang memberikan solusi inovatif.</p>
+                            <p className="mb-4">Loading vision...</p>
                             <h2 className="text-2xl font-bold mb-2">Misi</h2>
-                            <p>Mengembangkan teknologi yang bermanfaat bagi masyarakat dan memberikan layanan terbaik.</p>
+                            <p>Loading mission...</p>
                         </div>
                     )}
                 </div>
             </section>
 
-            {/* Company Profile Section */}
-            <section className="bg-blue-50 px-6 py-12">
-                <div className="container mx-auto flex flex-col items-center gap-10 md:flex-row">
-                    <div className="relative w-full md:w-1/2">
-                        <img src="/images/11.PNG" alt="Video Thumbnail" className="h-72 w-full rounded-lg object-cover shadow-md" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-2xl font-bold text-white shadow-lg">
-                                ▶
-                            </div>
-                        </div>
-                    </div>
-                    <div className="mt-8 w-full text-center md:mt-0 md:w-1/2 md:text-left">
-                        <h2 className="mb-4 text-2xl font-bold text-gray-800">Company Profile</h2>
-                        <p className="leading-relaxed text-gray-700">
-                            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer eleifend, lectus quis pellentesque dapibus. Lorem ipsum
-                            dolor sit amet, consectetur adipiscing elit. Integer eleifend, lectus quis pellentesque dapibus. Lorem ipsum dolor sit
-                            amet, consectetur adipiscing elit. Integer eleifend, lectus quis pellentesque dapibus. Lorem ipsum dolor sit amet,
-                            consectetur adipiscing elit. Integer eleifend, lectus quis pellentesque dapibus.
-                        </p>
-                    </div>
-                </div>
-            </section>
-
             {/* Slider Section */}
-            <CompanySlider
-                title="PT MITRA KARYA ANALITIKA"
-                description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer eleifend, lectus quis pellentesque dapibus."
-                images={['/images/1.PNG', '/images/13.PNG', '/images/12.PNG', '/images/14.PNG', '/images/15.PNG']}
-                infoLink="https://mikacares.co.id/"
-            />
-            <CompanySlider
-                title="PT AUTENTIK KARYA ANALITIKA"
-                description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer eleifend, lectus quis pellentesque dapibus."
-                images={['/images/1.PNG', '/images/13.PNG', '/images/12.PNG', '/images/14.PNG', '/images/15.PNG']}
-                infoLink="https://autentik.co.id/"
-            />
+            {companies.map(company => (
+                <CompanySlider
+                    key={company.id}
+                    title={company.name}
+                    description={company.description}
+                    images={['/images/1.PNG', '/images/13.PNG', '/images/12.PNG', '/images/14.PNG', '/images/15.PNG']}
+                    infoLink={company.id === 2 ? "https://mikacares.co.id/" : "https://autentik.co.id/"}
+                />
+            ))}
+
             {/* Footer */}
             <footer className="bg-[#f6fafe] py-16">
-                    <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
-                        {/* Kolom 1 */}
-                        <div>
-                            <h4 className="mb-2 text-[16px] font-bold text-gray-800">MITRA KARYA GROUP</h4>
-                            <p className="mb-6 text-sm text-gray-700">
-                                Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan
-                                pelanggan
-                            </p>
-                            <div className="flex space-x-4 text-xl text-blue-600">
-                                <a href="#">
-                                    <i className="fab fa-instagram"></i>
-                                </a>
-                                <a href="#">
-                                    <i className="fab fa-x"></i>
-                                </a>
-                                <a href="#">
-                                    <i className="fab fa-linkedin-in"></i>
-                                </a>
-                                <a href="#">
-                                    <i className="fab fa-youtube"></i>
-                                </a>
-                                <a href="#">
-                                    <i className="fab fa-whatsapp"></i>
-                                </a>
-                            </div>
-                        </div>
+    <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
+        {/* Kolom 1 */}
+        <div>
+            {companies && companies.length > 0 ? (
+                <>
+                    <h4 className="mb-2 text-[16px] font-bold text-gray-900">{companies[0].name}</h4>
+                    <p className="mb-6 text-sm text-gray-700">
+                        {companies[0].description}
+                    </p>
+                </>
+            ) : (
+                <>
+                    <h4 className="mb-2 text-[16px] font-bold text-gray-900">MITRA KARYA GROUP</h4>
+                    <p className="mb-6 text-sm text-gray-700">
+                        Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
+                    </p>
+                </>
+            )}
+            {/* Social Media Icons */}
+            <div className="flex space-x-6 text-xl text-blue-600">
+                {/* Instagram - Dropup untuk dua akun */}
+                <div className="relative group">
+                    <a href="#" className="group-hover:text-blue-800">
+                        <i className="fab fa-instagram"></i>
+                    </a>
+                    <div className="absolute bottom-full left-0 mb-1 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-40">
+                        <a 
+                            href="https://www.instagram.com/mikacares.id" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                        >
+                            @mikacares.id
+                        </a>
+                        <a 
+                            href="https://www.instagram.com/autentik.co.id" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                        >
+                            @autentik.co.id
+                        </a>
+                    </div>
+                </div>
 
-                        {/* Kolom 2 */}
-                        <div>
-                            <h4 className="mb-2 text-[16px] font-bold text-gray-800">Perusahaan Kami</h4>
-                            <ul className="space-y-1 text-sm text-gray-700">
-                                <li>PT MITRA KARYA ANALITIKA</li>
-                                <li>PT AUTENTIK KARYA ANALITIKA</li>
-                            </ul>
-                        </div>
-
-                        {/* Kolom 3 */}
-                        <div>
-                            <h4 className="mb-4 text-[16px] font-bold text-gray-800">Contact</h4>
-                            <ul className="space-y-2 text-sm text-gray-700">
-                                <li className="flex items-start gap-2">
-                                    <i className="fas fa-phone mt-1 text-blue-600" />
-                                    <div>
-                                        Rudy Alfiansyah: 082137384029
-                                        <br />
-                                        Deden Dermawan: 081807700111
-                                    </div>
-                                </li>
-                                <li className="flex items-center gap-2">
-                                    <i className="fas fa-envelope text-blue-600" />
-                                    <span>autentik.info@gmail.com</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
-                                    <span>
-                                        Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo,
-                                        <br />
-                                        Kec. Tembalang, Kota Semarang, Jawa Tengah 50272
-                                    </span>
-                                </li>
-                            </ul>
+                {/* LinkedIn - Dropup untuk dua perusahaan */}
+                <div className="relative group">
+                    <a href="#" className="group-hover:text-blue-800">
+                        <i className="fab fa-linkedin-in"></i>
+                    </a>
+                    <div className="absolute bottom-8 left-0 mb-1 bg-white shadow-lg rounded-lg p-3 hidden group-hover:block z-50 w-72">
+                        <div className="flex flex-col gap-3">
+                            <a 
+                                href="https://www.linkedin.com/company/pt-mitra-karya-analitika" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                            >
+                                <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium">PT Mitra Karya Analitika</span>
+                                    <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
+                                </div>
+                            </a>
+                            <div className="border-t border-gray-100"></div>
+                            <a 
+                                href="https://www.linkedin.com/company/pt-autentik-karya-analitika" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                            >
+                                <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium">PT Autentik Karya Analitika</span>
+                                    <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
+                                </div>
+                            </a>
                         </div>
                     </div>
-                </footer>
+                </div>
+
+                {/* YouTube */}
+                <a href="https://www.youtube.com/@mikacares" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
+                    <i className="fab fa-youtube"></i>
+                </a>
+
+                {/* WhatsApp */}
+                <a href="https://wa.me/6281770555554" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
+                    <i className="fab fa-whatsapp"></i>
+                </a>
+            </div>
+        </div>
+
+        {/* Kolom 2 */}
+        <div>
+            <h4 className="mb-2 text-[16px] font-bold text-gray-900">Perusahaan Kami</h4>
+            <ul className="space-y-1 text-sm text-gray-700">
+                {companies && companies.length > 0 ? (
+                    companies.map((company) => (
+                        <li key={company.id}>{company.name}</li>
+                    ))
+                ) : (
+                    <li>Tidak ada perusahaan untuk ditampilkan</li>
+                )}
+            </ul>
+        </div>
+
+        {/* Kolom 3 */}
+        <div>
+            <h4 className="mb-4 text-[16px] font-bold text-gray-900">Contact</h4>
+            <ul className="space-y-2 text-sm text-gray-700">
+                {contacts && (
+                    <>
+                        <li className="flex items-start gap-2">
+                            <i className="fas fa-phone mt-1 text-blue-600" />
+                            <div dangerouslySetInnerHTML={{ __html: contacts.phone }} />
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <i className="fas fa-envelope text-blue-600" />
+                            <span>{contacts.email}</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
+                            <span dangerouslySetInnerHTML={{ 
+                                __html: contacts.address.replace(/\n/g, '<br />') 
+                            }} />
+                        </li>
+                    </>
+                )}
+            </ul>
+        </div>
+    </div>
+</footer>
         </>
     );
 }
