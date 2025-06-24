@@ -1,5 +1,5 @@
 import { type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
 import {
     FaEnvelope,
     FaInstagram,
@@ -12,9 +12,26 @@ import {
     FaYoutube,
 } from "react-icons/fa";
 import styled from 'styled-components';
+import Swal from 'sweetalert2';
 
-export default function ContactPage() {
-  const { auth, contacts = [] } = usePage<SharedData>().props as SharedData;
+interface Contact {
+    id: number;
+    email: string;
+    phone: string;
+    address: string;
+}
+
+interface PageProps {
+    contacts: Contact[];
+    companies?: {
+        id: number;
+        name: string;
+        description: string;
+    }[];
+}
+
+export default function ContactPage({ contacts, companies }: PageProps) {
+  const { auth } = usePage<SharedData>().props as SharedData;
 
   const PageWrapper = styled.div`
     background: #fff;
@@ -197,6 +214,29 @@ export default function ContactPage() {
     flex-direction: column;
   `;
 
+  // Add Alert component
+  const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+        <div className={`px-4 py-3 rounded-lg shadow-lg ${
+            type === 'success' ? 'bg-green-100 text-green-700 border border-green-400'
+            : 'bg-red-100 text-red-700 border border-red-400'
+        }`}>
+            <div className="flex items-center">
+                {type === 'success' ? (
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                ) : (
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                )}
+                <span>{message}</span>
+            </div>
+        </div>
+    </div>
+  );
+
   return (
     <>
       <Head title="Kontak" />
@@ -241,7 +281,7 @@ export default function ContactPage() {
             <CardContainer>
               {/* Bubble di kiri */}
               <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                {contacts.length > 0 ? (
+                {contacts && contacts.length > 0 ? (
                   contacts.map((contact: { id: number; email: string; phone: string; address: string }) => (
                     <Card key={contact.id} style={{ width: '100%', maxWidth: 480 }}>
                       <CardIconWrapper>
@@ -309,41 +349,32 @@ export default function ContactPage() {
                 <StyledForm
                   onSubmit={(e) => {
                     e.preventDefault();
-
-                    // Get form values
+                    
                     const form = e.currentTarget;
                     const formData = new FormData(form);
-                    const name = formData.get('name') as string;
-                    const email = formData.get('email') as string;
-                    const message = formData.get('message') as string;
-
-                    // Validate
-                    if (!name || !email || !message) {
-                      alert('Harap isi semua field yang diperlukan');
-                      return;
-                    }
-
-                    // Submit to backend
-                    fetch(route('contact.submit'), {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    
+                    router.post('/contact/submit', {
+                      name: formData.get('name') as string,
+                      email: formData.get('email') as string,
+                      message: formData.get('message') as string,
+                    }, {
+                      onSuccess: () => {
+                        Swal.fire({
+                          icon: 'success',
+                          title: 'Pesan berhasil dikirim!',
+                          showConfirmButton: false,
+                          timer: 1500
+                        });
+                        form.reset();
                       },
-                      body: JSON.stringify({ name, email, message }),
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                      if (data.success) {
-                        alert(data.message);
-                        form.reset();  // Clear form on success
-                      } else {
-                        alert('Terjadi kesalahan. Silakan coba lagi.');
+                      onError: () => {
+                        Swal.fire({
+                          icon: 'error',
+                          title: 'Terjadi kesalahan',
+                          text: 'Silakan coba lagi.',
+                          confirmButtonText: 'Tutup'
+                        });
                       }
-                    })
-                    .catch(error => {
-                      console.error('Error:', error);
-                      alert('Terjadi kesalahan. Silakan coba lagi.');
                     });
                   }}
                 >
@@ -374,74 +405,142 @@ export default function ContactPage() {
           </ContactContainer>
         </PageWrapper>
          {/* Footer */}
-         <footer className="bg-[#f6fafe] py-16 mt-20">
-                    <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
-                        {/* Kolom 1 */}
-                        <div>
-                            <h4 className="mb-2 text-[16px] font-bold">MITRA KARYA GROUP</h4>
-                            <p className="mb-6 text-sm text-gray-700">
-                                Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan
-                                pelanggan
-                            </p>
-                            <div className="flex space-x-4 text-xl text-blue-600">
-                                <a href="#">
-                                    <FaInstagram />
-                                </a>
-                                <a href="#">
-                                    <FaTwitter />
-                                </a>
-                                <a href="#">
-                                    <FaLinkedinIn />
-                                </a>
-                                <a href="#">
-                                    <FaYoutube />
-                                </a>
-                                <a href="#">
-                                    <FaWhatsapp />
-                                </a>
-                            </div>
-                        </div>
+         <footer className="bg-[#f6fafe] py-16">
+    <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
+        {/* Kolom 1 */}
+        <div>
+            {companies && companies.length > 0 ? (
+                <>
+                    <h4 className="mb-2 text-[16px] font-bold text-gray-900">{companies[0].name}</h4>
+                    <p className="mb-6 text-sm text-gray-700">
+                        {companies[0].description}
+                    </p>
+                </>
+            ) : (
+                <>
+                    <h4 className="mb-2 text-[16px] font-bold text-gray-900">MITRA KARYA GROUP</h4>
+                    <p className="mb-6 text-sm text-gray-700">
+                        Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
+                    </p>
+                </>
+            )}
+            {/* Social Media Icons */}
+            <div className="flex space-x-6 text-xl text-blue-600">
+                {/* Instagram - Dropup untuk dua akun */}
+                <div className="relative group">
+                    <a href="#" className="group-hover:text-blue-800">
+                        <i className="fab fa-instagram"></i>
+                    </a>
+                    <div className="absolute bottom-full left-0 mb-1 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-40">
+                        <a 
+                            href="https://www.instagram.com/mikacares.id" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                        >
+                            @mikacares.id
+                        </a>
+                        <a 
+                            href="https://www.instagram.com/autentik.co.id" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                        >
+                            @autentik.co.id
+                        </a>
+                    </div>
+                </div>
 
-                        {/* Kolom 2 */}
-                        <div>
-                            <h4 className="mb-2 text-[16px] font-bold">Perusahaan Kami</h4>
-                            <ul className="space-y-1 text-sm text-gray-700">
-                                <li>PT MITRA KARYA ANALITIKA</li>
-                                <li>PT AUTENTIK KARYA ANALITIKA</li>
-                            </ul>
-                        </div>
-
-                        {/* Kolom 3 */}
-                        <div>
-                            <h4 className="mb-4 text-[16px] font-bold">Contact</h4>
-                            <ul className="space-y-2 text-sm text-gray-700">
-                                <li className="flex items-start gap-2">
-                                    <FaPhoneAlt className="mt-1 text-blue-600" />
-                                    <div>
-                                        Rudy Alfiansyah: <a href="tel:082137384029" className="text-blue-600 hover:underline">082137384029</a>
-                                        <br />
-                                        Deden Dermawan: <a href="tel:081807700111" className="text-blue-600 hover:underline">081807700111</a>
-                                    </div>
-                                </li>
-                                <li className="flex items-center gap-2">
-                                    <FaEnvelope className="text-blue-600" />
-                                    <a href="mailto:autentik.info@gmail.com" className="hover:underline">autentik.info@gmail.com</a>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <FaMapMarkerAlt className="mt-1 text-blue-600" />
-                                    <a href="https://maps.app.goo.gl/5PPfwMiAQQs6HbW37"
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       className="hover:underline">
-                                        Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo,
-                                        <br />
-                                        Kec. Tembalang, Kota Semarang, Jawa Tengah 50272
-                                    </a>
-                                </li>
-                            </ul>
+                {/* LinkedIn - Dropup untuk dua perusahaan */}
+                <div className="relative group">
+                    <a href="#" className="group-hover:text-blue-800">
+                        <i className="fab fa-linkedin-in"></i>
+                    </a>
+                    <div className="absolute bottom-8 left-0 mb-1 bg-white shadow-lg rounded-lg p-3 hidden group-hover:block z-50 w-72">
+                        <div className="flex flex-col gap-3">
+                            <a 
+                                href="https://www.linkedin.com/company/pt-mitra-karya-analitika" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                            >
+                                <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium">PT Mitra Karya Analitika</span>
+                                    <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
+                                </div>
+                            </a>
+                            <div className="border-t border-gray-100"></div>
+                            <a 
+                                href="https://www.linkedin.com/company/pt-autentik-karya-analitika" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                            >
+                                <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium">PT Autentik Karya Analitika</span>
+                                    <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
+                                </div>
+                            </a>
                         </div>
                     </div>
-                </footer>
+                </div>
+
+                {/* YouTube */}
+                <a href="https://www.youtube.com/@mikacares" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
+                    <i className="fab fa-youtube"></i>
+                </a>
+
+                {/* WhatsApp */}
+                <a href="https://wa.me/6281770555554" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
+                    <i className="fab fa-whatsapp"></i>
+                </a>
+            </div>
+        </div>
+
+        {/* Kolom 2 */}
+        <div>
+            <h4 className="mb-2 text-[16px] font-bold text-gray-900">Perusahaan Kami</h4>
+            <ul className="space-y-1 text-sm text-gray-700">
+                {companies && companies.length > 0 ? (
+                    companies.map((company) => (
+                        <li key={company.id}>{company.name}</li>
+                    ))
+                ) : (
+                    <li>Tidak ada perusahaan untuk ditampilkan</li>
+                )}
+            </ul>
+        </div>
+
+        {/* Kolom 3 */}
+        <div>
+            <h4 className="mb-4 text-[16px] font-bold text-gray-900">Contact</h4>
+            <ul className="space-y-2 text-sm text-gray-700">
+                <li className="flex items-start gap-2">
+                    <i className="fas fa-phone mt-1 text-blue-600" />
+                    <div>
+                        Rudy Alfiansyah: 082137384029
+                        <br />
+                        Deden Dermawan: 081807700111
+                    </div>
+                </li>
+                <li className="flex items-center gap-2">
+                    <i className="fas fa-envelope text-blue-600" />
+                    <span>autentik.info@gmail.com</span>
+                </li>
+                <li className="flex items-start gap-2">
+                    <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
+                    <span>
+                        Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo,
+                        <br />
+                        Kec. Tembalang, Kota Semarang, Jawa Tengah 50272
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</footer>
       </div>
     </>
   );

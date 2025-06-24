@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Company extends Model
 {
@@ -20,29 +20,13 @@ class Company extends Model
     ];
 
     /**
-     * Get all vacancies for the company
-     */
-    public function vacancies(): HasMany
-    {
-        return $this->hasMany(Vacancies::class);
-    }
-
-    /**
      * Get the company logo URL
      */
-    public function getLogoUrl(): string
+    public function getLogoUrl()
     {
         if (!$this->logo) {
             return asset('images/default-company-logo.png');
         }
         return asset('storage/' . $this->logo);
-    }
-
-    /**
-     * Get formatted phone number
-     */
-    public function getFormattedPhone(): ?string
-    {
-        return $this->phone ? preg_replace('/[^0-9+]/', '', $this->phone) : null;
     }
 }

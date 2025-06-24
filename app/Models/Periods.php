@@ -14,10 +14,13 @@ class Periods extends Model
     protected $fillable = [
         'name',
         'description',
-        'start_date',
-        'end_date',
-        'status',
-        'company_id',
+        'start_time',
+        'end_time', // Changed to match migration column name
+    ];
+
+    protected $casts = [
+        'start_time' => 'datetime',
+        'end_time' => 'datetime', // Changed to match migration column name
     ];
 
     /**

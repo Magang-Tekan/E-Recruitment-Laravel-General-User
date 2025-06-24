@@ -870,7 +870,7 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
     }
 
     return (
-        <div className="bg-white rounded-lg shadow-sm text-black">
+        <div className="bg-white rounded-lg p-6">
             {/* Notification Message */}
             {message && (
                 <div
@@ -884,7 +884,7 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
                 </div>
             )}
 
-            <div className="p-6 border-b">
+            <div className="mb-6 border-b pb-6">
                 <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-blue-600">Data Tambahan</h2>
                 </div>
@@ -893,14 +893,14 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
                 </p>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="space-y-6">
                 {/* Skills section - existing */}
                 <section>
-                    <h3 className="text-lg font-semibold mb-2 text-black">Skills/Kemampuan</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Skills/Kemampuan</h3>
                     <p className="text-sm text-gray-600 mb-4">Skills apa yang Anda miliki?</p>
                     
                     {savedData.skills.map((skill) => (
-                        <div key={skill.id} className="border rounded-lg p-4 mb-3 bg-gray-50">
+                        <div key={skill.id} className="border rounded-lg p-4 mb-3">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h4 className="font-medium text-black">{skill.skill_name}</h4>
@@ -948,11 +948,11 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
                 {/* Courses section */}
                 <section>
-                    <h3 className="text-lg font-semibold mb-2 text-black">Kursus atau Training</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Kursus atau Training</h3>
                     <p className="text-sm text-gray-600 mb-4">Apakah Anda memiliki riwayat kursus yang pernah diikuti?</p>
                     
                     {savedData.kursus.map((course) => (
-                        <div key={course.id} className="border rounded-lg p-4 mb-3 bg-gray-50">
+                        <div key={course.id} className="border rounded-lg p-4 mb-3">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h4 className="font-medium text-black">{course.course_name}</h4>
@@ -1000,12 +1000,12 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
                 {/* Certifications section - HAPUS DUPLIKAT, HANYA SISAKAN SATU */}
                 <section>
-                    <h3 className="text-lg font-semibold mb-2 text-black">Sertifikasi</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Sertifikasi</h3>
                     <p className="text-sm text-gray-600 mb-4">Apakah Anda memiliki sertifikasi sebelumnya?</p>
                     
                     {savedData.sertifikasi && savedData.sertifikasi.length > 0 ? (
                         savedData.sertifikasi.map((certification) => (
-                            <div key={certification.id} className="border rounded-lg p-4 mb-3 bg-gray-50">
+                            <div key={certification.id} className="border rounded-lg p-4 mb-3">
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <h4 className="font-medium text-black">{certification.certification_name}</h4>
@@ -1056,12 +1056,12 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
                 {/* Languages section - TAMBAHKAN INI */}
                 <section>
-                    <h3 className="text-lg font-semibold mb-2 text-black">Kemampuan Bahasa</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Kemampuan Bahasa</h3>
                     <p className="text-sm text-gray-600 mb-4">Bahasa apa saja yang Anda kuasai?</p>
                     
                     {savedData.bahasa && savedData.bahasa.length > 0 ? (
                         savedData.bahasa.map((language) => (
-                            <div key={language.id} className="border rounded-lg p-4 mb-3 bg-gray-50">
+                            <div key={language.id} className="border rounded-lg p-4 mb-3">
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <h4 className="font-medium text-black">{language.language_name}</h4>

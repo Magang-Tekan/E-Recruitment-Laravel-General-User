@@ -11,44 +11,67 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 
 class VacanciesController extends Controller
 {
     public function index()
     {
         try {
-            // Ambil data lowongan
-            $vacancies = Vacancies::with(['company', 'jobType', 'department'])
-                ->orderBy('created_at', 'desc')
-                ->take(6) // Limit to 6 jobs for the welcome page
+            $vacancies = Vacancies::with(['company', 'department', 'vacancyType', 'periods'])
+                ->latest()
+                ->take(6)
                 ->get()
                 ->map(function ($vacancy) {
+                    // Debug the periods relationship
+                    \Log::info('Vacancy periods:', [
+                        'vacancy_id' => $vacancy->id,
+                        'periods' => $vacancy->periods->toArray()
+                    ]);
+
+                    // Get the first period's end time
+                    $endTime = $vacancy->periods->first()?->end_time;
+                    
+                    // Debug the end time formatting
+                    \Log::info('End time:', [
+                        'raw' => $endTime,
+                        'formatted' => $endTime ? \Carbon\Carbon::parse($endTime)->locale('id')->isoFormat('D MMMM Y') : null
+                    ]);
+
                     return [
                         'id' => $vacancy->id,
                         'title' => $vacancy->title,
                         'company' => [
-                            'name' => $vacancy->company ? $vacancy->company->name : 'N/A',
+                            'name' => $vacancy->company ? $vacancy->company->name : 'N/A'
                         ],
-                        'description' => $vacancy->job_description ?? $vacancy->description,
-                        'location' => $vacancy->location,
-                        'type' => $vacancy->jobType ? $vacancy->jobType->name : 'N/A',
-                        'deadline' => $vacancy->deadline ? $vacancy->deadline->format('d F Y') : 'Open',
                         'department' => $vacancy->department ? $vacancy->department->name : 'N/A',
+                        'type' => $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Full Time',
+                        'location' => $vacancy->location,
+                        'requirements' => is_string($vacancy->requirements) 
+                            ? json_decode($vacancy->requirements, true) 
+                            : $vacancy->requirements ?? [],
+                        'endTime' => $endTime 
+                            ? \Carbon\Carbon::parse($endTime)->locale('id')->isoFormat('D MMMM Y')
+                            : null,
+                        'isExpired' => $endTime 
+                            ? now()->gt(\Carbon\Carbon::parse($endTime))
+                            : true
                     ];
                 });
 
-            // Ambil data perusahaan
-            $companies = Companies::all();
+            // Debug final data being sent to view
+            \Log::info('Vacancies data:', $vacancies->toArray());
 
             return Inertia::render('welcome', [
                 'vacancies' => $vacancies,
-                'companies' => $companies
+                'companies' => Company::select('id', 'name', 'description', 'logo')->get()
             ]);
+
         } catch (\Exception $e) {
-            Log::error('Error in VacanciesController@index: ' . $e->getMessage());
+            \Log::error('Error in VacanciesController@index: ' . $e->getMessage());
             return Inertia::render('welcome', [
                 'vacancies' => [],
-                'error' => 'Failed to load job vacancies',
+                'companies' => []
             ]);
         }
     }

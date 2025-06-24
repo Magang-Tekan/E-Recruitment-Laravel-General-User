@@ -57,4 +57,24 @@ class ContactMessagesController extends Controller
         return redirect()->back()
             ->with('success', 'Pesan berhasil ditandai sebagai telah dibaca');
     }
+
+    /**
+     * Store a newly created contact message in storage.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'message' => 'required|string'
+        ]);
+
+        try {
+            ContactMessage::create($validated);
+            
+            return back()->with('success', 'Pesan berhasil dikirim!');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Terjadi kesalahan saat mengirim pesan.');
+        }
+    }
 }

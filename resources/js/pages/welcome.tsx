@@ -3,9 +3,20 @@ import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
+interface Contact {
+    email: string;
+    phone: string;
+    address: string;
+}
+
 interface WelcomeProps {
     vacancies: JobOpening[];
-    companies: Company[]; // Tambahkan tipe untuk companies
+    companies: Company[];
+    footerCompanies: {
+        id: number;
+        name: string;
+    }[];
+    contacts: Contact | null;
 }
 
 interface JobOpening {
@@ -14,11 +25,13 @@ interface JobOpening {
     company: {
         name: string;
     };
-    description: string;
+    department: string;
     location: string;
     type: string;
-    deadline: string;
-    department: string;
+    benefits: string[];
+    requirements: string[];
+    endTime: string | null;  // Added for deadline
+    isExpired: boolean;      // Added for expired status
 }
 
 // Definisi interface untuk Company
@@ -200,27 +213,36 @@ export default function Welcome(props: WelcomeProps) {
                     <div className="container mx-auto px-6">
                         <h2 className="mb-[40px] text-[24px] font-bold md:text-[32px]">Perusahaan Kami</h2>
                         <div className="mb-[40px] flex flex-col justify-center gap-[60px] md:flex-row">
-                            {/* Perusahaan 1 - Hardcoded */}
-                            <div className="mx-auto flex w-[528px] items-start gap-4 text-left">
-                                <img src="/images/autentik-logo.png" alt="PT AUTENTIK" className="mt-1 h-[60px] w-[60px]" />
-                                <div>
-                                    <h3 className="mb-1 font-semibold">PT AUTENTIK KARYA ANALITIKA</h3>
-                                    <p className="text-sm text-gray-600">
-                                        Adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
-                                    </p>
+                            {props.companies && props.companies.length > 0 ? (
+                                props.companies
+                                    .filter(company => [2, 3].includes(company.id)) // Filter only ID 2 and 3
+                                    .map((company) => (
+                                        <div 
+                                            key={company.id} 
+                                            className="mx-auto flex w-[528px] items-start gap-4 text-left hover:shadow-lg transition-all duration-300 rounded-lg p-4"
+                                        >
+                                            <img 
+                                                src={company.logo}
+                                                alt={company.name}
+                                                className="mt-1 h-[60px] w-[60px] object-contain" 
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.src = '/images/default-company-logo.png';
+                                                }}
+                                            />
+                                            <div>
+                                                <h3 className="mb-1 font-semibold">{company.name}</h3>
+                                                <p className="text-sm text-gray-600">
+                                                    {company.description}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))
+                            ) : (
+                                <div className="text-center text-gray-500">
+                                    Tidak ada perusahaan untuk ditampilkan
                                 </div>
-                            </div>
-
-                            {/* Perusahaan 2 - Hardcoded */}
-                            <div className="mx-auto flex w-[528px] items-start gap-4 text-left">
-                                <img src="/images/mitra-logo.png" alt="PT MITRA" className="mt-1 h-[60px] w-[60px]" />
-                                <div>
-                                    <h3 className="mb-1 font-semibold">PT MITRA KARYA ANALITIKA</h3>
-                                    <p className="text-sm text-gray-600">
-                                        Bergerak dibidang Distribusi Kebutuhan Laboratorium, Cleanroom, Water and Waste Water Treatment Plant.
-                                    </p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                         <Link href="/about-us">
                             <Button className="rounded-md border border-blue-600 bg-white px-[24px] py-[12px] text-blue-600 hover:bg-blue-50">
@@ -230,37 +252,86 @@ export default function Welcome(props: WelcomeProps) {
                     </div>
                 </section>
 
+                {/* Lowongan Pekerjaan Section */}
                 <section className="bg-[#f6fafe] py-[80px] text-center">
                     <div className="container mx-auto px-6">
                         <h2 className="mb-[16px] text-[24px] font-bold md:text-[32px]">LOWONGAN PEKERJAAN TERSEDIA</h2>
                         <p className="mx-auto mb-[40px] max-w-[672px] text-[16px] text-gray-600">
-                            Temukan posisi yang sesuai dengan minat dan keahlian Anda di PT Mitra Karya Analitika. Kami membuka peluang karier di
-                            berbagai bidang, seperti:
+                            Temukan posisi yang sesuai dengan minat dan keahlian Anda di PT Mitra Karya Analitika. 
+                            Kami membuka peluang karier di berbagai bidang.
                         </p>
-                        <div className="mb-[40px] grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
-                            {vacancies.map((job) => (
-                                <div
-                                    key={job.id}
-                                    className="mx-auto flex h-auto w-[400px] flex-col rounded-xl border border-gray-200 bg-white px-6 pt-6 pb-4 text-left shadow hover:shadow-md"
-                                >
-                                    <div className="mb-1 flex items-center justify-between">
-                                        <h3 className="text-[18px] font-semibold">{job.title}</h3>
-                                        <span className="rounded bg-blue-100 px-2 py-[2px] text-[12px] font-medium text-blue-600">
-                                            {job.department}
-                                        </span>
+                        <div className="mb-[40px] grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                            {props.vacancies && props.vacancies.length > 0 ? (
+                                props.vacancies.map((job) => (
+                                    <div
+                                        key={job.id}
+                                        className="mx-auto flex h-auto w-full max-w-[400px] flex-col rounded-xl border border-gray-200 bg-white p-6 text-left shadow-sm hover:shadow-md transition-shadow duration-300"
+                                    >
+                                        <div className="mb-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h3 className="text-lg font-semibold">{job.title}</h3>
+                                                <span className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-600">
+                                                    {job.department}
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                                                <span>{job.company.name}</span>
+                                                <span>•</span>
+                                                <span>{job.location}</span>
+                                                {job.endTime && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className={job.isExpired ? 'text-red-600' : 'text-green-600'}>
+                                                            Lamar sebelum: {job.endTime}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="mb-4">
+                                            {job.requirements && (
+                                                <div>
+                                                    <h4 className="text-sm font-semibold mb-1">Persyaratan:</h4>
+                                                    <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                                                        {Array.isArray(job.requirements) 
+                                                            ? job.requirements.slice(0, 3).map((req, idx) => (
+                                                                <li key={idx}>{req}</li>
+                                                            ))
+                                                            : typeof job.requirements === 'string'
+                                                                ? JSON.parse(job.requirements).slice(0, 3).map((req: string, idx: number) => (
+                                                                    <li key={idx}>{req}</li>
+                                                                ))
+                                                                : <li>No requirements specified</li>
+                                                        }
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-auto">
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
+                                                    {job.type}
+                                                </span>
+                                            </div>
+                                            
+                                            <Link href={`/jobs/${job.id}`}>
+                                                <Button className="w-full rounded bg-blue-600 py-2 text-sm text-white hover:bg-blue-700">
+                                                    Lihat Detail
+                                                </Button>
+                                            </Link>
+                                        </div>
                                     </div>
-                                    <div className="mb-3 text-[12px] text-gray-600">
-                                        {job.company.name} • Lamar Sebelum: {job.deadline}
-                                    </div>
-                                    <p className="mb-4 text-sm text-gray-700">{job.description}</p>
-                                    <Button className="w-full rounded bg-[#1976f2] py-[10px] text-sm text-white hover:bg-[#125bd1]">
-                                        Lihat Detail
-                                    </Button>
+                                ))
+                            ) : (
+                                <div className="col-span-full text-center text-gray-500">
+                                    Tidak ada lowongan pekerjaan saat ini
                                 </div>
-                            ))}
+                            )}
                         </div>
                         <Link href="/job-hiring-landing-page">
-                            <Button className="rounded-md bg-blue-100 px-[24px] py-[12px] text-blue-600 hover:bg-blue-200">
+                            <Button className="rounded-md bg-blue-100 px-6 py-3 text-blue-600 hover:bg-blue-200">
                                 Lihat Semua Lowongan →
                             </Button>
                         </Link>
@@ -343,43 +414,81 @@ export default function Welcome(props: WelcomeProps) {
                     <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
                         {/* Kolom 1 */}
                         <div>
-                            <h4 className="mb-2 text-[16px] font-bold">MITRA KARYA GROUP</h4>
-                            <p className="mb-6 text-sm text-gray-700">
-                                Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan
-                                pelanggan
-                            </p>
+                            {props.companies && props.companies.length > 0 ? (
+                                <>
+                                    <h4 className="mb-2 text-[16px] font-bold">{props.companies[0].name}</h4>
+                                    <p className="mb-6 text-sm text-gray-700">
+                                        {props.companies[0].description}
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <h4 className="mb-2 text-[16px] font-bold">MITRA KARYA GROUP</h4>
+                                    <p className="mb-6 text-sm text-gray-700">
+                                        Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
+                                    </p>
+                                </>
+                            )}
+                            {/* Social Media Icons */}
                             <div className="flex space-x-6 text-xl text-blue-600">
-                                {/* Instagram - Dropdown untuk dua akun */}
+                                {/* Instagram - Dropup untuk dua akun */}
                                 <div className="relative group">
                                     <a href="#" className="group-hover:text-blue-800">
                                         <i className="fab fa-instagram"></i>
                                     </a>
-                                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-48">
-                                        <a href="https://www.instagram.com/mikacares.id" target="_blank" rel="noopener noreferrer" 
-                                           className="block py-1 hover:text-blue-800">
+                                    <div className="absolute bottom-full left-0 mb-1 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-40">
+                                        <a 
+                                            href="https://www.instagram.com/mikacares.id" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                                        >
                                             @mikacares.id
                                         </a>
-                                        <a href="https://www.instagram.com/autentik.co.id" target="_blank" rel="noopener noreferrer"
-                                           className="block py-1 hover:text-blue-800">
+                                        <a 
+                                            href="https://www.instagram.com/autentik.co.id" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                                        >
                                             @autentik.co.id
                                         </a>
                                     </div>
                                 </div>
 
-                                {/* LinkedIn - Dropdown untuk dua perusahaan */}
+                                {/* LinkedIn - Dropup untuk dua perusahaan */}
                                 <div className="relative group">
                                     <a href="#" className="group-hover:text-blue-800">
                                         <i className="fab fa-linkedin-in"></i>
                                     </a>
-                                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-64">
-                                        <a href="https://www.linkedin.com/company/pt-mitra-karya-analitika" target="_blank" rel="noopener noreferrer" 
-                                           className="block py-1 hover:text-blue-800">
-                                            PT Mitra Karya Analitika
-                                        </a>
-                                        <a href="https://www.linkedin.com/company/pt-autentik-karya-analitika" target="_blank" rel="noopener noreferrer"
-                                           className="block py-1 hover:text-blue-800">
-                                            PT Autentik Karya Analitika
-                                        </a>
+                                    <div className="absolute bottom-8 left-0 mb-1 bg-white shadow-lg rounded-lg p-3 hidden group-hover:block z-50 w-72">
+                                        <div className="flex flex-col gap-3">
+                                            <a 
+                                                href="https://www.linkedin.com/company/pt-mitra-karya-analitika" 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                                            >
+                                                <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-medium">PT Mitra Karya Analitika</span>
+                                                    <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
+                                                </div>
+                                            </a>
+                                            <div className="border-t border-gray-100"></div>
+                                            <a 
+                                                href="https://www.linkedin.com/company/pt-autentik-karya-analitika" 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                                            >
+                                                <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-medium">PT Autentik Karya Analitika</span>
+                                                    <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
+                                                </div>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -392,15 +501,20 @@ export default function Welcome(props: WelcomeProps) {
                                 <a href="https://wa.me/6281770555554" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
                                     <i className="fab fa-whatsapp"></i>
                                 </a>
-                            </div>
+                              </div>
                         </div>
 
                         {/* Kolom 2 */}
                         <div>
                             <h4 className="mb-2 text-[16px] font-bold">Perusahaan Kami</h4>
                             <ul className="space-y-1 text-sm text-gray-700">
-                                <li>PT MITRA KARYA ANALITIKA</li>
-                                <li>PT AUTENTIK KARYA ANALITIKA</li>
+                                {props.footerCompanies && props.footerCompanies.length > 0 ? (
+                                    props.footerCompanies.map((company) => (
+                                        <li key={company.id}>{company.name}</li>
+                                    ))
+                                ) : (
+                                    <li>Tidak ada perusahaan untuk ditampilkan</li>
+                                )}
                             </ul>
                         </div>
 
@@ -408,26 +522,24 @@ export default function Welcome(props: WelcomeProps) {
                         <div>
                             <h4 className="mb-4 text-[16px] font-bold">Contact</h4>
                             <ul className="space-y-2 text-sm text-gray-700">
-                                <li className="flex items-start gap-2">
-                                    <i className="fas fa-phone mt-1 text-blue-600" />
-                                    <div>
-                                        Rudy Alfiansyah: 082137384029
-                                        <br />
-                                        Deden Dermawan: 081807700111
-                                    </div>
-                                </li>
-                                <li className="flex items-center gap-2">
-                                    <i className="fas fa-envelope text-blue-600" />
-                                    <span>autentik.info@gmail.com</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
-                                    <span>
-                                        Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo,
-                                        <br />
-                                        Kec. Tembalang, Kota Semarang, Jawa Tengah 50272
-                                    </span>
-                                </li>
+                                {props.contacts && (
+                                    <>
+                                        <li className="flex items-start gap-2">
+                                            <i className="fas fa-phone mt-1 text-blue-600" />
+                                            <div dangerouslySetInnerHTML={{ __html: props.contacts.phone }} />
+                                        </li>
+                                        <li className="flex items-center gap-2">
+                                            <i className="fas fa-envelope text-blue-600" />
+                                            <span>{props.contacts.email}</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                            <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
+                                            <span dangerouslySetInnerHTML={{ 
+                                                __html: props.contacts.address.replace(/\n/g, '<br />') 
+                                            }} />
+                                        </li>
+                                    </>
+                                )}
                             </ul>
                         </div>
                     </div>

@@ -13,9 +13,10 @@ use App\Models\AboutUs;
 use App\Http\Controllers\ContactsController;
 use App\Http\Controllers\PersonalDataController;
 use App\Http\Controllers\AboutUsController;
+use App\Http\Controllers\WelcomeController;
+use App\Http\Controllers\ContactMessagesController;
 
-Route::get('/', [VacanciesController::class, 'index'])->name('home');
-// Updated to use the same controller method as candidate/jobs
+Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
 Route::get('/job-hiring', [JobsController::class, 'index'])->name('job-hiring');
 Route::get('/job-hiring-landing-page', [VacanciesController::class, 'getVacanciesLandingPage'])->name('job-hiring-landing-page');
 Route::get('/job-detail/{id}', [VacanciesController::class, 'show'])->name('job.detail');
@@ -31,7 +32,7 @@ Route::get('/data-pribadi', function () {
 
 Route::get('/contact', [ContactsController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactsController::class, 'store'])->name('contact.store');
-Route::post('/contact/submit', [ContactsController::class, 'submitMessage'])->name('contact.submit');
+Route::post('/contact/submit', [ContactMessagesController::class, 'store'])->name('contact.submit');
 
 Route::get('/about-us', [AboutUsController::class, 'index'])->name('about-us');
 
