@@ -62,6 +62,7 @@ class VacanciesSeeder extends Seeder
         $vacanciesData = [
             [
                 'title' => 'Software Engineer',
+                'job_description' => 'Posisi Software Engineer bertanggung jawab untuk merancang, mengembangkan, dan memelihara aplikasi perangkat lunak sesuai dengan kebutuhan bisnis. Anda akan bekerja dalam tim pengembangan yang dinamis, menggunakan teknologi terkini untuk menciptakan solusi inovatif. Posisi ini memerlukan kemampuan problem-solving yang kuat dan ketertarikan untuk terus belajar teknologi baru.',
                 'department' => 'Teknologi Informasi',
                 'major' => 'Teknik Informatika',
                 'vacancy_type' => 'Full Time',
@@ -86,6 +87,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'Digital Marketing Specialist',
+                'job_description' => 'Digital Marketing Specialist akan bertanggung jawab untuk merencanakan dan melaksanakan strategi pemasaran digital yang efektif. Anda akan mengelola kampanye iklan online, media sosial, email marketing, dan konten untuk meningkatkan brand awareness dan lead generation. Posisi ini memerlukan kreativitas dan kemampuan analitis untuk mengoptimalkan kampanye digital.',
                 'department' => 'Pemasaran',
                 'major' => 'Ilmu Komunikasi',
                 'vacancy_type' => 'Full Time',
@@ -110,6 +112,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'Financial Analyst',
+                'job_description' => 'Sebagai Financial Analyst, Anda akan menganalisis data keuangan, membuat laporan, dan memberikan rekomendasi untuk pengambilan keputusan bisnis. Tanggung jawab termasuk melakukan analisis biaya, forecasting, budgeting, dan evaluasi kinerja finansial. Posisi ini memerlukan ketelitian tinggi dan kemampuan analitis yang kuat.',
                 'department' => 'Keuangan dan Akuntansi',
                 'major' => 'Akuntansi',
                 'vacancy_type' => 'Full Time',
@@ -134,6 +137,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'Human Resources Generalist',
+                'job_description' => 'HR Generalist akan mengelola berbagai aspek sumber daya manusia termasuk rekrutmen, onboarding, administrasi kepegawaian, dan employee relation. Anda akan bekerja sama dengan tim manajemen untuk mengembangkan dan mengimplementasikan kebijakan HR yang efektif serta memastikan kepatuhan terhadap regulasi ketenagakerjaan.',
                 'department' => 'Sumber Daya Manusia',
                 'major' => 'Psikologi',
                 'vacancy_type' => 'Full Time',
@@ -158,6 +162,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'Data Analyst',
+                'job_description' => 'Sebagai Data Analyst, Anda akan mengumpulkan, mengolah, dan menganalisis data untuk memberikan insight bisnis yang berharga. Anda akan bekerja dengan dataset besar, membuat visualisasi data, dan menyediakan laporan yang membantu pengambilan keputusan. Posisi ini memerlukan kemampuan teknis dan analitis yang kuat.',
                 'department' => 'Data Analytics',
                 'major' => 'Statistika',
                 'vacancy_type' => 'Full Time',
@@ -182,6 +187,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'Project Manager',
+                'job_description' => 'Project Manager bertanggung jawab untuk merencanakan, melaksanakan, dan menyelesaikan proyek sesuai dengan timeline dan budget yang ditentukan. Anda akan memimpin tim proyek, mengelola risiko, berkomunikasi dengan stakeholders, dan memastikan kualitas deliverables. Posisi ini memerlukan kemampuan kepemimpinan dan manajemen yang baik.',
                 'department' => 'Project Management',
                 'major' => 'Teknik Industri',
                 'vacancy_type' => 'Full Time',
@@ -206,6 +212,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'UI/UX Designer',
+                'job_description' => 'UI/UX Designer akan merancang antarmuka dan pengalaman pengguna yang intuitif dan menarik untuk aplikasi dan website. Anda akan melakukan riset pengguna, membuat wireframe, prototype, dan desain visual yang mempertimbangkan aspek user-centered design. Posisi ini memerlukan kreativitas dan pemahaman tentang perilaku pengguna.',
                 'department' => 'Design',
                 'major' => 'Desain Komunikasi Visual',
                 'vacancy_type' => 'Full Time',
@@ -230,6 +237,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'Sales Executive',
+                'job_description' => 'Sales Executive bertanggung jawab untuk mencapai target penjualan melalui akuisisi klien baru dan pengembangan klien yang ada. Anda akan melakukan presentasi produk, negosiasi, dan membangun hubungan jangka panjang dengan klien. Posisi ini memerlukan kemampuan komunikasi, persuasi, dan negosiasi yang baik.',
                 'department' => 'Sales',
                 'major' => 'Manajemen',
                 'vacancy_type' => 'Full Time',
@@ -254,6 +262,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'Content Creator',
+                'job_description' => 'Content Creator akan menghasilkan konten kreatif dan menarik untuk platform digital perusahaan. Anda akan membuat konten video, foto, artikel, dan posting media sosial yang sesuai dengan brand voice dan strategi pemasaran. Posisi ini memerlukan kreativitas, kemampuan storytelling, dan pemahaman tentang tren digital.',
                 'department' => 'Content Management',
                 'major' => 'Ilmu Komunikasi',
                 'vacancy_type' => 'Part Time',
@@ -278,6 +287,7 @@ class VacanciesSeeder extends Seeder
             ],
             [
                 'title' => 'Customer Service Representative',
+                'job_description' => 'Customer Service Representative bertanggung jawab untuk memberikan pelayanan yang excellent kepada pelanggan melalui berbagai saluran komunikasi. Anda akan menangani pertanyaan, keluhan, dan permintaan pelanggan dengan profesional dan efisien. Posisi ini memerlukan kesabaran, empati, dan kemampuan komunikasi yang baik.',
                 'department' => 'Customer Service',
                 'major' => 'Ilmu Komunikasi',
                 'vacancy_type' => 'Full Time',
@@ -317,6 +327,7 @@ class VacanciesSeeder extends Seeder
 
             Vacancies::create([
                 'title' => $vacancyData['title'],
+                'job_description' => $vacancyData['job_description'], // Tambahkan job_description
                 'department_id' => $department->id,
                 'major_id' => $major->id,
                 'vacancy_type_id' => $vacancyType->id,

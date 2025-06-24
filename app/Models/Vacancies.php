@@ -8,14 +8,15 @@ use Illuminate\Database\Eloquent\Model;
 class Vacancies extends Model
 {
     use HasFactory;
-    
+
     // Explicitly set the table name to ensure consistency
     protected $table = 'vacancies';
-    
+
     protected $fillable = [
         'user_id',
         'company_id',
         'title',
+        'job_description',
         'department_id',
         'major_id',
         'vacancy_type_id',
@@ -25,12 +26,12 @@ class Vacancies extends Model
         'benefits',
         'question_pack_id'
     ];
-    
+
     protected $casts = [
         'requirements' => 'array',
         'benefits' => 'array',
     ];
-    
+
     /**
      * Get the periods associated with this vacancy.
      */
@@ -47,7 +48,7 @@ class Vacancies extends Model
     {
         return $this->belongsTo(Company::class);
     }
-    
+
     /**
      * Get the question pack associated with this vacancy.
      */
@@ -55,7 +56,7 @@ class Vacancies extends Model
     {
         return $this->belongsTo(QuestionPack::class);
     }
-    
+
     /**
      * Get the applicants associated with this vacancy through the vacancy_period table.
      */
@@ -78,7 +79,7 @@ class Vacancies extends Model
     {
         return $this->belongsTo(User::class);
     }
-    
+
     /**
      * Get the department associated with this vacancy.
      */
@@ -86,7 +87,7 @@ class Vacancies extends Model
     {
         return $this->belongsTo(Department::class, 'department_id');
     }
-    
+
     /**
      * Get the major associated with this vacancy.
      */
@@ -94,7 +95,7 @@ class Vacancies extends Model
     {
         return $this->belongsTo(MasterMajor::class, 'major_id');
     }
-    
+
     /**
      * Get the vacancy type associated with this vacancy.
      */
@@ -102,7 +103,7 @@ class Vacancies extends Model
     {
         return $this->belongsTo(VacancyType::class, 'vacancy_type_id');
     }
-    
+
     /**
      * Get the active end time from periods
      */
