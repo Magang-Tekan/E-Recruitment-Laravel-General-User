@@ -17,10 +17,18 @@ use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\ContactMessagesController;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
-Route::get('/job-hiring', [JobsController::class, 'index'])->name('job-hiring');
 Route::get('/job-hiring-landing-page', [VacanciesController::class, 'getVacanciesLandingPage'])->name('job-hiring-landing-page');
-Route::get('/job-detail/{id}', [VacanciesController::class, 'show'])->name('job.detail');
 Route::post('/reset-password', [ResetPasswordController::class, 'update'])->name('password.update');
+
+// Authenticated routes for job access
+Route::middleware(['auth'])->group(function() {
+    // Make /job-hiring redirect to /candidate/jobs for consistency
+    Route::get('/job-hiring', function() {
+        return redirect()->route('candidate.jobs.index');
+    })->name('job-hiring');
+
+    Route::get('/job-detail/{id}', [JobsController::class, 'detail'])->name('job.detail');
+});
 
 Route::get('/ContactPerson', function () {
     return Inertia::render('ContactPerson');
@@ -80,8 +88,8 @@ Route::get('/confirm-data', function () {
 });
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/candidate/applicant-completeness', [CandidateController::class, 'checkApplicationDataCompleteness']) 
-        ->name('candidate.applicant-completeness'); 
+    Route::get('/candidate/applicant-completeness', [CandidateController::class, 'checkApplicationDataCompleteness'])
+        ->name('candidate.applicant-completeness');
 });
 
 
@@ -246,11 +254,11 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     // Routes untuk Psychotest
     Route::get('/tests/psychotest/{assessment_id?}', [CandidateController::class, 'showPsychotest'])
         ->name('candidate.tests.psychotest');
-    
+
     // Route untuk submit psychotest
     Route::post('/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
         ->name('candidate.psychotest.submit');
-    
+
     // Route untuk melihat status aplikasi
     Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])
         ->name('candidate.application.status');
@@ -271,7 +279,7 @@ Route::middleware(['auth'])->group(function () {
     // Route confirm-data dengan parameter job_id
     Route::get('/candidate/confirm-data/{job_id?}', [CandidateController::class, 'showConfirmData'])
         ->name('candidate.confirm-data');
-    
+
     // Route yang sudah ada...
 });
 

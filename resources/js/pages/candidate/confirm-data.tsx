@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { AlertCircle, CheckCircle } from "lucide-react";
-import { Head, Link, usePage } from "@inertiajs/react";
+import { faInstagram, faLinkedin, faWhatsapp, faXTwitter, faYoutube } from '@fortawesome/free-brands-svg-icons';
+import { faEnvelope, faMapMarkerAlt, faPhone } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faInstagram, faXTwitter, faLinkedin, faYoutube, faWhatsapp } from '@fortawesome/free-brands-svg-icons';
-import { faPhone, faEnvelope, faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
+import { Head, Link, usePage } from "@inertiajs/react";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
 type Completeness = {
   profile: boolean;
@@ -37,55 +37,55 @@ type PageProps = {
 const ConfirmData = () => {
   const { completeness, job_id, flash } = usePage<PageProps>().props;
   const [showAlert, setShowAlert] = useState<boolean>(!!flash?.warning);
-  
+
   useEffect(() => {
     if (flash?.warning) {
       setShowAlert(true);
-      
+
       // Auto-hide alert after 5 seconds
       const timer = setTimeout(() => {
         setShowAlert(false);
       }, 5000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [flash?.warning]);
 
   const sections = [
-    { 
-      title: "Data Pribadi", 
+    {
+      title: "Data Pribadi",
       isComplete: completeness?.profile,
       isRequired: true
     },
-    { 
-      title: "Pendidikan", 
+    {
+      title: "Pendidikan",
       isComplete: completeness?.education,
       isRequired: true
     },
-    { 
-      title: "Skills/Kemampuan", 
+    {
+      title: "Skills/Kemampuan",
       isComplete: completeness?.skills,
       isRequired: true
     },
-    { 
-      title: "Pengalaman Kerja", 
+    {
+      title: "Pengalaman Kerja",
       isComplete: completeness?.work_experience,
-      isOptional: true 
+      isOptional: true
     },
-    { 
-      title: "Organisasi", 
+    {
+      title: "Organisasi",
       isComplete: completeness?.organization,
-      isOptional: true 
+      isOptional: true
     },
-    { 
-      title: "Prestasi", 
+    {
+      title: "Prestasi",
       isComplete: completeness?.achievements,
-      isOptional: true 
+      isOptional: true
     },
-    { 
-      title: "Social Media", 
+    {
+      title: "Social Media",
       isComplete: completeness?.social_media,
-      isOptional: true 
+      isOptional: true
     },
     {
       title: "Data Tambahan",
@@ -95,7 +95,7 @@ const ConfirmData = () => {
   ];
 
   // Cek apakah ada data wajib yang belum lengkap
-  const hasIncompleteRequired = sections.some(section => 
+  const hasIncompleteRequired = sections.some(section =>
     section.isRequired && !section.isComplete
   );
 
@@ -116,7 +116,7 @@ const ConfirmData = () => {
           <div className="text-[20px] font-bold text-black">MITRA KARYA GROUP</div>
           <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
             <Link href="/profile" className="text-black hover:text-blue-600">Profil</Link>
-            <Link href="/lowongan" className="text-black hover:text-blue-600">Lowongan Pekerjaan</Link>
+            <Link href="/candidate/jobs" className="text-black hover:text-blue-600">Lowongan Pekerjaan</Link>
             <Link href="/candidate/application-history" className="text-black hover:text-blue-600">Lamaran</Link>
           </nav>
           <div className="flex items-center">
@@ -165,7 +165,7 @@ const ConfirmData = () => {
             const isOptional = section.isOptional || false;
             const Icon = isComplete ? CheckCircle : AlertCircle;
             const iconColor = getIconColor(isComplete, isOptional);
-            
+
             return (
               <div
                 key={idx}

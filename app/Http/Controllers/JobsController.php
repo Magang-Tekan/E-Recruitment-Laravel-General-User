@@ -24,39 +24,64 @@ class JobsController extends Controller
     public function index()
     {
         try {
-            // Ambil semua lowongan aktif
-            $jobs = Vacancies::with(['company', 'department'])
+            // Ambil semua lowongan aktif dengan relasi
+            $jobs = Vacancies::with(['company', 'department', 'vacancyType', 'major'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Tambahkan data tipe pekerjaan dari relasi
-            foreach ($jobs as $job) {
-                // Tambahkan tipe dari relasi yang benar
-                $jobType = DB::table('job_types')->find($job->type_id);
-                $job->type = $jobType ? $jobType->name : 'Unknown';
-
-                // Tambahkan deadline dari periods
+            // Transform job data to match expected format
+            $formattedJobs = $jobs->map(function($job) {
+                // Ambil deadline dari periods
                 $period = DB::table('periods')
-                    ->join('vacancies_periods', 'periods.id', '=', 'vacancies_periods.period_id')
-                    ->where('vacancies_periods.vacancy_id', $job->id)
+                    ->join('vacancy_periods', 'periods.id', '=', 'vacancy_periods.period_id')
+                    ->where('vacancy_periods.vacancy_id', $job->id)
+                    ->orderBy('periods.end_time', 'desc')
                     ->first();
 
-                // Tambahkan deadline ke objek job
-                $job->deadline = $period ? $period->end_time : 'Open';
+                // Get major name if exists
+                $majorName = null;
+                if ($job->major_id) {
+                    $major = MasterMajor::find($job->major_id);
+                    $majorName = $major ? $major->name : null;
+                }
 
-                // Tambahkan deskripsi
-                $job->description = $job->job_description ?: 'No description available';
-            }
+                // Format requirements and benefits
+                $requirements = is_array($job->requirements) ? $job->requirements : json_decode($job->requirements ?: '[]');
+                $benefits = is_array($job->benefits) ? $job->benefits : json_decode($job->benefits ?: '[]');
+
+                return [
+                    'id' => $job->id,
+                    'title' => $job->title,
+                    'company' => [
+                        'name' => $job->company ? $job->company->name : 'Unknown',
+                        'id' => $job->company ? $job->company->id : null
+                    ],
+                    'description' => $job->job_description ? $job->job_description : 'No description available',
+                    'location' => $job->location,
+                    'type' => $job->vacancyType ? $job->vacancyType->name : 'Unknown',
+                    'department' => $job->department ? $job->department->name : 'Unknown',
+                    'deadline' => $period ? $period->end_time : 'Open',
+                    'requirements' => $requirements,
+                    'benefits' => $benefits,
+                    'salary' => $job->salary,
+                    'major_id' => $job->major_id,
+                    'major_name' => $majorName,
+                    'created_at' => $job->created_at ? $job->created_at->format('Y-m-d H:i:s') : null,
+                    'updated_at' => $job->updated_at ? $job->updated_at->format('Y-m-d H:i:s') : null
+                ];
+            });
 
             $userMajorId = null;
             $recommendations = [];
             $candidateMajor = null;
+            $userEducation = null;
 
             // Jika user sudah login, tampilkan rekomendasi berdasarkan jurusan
             if (Auth::check()) {
                 $education = CandidatesEducations::where('user_id', Auth::id())->first();
                 if ($education) {
                     $userMajorId = $education->major_id;
+                    $userEducation = $education->education_level;
 
                     // Ambil major name
                     if ($userMajorId) {
@@ -65,17 +90,15 @@ class JobsController extends Controller
                     }
 
                     // Filter lowongan yang sesuai dengan jurusan user
-                    $matchedJobs = $jobs->filter(function($job) use ($userMajorId) {
-                        return $job->major_id == $userMajorId;
-                    });
+                    $matchedJobs = $formattedJobs->filter(function($job) use ($userMajorId) {
+                        return $job['major_id'] == $userMajorId;
+                    })->values();
 
                     // Buat rekomendasi dengan score
                     foreach ($matchedJobs as $job) {
-                        $score = 100; // Default score untuk perfect match
-
                         $recommendations[] = [
                             'vacancy' => $job,
-                            'score' => $score
+                            'score' => 100 // Perfect match score
                         ];
                     }
                 }
@@ -84,37 +107,69 @@ class JobsController extends Controller
             // Data perusahaan untuk filter
             $companies = DB::table('companies')->pluck('name')->toArray();
 
+            // Periksa apakah profile kandidat sudah lengkap
+            $profileComplete = $this->checkProfileComplete(Auth::user());
+
+            Log::info('Jobs data loaded successfully', [
+                'job_count' => count($formattedJobs),
+                'recommendation_count' => count($recommendations)
+            ]);
+
             return Inertia::render('candidate/jobs/job-hiring', [
-                'jobs' => $jobs,
+                'jobs' => $formattedJobs,
                 'recommendations' => $recommendations,
                 'companies' => $companies,
-                'candidateMajor' => $candidateMajor
+                'candidateMajor' => $candidateMajor,
+                'userEducation' => $userEducation,
+                'profileComplete' => $profileComplete
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error in job-hiring: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Terjadi kesalahan. Silakan coba lagi.');
+            Log::error('Error in job-hiring: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->with('error', 'Terjadi kesalahan saat memuat lowongan pekerjaan. Silakan coba lagi.');
         }
     }
 
     public function apply(Request $request, $id)
     {
         try {
-            // Validasi kelengkapan data kandidat
-            $completenessCheck = app('App\Http\Controllers\CandidateController')->checkApplicationDataCompleteness();
-            $completenessData = json_decode($completenessCheck->getContent(), true);
-            
-            // Jika data belum lengkap, redirect ke halaman confirm-data
-            if (!$completenessData['completeness']['overall_complete']) {
-                return redirect()->route('candidate.confirm-data', ['job_id' => $id])
-                    ->with('warning', 'Lengkapi data Anda terlebih dahulu sebelum melanjutkan aplikasi.');
+            // Check if profile is complete
+            $profileComplete = $this->checkProfileComplete(Auth::user());
+
+            if (!$profileComplete['complete']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $profileComplete['message'],
+                    'redirect' => route('candidate.profile')
+                ], 422);
             }
-            
+
             // Proses aplikasi jika data sudah lengkap
             $userId = Auth::id();
-            
+
+            // Get vacancy details
+            $vacancy = Vacancies::findOrFail($id);
+
+            // Get active vacancy period for this vacancy
+            $vacancyPeriod = DB::table('vacancy_periods')
+                ->join('periods', 'vacancy_periods.period_id', '=', 'periods.id')
+                ->where('vacancy_periods.vacancy_id', $id)
+                ->where('periods.end_time', '>=', now())
+                ->orderBy('periods.end_time', 'asc')
+                ->select('vacancy_periods.id')
+                ->first();
+
+            if (!$vacancyPeriod) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Periode rekrutasi untuk lowongan ini telah berakhir.',
+                ], 422);
+            }
+
             // Check if user has already applied
             $existingApplication = Applications::where('user_id', $userId)
-                ->where('vacancies_id', $id)
+                ->where('vacancy_period_id', $vacancyPeriod->id)
                 ->first();
 
             if ($existingApplication) {
@@ -124,39 +179,60 @@ class JobsController extends Controller
                     'redirect' => route('candidate.application-history')
                 ], 422);
             }
-            
-            // Get vacancy details
-            $vacancy = Vacancies::findOrFail($id);
-            
-            // Ambil selection default (Administrasi)
-            $initialSelection = Selections::where('name', 'Administrasi')->first();
-            if (!$initialSelection) {
-                $initialSelection = Selections::create([
-                    'name' => 'Administrasi',
-                    'description' => 'Tahap seleksi administrasi kandidat'
+
+            // Get default status (usually "Applied")
+            $initialStatus = DB::table('statuses')->where('name', 'Applied')->first();
+            if (!$initialStatus) {
+                $initialStatusId = DB::table('statuses')->insertGetId([
+                    'name' => 'Applied',
+                    'created_at' => now(),
+                    'updated_at' => now()
                 ]);
+            } else {
+                $initialStatusId = $initialStatus->id;
             }
 
-            // Buat aplikasi baru
-            Applications::create([
+            // Get candidate CV
+            $candidateCV = DB::table('candidates_cv')
+                ->where('user_id', $userId)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            $resumePath = $candidateCV ? $candidateCV->file_path : null;
+
+            // Create new application
+            $application = Applications::create([
                 'user_id' => $userId,
-                'vacancies_id' => $id,
-                'selection_id' => $initialSelection->id,
+                'vacancy_period_id' => $vacancyPeriod->id,
+                'status_id' => $initialStatusId,
+                'resume_path' => $resumePath,
+                'cover_letter_path' => null, // Could be added in the future
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            // Create initial application history entry
+            DB::table('application_history')->insert([
+                'application_id' => $application->id,
+                'stage' => 'administrative_selection',
+                'processed_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Lamaran berhasil dikirim!',
+                'message' => 'Lamaran berhasil dikirim! Silakan pantau status lamaran Anda di halaman Riwayat Lamaran.',
                 'redirect' => route('candidate.application-history')
             ]);
-            
+
         } catch (\Exception $e) {
-            \Log::error('Error applying for job: ' . $e->getMessage());
+            Log::error('Error applying for job: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan saat melamar pekerjaan.'
+                'message' => 'Terjadi kesalahan saat melamar pekerjaan: ' . $e->getMessage()
             ], 500);
         }
     }

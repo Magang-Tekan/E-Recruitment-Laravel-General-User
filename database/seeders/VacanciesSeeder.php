@@ -26,11 +26,11 @@ class VacanciesSeeder extends Seeder
         $departments = Department::all(); // Changed from Departement to Department
         $majors = MasterMajor::all();
         $vacancyTypes = VacancyType::all();
-        
+
         // Check if dependencies exist
         if ($companies->isEmpty()) {
             $this->command->info('No companies found. Running CompanySeeder first.');
-            $this->call(CompanySeeder::class);
+            $this->call(CompaniesSeeder::class);
             $companies = Company::all();
         }
 
@@ -42,8 +42,8 @@ class VacanciesSeeder extends Seeder
 
         if ($departments->isEmpty()) {
             $this->command->info('No departments found. Running DepartementSeeder first.');
-            $this->call(DepartementSeeder::class);
-            $departments = Departement::all();
+            $this->call(DepartmentsSeeder::class);
+            $departments = Department::all();
         }
 
         if ($majors->isEmpty()) {
@@ -54,7 +54,7 @@ class VacanciesSeeder extends Seeder
 
         if ($vacancyTypes->isEmpty()) {
             $this->command->info('No vacancy types found. Running VacancyTypeSeeder first.');
-            $this->call(VacancyTypeSeeder::class);
+            $this->call(VacanciesTypesSeeder::class);
             $vacancyTypes = VacancyType::all();
         }
 

@@ -162,16 +162,20 @@ const Description = styled.p`
 
 const JobDetails = styled.div`
   display: flex;
+  flex-wrap: wrap;  // Mengganti flex-wrap menjadi nowrap
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   color: #657786;
-  font-size: 15px;
+  font-size: 14px;
   margin-bottom: 0;
+  flex-direction: row;
+  justify-content: flex-start;
 
   span {
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;  // Menambahkan white-space nowrap
   }
 `;
 
@@ -191,6 +195,16 @@ const DetailButton = styled.button`
     background: #1a91da;
   }
 `;
+
+// const ScoreBadge = styled.span`
+//   background-color: #FFF8E1;
+//   color: #FFA000;
+//   padding: 4px 8px;
+//   border-radius: 4px;
+//   font-weight: 600;
+//   display: inline-flex;
+//   align-items: center;
+// `;
 
 const JobHiring: React.FC<Props> = ({ jobs = [], recommendations: initialRecommendations = [], companies = [], candidateMajor }) => {
   const [recommendations] = useState<Recommendation[]>(initialRecommendations || []);
@@ -264,7 +278,7 @@ const JobHiring: React.FC<Props> = ({ jobs = [], recommendations: initialRecomme
                 </JobInfo>
               </JobCard>
             ) : (
-              recommendations.map(({ vacancy, score }) => (
+              recommendations.map(({ vacancy }) => (
                 <JobCard key={vacancy.id}>
                   <JobInfo>
                     <JobTitle>{vacancy.title}</JobTitle>
@@ -275,7 +289,7 @@ const JobHiring: React.FC<Props> = ({ jobs = [], recommendations: initialRecomme
                       <span>🕒 {typeof vacancy.type === 'object' ? vacancy.type?.name : vacancy.type}</span>
                       <span>📅 {vacancy.deadline || 'Open'}</span>
                       <span>👥 {typeof vacancy.department === 'object' ? vacancy.department?.name : vacancy.department}</span>
-                      <span>⭐ Score: {score}</span>
+                      {/* <ScoreBadge>⭐ Score: {score}</ScoreBadge> */}
                     </JobDetails>
                   </JobInfo>
                   <DetailButton onClick={() => navigateToJobDetail(vacancy.id)}>
