@@ -1,5 +1,4 @@
 import { usePage } from '@inertiajs/react';
-import axios from 'axios';
 import React from 'react';
 import styled from 'styled-components';
 import Swal from 'sweetalert2';
@@ -174,84 +173,55 @@ const JobDetailPage: React.FC = () => {
 
     const handleApply = async () => {
         try {
-            // Check if data is complete before sending application
-            const completenessResponse = await axios.get('/candidate/applicant-completeness');
-            
-            // If data is incomplete, redirect to confirm-data page
-            if (!completenessResponse.data.completeness.overall_complete) {
-                window.location.href = `/candidate/confirm-data/${job.id}`;
-                return;
-            }
-            
-            // Ambil CSRF token
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const response = await fetch(`/candidate/check-profile-complete`);
+            const data = await response.json();
 
-            if (!csrfToken) {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'CSRF token tidak ditemukan. Silahkan refresh halaman.',
-                    icon: 'error',
-                    confirmButtonText: 'Refresh'
-                }).then(() => {
-                    window.location.reload();
-                });
-                return;
-            }
-
-            // Set headers untuk request
-            const headers = {
-                'X-CSRF-TOKEN': csrfToken,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            };
-
-            // If data is complete, proceed with application
-            const response = await axios.post(`/candidate/apply/${job.id}`, {}, { headers });
-
-            if (response.data.success) {
-                Swal.fire({
-                    title: 'Sukses!',
-                    text: response.data.message || 'Lamaran berhasil dikirim!',
-                    icon: 'success',
-                    confirmButtonText: 'OK'
-                }).then(() => {
-                    // Gunakan URL dari server jika tersedia
-                    if (response.data.redirect) {
-                        window.location.href = response.data.redirect;
-                    } else {
-                        // Fallback URL yang benar
-                        window.location.href = '/candidate/application-history';
+            if (data.isComplete) {
+                // Jika data sudah lengkap, langsung submit aplikasi
+                const submitResponse = await fetch(`/candidate/apply/${job.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
-            }
-        } catch (error: any) {
-            console.error("Apply error:", error);
 
-            // Handle error dari backend
-            let errorMsg = 'Terjadi kesalahan saat apply';
-            let redirectUrl = null;
+                const result = await submitResponse.json();
 
-            if (error.response && error.response.data) {
-                errorMsg = error.response.data.message || errorMsg;
-                redirectUrl = error.response.data.redirect;
-            }
-
-            // Ubah kondisi button dan logika redirect
-            const isAlreadyApplied = errorMsg === 'Anda sudah pernah melamar pekerjaan ini.';
-
-            Swal.fire({
-                title: isAlreadyApplied ? 'Informasi' : 'Perhatian',
-                text: errorMsg,
-                icon: isAlreadyApplied ? 'info' : 'warning',
-                confirmButtonText: isAlreadyApplied ? 'Lihat Riwayat Lamaran' : (redirectUrl ? 'Lengkapi Data' : 'OK')
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    if (isAlreadyApplied) {
+                if (submitResponse.ok) {
+                    Swal.fire({
+                        title: 'Berhasil!',
+                        text: 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".',
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
                         window.location.href = '/candidate/application-history';
-                    } else if (redirectUrl) {
-                        window.location.href = redirectUrl;
+                    });
+                } else {
+                    if (result.redirect) {
+                        window.location.href = result.redirect;
+                    } else {
+                        Swal.fire({
+                            title: 'Perhatian',
+                            text: result.message || 'Terjadi kesalahan saat melamar.',
+                            icon: 'warning',
+                            confirmButtonText: 'OK'
+                        });
                     }
                 }
+            } else {
+                // Jika data belum lengkap, redirect ke halaman confirm-data
+                window.location.href = `/candidate/confirm-data/${job.id}`;
+            }
+        } catch (error) {
+            console.error('Application error:', error);
+
+            Swal.fire({
+                title: 'Error',
+                text: 'Terjadi kesalahan saat memproses aplikasi. Silakan coba lagi nanti.',
+                icon: 'error',
+                confirmButtonText: 'OK'
             });
         }
     };
@@ -322,7 +292,7 @@ const JobDetailPage: React.FC = () => {
                             cursor: !isMajorMatched ? 'not-allowed' : 'pointer'
                         }}
                     >
-                        {!isMajorMatched ? 'Tidak Dapat Apply (Jurusan Tidak Sesuai)' : 'Apply'}
+                        {!isMajorMatched ? 'Tidak Dapat Apply (Jurusan Tidak Sesuai)' : 'Lamar Sekarang'}
                     </ApplyButton>
                 </ContentContainer>
             </PageWrapper>

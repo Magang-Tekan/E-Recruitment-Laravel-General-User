@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { format, isValid, parseISO } from 'date-fns';
-import id from 'date-fns/locale/id'; // Tambahkan locale indonesia
+import { id } from 'date-fns/locale/id'; // Tambahkan locale indonesia
 import React, { useState } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import Footer from '../../components/Footer';
@@ -173,7 +173,7 @@ const formatDate = (dateString: string) => {
             return format(date, 'dd MMM yyyy', { locale: id });
         }
         return dateString;
-    } catch (error) {
+    } catch {
         return dateString;
     }
 };
@@ -201,10 +201,9 @@ interface ApplicationHistoryProps {
 
 const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = [], error = '' }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [applicationList, setApplicationList] = useState<Application[]>(applications);
+    // No need to create a separate state for applicationList, use the props directly
+    const applicationList = applications;
     const [errorMessage, setErrorMessage] = useState(error);
-
-    // Hapus useEffect dengan router.reload()
 
     // Fungsi refresh data yang lebih aman
     const refreshData = () => {
@@ -213,7 +212,7 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
         // Gunakan fetch yang lebih sederhana
         fetch(window.location.href)
             .then(response => response.text())
-            .then(html => {
+            .then(() => {
                 // Halaman di-reload tanpa menggunakan router.reload()
                 window.location.reload();
                 setIsLoading(false);
@@ -224,8 +223,6 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
                 setErrorMessage('Gagal memuat data. Silakan coba lagi.');
             });
     };
-
-    // Navigation is now handled by React Router Link in the table
 
     return (
         <>
@@ -301,8 +298,6 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
                             <ApplyLink href="/candidate/jobs">Cari Lowongan</ApplyLink>
                         </EmptyState>
                     )}
-
-                    {/* Modal detail has been replaced with navigation to status-candidate page */}
                 </ContentContainer>
             </PageWrapper>
             <Footer />

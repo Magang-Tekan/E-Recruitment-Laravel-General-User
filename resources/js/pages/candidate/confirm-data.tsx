@@ -204,19 +204,22 @@ const ConfirmData = () => {
               method="post"
               as="button"
               className="px-8 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium mb-10"
+              data-job-id={job_id}
             >
-              Lamar
+              Lamar Sekarang
             </Link>
           ) : job_id ? (
-            <button
-              disabled
-              className="px-8 py-2 border border-blue-300 text-blue-800 bg-blue-50 rounded font-medium mb-10 opacity-60 cursor-not-allowed"
-            >
-              Lamar
-            </button>
+            <div className="space-y-4">
+              <button
+                disabled
+                className="px-8 py-2 border border-blue-300 text-blue-800 bg-blue-50 rounded font-medium opacity-60 cursor-not-allowed"
+              >
+                Lamar Sekarang
+              </button>
+            </div>
           ) : (
             <Link
-              href="/lowongan"
+              href="/candidate/jobs"
               className="px-8 py-2 bg-gray-600 text-white hover:bg-gray-700 rounded font-medium mb-10"
             >
               Kembali ke Daftar Lowongan

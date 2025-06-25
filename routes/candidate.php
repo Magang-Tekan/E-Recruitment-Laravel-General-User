@@ -27,6 +27,11 @@ Route::middleware(['auth'])
         Route::get('/job/{id}', [JobsController::class, 'detail'])->name('candidate.job.detail');
         Route::get('/application-history', [ApplicationHistoryController::class, 'index'])->name('candidate.application-history');
         Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])->name('candidate.application.status');
+        Route::get('/confirm-data/{job_id?}', [JobsController::class, 'confirmData'])->name('candidate.confirm-data');
+        Route::get('/check-profile-complete', [JobsController::class, 'checkProfileCompleteEndpoint'])->name('candidate.check-profile-complete');
+        Route::get('/check-relationships', [ApplicationHistoryController::class, 'checkRelationships'])->name('candidate.check-relationships');
+        Route::post('/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
+        Route::get('/check-profile-complete', [JobsController::class, 'checkProfileCompleteEndpoint'])->name('candidate.check-profile-complete');
     });
 
 // Route::middleware(['auth'])->group(function () {

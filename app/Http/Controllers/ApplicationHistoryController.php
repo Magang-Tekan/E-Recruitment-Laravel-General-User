@@ -6,6 +6,7 @@ use App\Models\Applications;
 use App\Models\ApplicationsHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ApplicationHistoryController extends Controller
@@ -16,61 +17,105 @@ class ApplicationHistoryController extends Controller
             // Ambil data aplikasi user yang sedang login
             $applications = Applications::where('user_id', Auth::id())
                 ->with([
-                    'vacancy:id,title,location,type_id,company_id',
+                    'vacancy:id,title,location,vacancy_type_id,company_id',
                     'vacancy.company:id,name',
-                    'vacancy.jobType:id,name',
-                    'selection:id,name,description' // Changed from status to selection
+                    'vacancy.vacancyType:id,name',
+                    'status:id,name,description,stage'
                 ])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
+            // Check if we have applications
+            if ($applications->isEmpty()) {
+                Log::info('No applications found for user', [
+                    'user_id' => Auth::id()
+                ]);
+
+                return Inertia::render('candidate/application-history', [
+                    'applications' => []
+                ]);
+            }
+
             // Format data untuk frontend
             $formattedApplications = $applications->map(function ($application) {
                 $vacancy = $application->vacancy;
-                $selection = $application->selection; // Changed from status to selection
+                $status = $application->status;
 
-                // Handle jika vacancy null
-                if (!$vacancy) {
-                    \Log::warning('Vacancy not found for application ID: ' . $application->id);
-                    return null;
+                // Log for debugging
+                Log::info('Application data', [
+                    'id' => $application->id,
+                    'has_vacancy' => isset($vacancy),
+                    'has_status' => isset($status)
+                ]);
+
+                // Menentukan warna status
+                $statusColor = '#1a73e8'; // Default blue
+                if ($status) {
+                    if ($status->stage == 'REJECTED') {
+                        $statusColor = '#dc3545'; // Red for rejected
+                    } else if ($status->stage == 'ACCEPTED') {
+                        $statusColor = '#28a745'; // Green for accepted
+                    } else if ($status->stage == 'INTERVIEW') {
+                        $statusColor = '#fd7e14'; // Orange for interview
+                    }
                 }
 
                 return [
                     'id' => $application->id,
-                    'status_id' => $application->selection_id ?? 1, // Changed from status_id to selection_id
-                    'status_name' => $selection ? $selection->name : 'Administrasi', // Changed default from Pending to Administrasi
-                    'status_color' => '#1a73e8', // Use a default color since selection may not have a color field
+                    'status_id' => $status ? $status->id : 1,
+                    'status_name' => $status ? $status->name : 'Administrative Selection',
+                    'status_color' => $statusColor,
                     'job' => [
-                        'id' => $vacancy->id,
-                        'title' => $vacancy->title,
-                        'company' => $vacancy->company ? $vacancy->company->name : 'Unknown',
-                        'location' => $vacancy->location,
-                        'type' => $vacancy->jobType ? $vacancy->jobType->name : 'Full Time',
+                        'id' => $vacancy ? $vacancy->id : null,
+                        'title' => $vacancy ? $vacancy->title : 'Tidak tersedia',
+                        'company' => $vacancy && $vacancy->company ? $vacancy->company->name : 'Perusahaan tidak tersedia',
+                        'location' => $vacancy ? $vacancy->location : 'Lokasi tidak tersedia',
+                        'type' => $vacancy && $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Full Time'
                     ],
-                    'applied_at' => $application->created_at ? $application->created_at->toDateString() : now()->toDateString(),
-                    'updated_at' => $application->updated_at ? $application->updated_at->toDateString() : now()->toDateString(),
+                    'applied_at' => $application->created_at ? $application->created_at->format('Y-m-d') : date('Y-m-d'),
+                    'updated_at' => $application->updated_at ? $application->updated_at->format('Y-m-d') : date('Y-m-d')
                 ];
-            })->filter()->values(); // Filter nulls and reindex
+            });
 
-            // Debugging
-            \Log::info('Returning applications data', [
-                'count' => $formattedApplications->count(),
-                'data' => $formattedApplications
+            Log::info('Application history loaded successfully', [
+                'count' => count($formattedApplications)
             ]);
 
-            // Render dengan data
             return Inertia::render('candidate/application-history', [
                 'applications' => $formattedApplications
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error fetching application history: ' . $e->getMessage(), [
+            Log::error('Error in application history: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
 
             return Inertia::render('candidate/application-history', [
                 'applications' => [],
                 'error' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Check if vacancy relationship exists in the application model
+     * For debugging purposes
+     */
+    public function checkRelationships()
+    {
+        try {
+            $application = Applications::with(['vacancy', 'status'])->first();
+
+            return response()->json([
+                'success' => true,
+                'has_vacancy_relation' => method_exists($application, 'vacancy'),
+                'has_status_relation' => method_exists($application, 'status'),
+                'application' => $application
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
             ]);
         }
     }
@@ -82,10 +127,10 @@ class ApplicationHistoryController extends Controller
             // Ambil data aplikasi user yang sedang login
             $applications = Applications::where('user_id', Auth::id())
                 ->with([
-                    'vacancy:id,title,location,type_id,company_id',
+                    'vacancy:id,title,location,vacancy_type_id,company_id',
                     'vacancy.company:id,name',
-                    'vacancy.jobType:id,name',
-                    'selection:id,name,description' // Changed from status to selection
+                    'vacancy.vacancyType:id,name',
+                    'status:id,name,description,stage'
                 ])
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -93,25 +138,22 @@ class ApplicationHistoryController extends Controller
             // Format data seperti fungsi index
             $formattedApplications = $applications->map(function ($application) {
                 $vacancy = $application->vacancy;
-                $selection = $application->selection; // Changed from status to selection
-
-                // Handle jika vacancy null
-                if (!$vacancy) {
-                    \Log::warning('Vacancy not found for application ID: ' . $application->id);
-                    return null;
-                }
+                $selection = $application->selection;
 
                 return [
                     'id' => $application->id,
-                    'status_id' => $application->selection_id ?? 1, // Changed from status_id to selection_id
-                    'status_name' => $selection ? $selection->name : 'Administrasi', // Changed default from Pending to Administrasi
-                    'status_color' => '#1a73e8', // Use a default color since selection may not have a color field
                     'job' => [
-                        'id' => $vacancy->id,
-                        'title' => $vacancy->title,
-                        'company' => $vacancy->company ? $vacancy->company->name : 'Unknown',
-                        'location' => $vacancy->location,
-                        'type' => $vacancy->jobType ? $vacancy->jobType->name : 'Full Time',
+                        'id' => $vacancy ? $vacancy->id : null,
+                        'title' => $vacancy ? $vacancy->title : 'Tidak tersedia',
+                        'company' => $vacancy && $vacancy->company ? $vacancy->company->name : 'Perusahaan tidak tersedia',
+                        'location' => $vacancy ? $vacancy->location : 'Lokasi tidak tersedia',
+                        'type' => $vacancy && $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Tipe tidak tersedia'
+                    ],
+                    'status' => [
+                        'id' => $selection ? $selection->id : null,
+                        'name' => $selection ? $selection->name : 'Status tidak tersedia',
+                        'description' => $selection ? $selection->description : '',
+                        'stage' => $selection ? $selection->stage : null
                     ],
                     'applied_at' => $application->created_at ? $application->created_at->toDateString() : now()->toDateString(),
                     'updated_at' => $application->updated_at ? $application->updated_at->toDateString() : now()->toDateString(),
@@ -140,22 +182,22 @@ class ApplicationHistoryController extends Controller
             $application = Applications::where('id', $id)
                 ->where('user_id', Auth::id())
                 ->with([
-                    'vacancy:id,title,location,type_id,company_id,requirements,benefits,job_description',
+                    'vacancy:id,title,location,vacancy_type_id,company_id,requirements,benefits,job_description',
                     'vacancy.company:id,name',
-                    'vacancy.jobType:id,name',
+                    'vacancy.vacancyType:id,name',
                     'vacancy.department:id,name',
-                    'selection:id,name,description',
+                    'status:id,name,description,stage',
                     // Include additional relations as needed
                     'user:id,name,email'
                 ])
                 ->firstOrFail();
 
             // Get application stages and status
-            $selectionStages = \App\Models\Selections::orderBy('id', 'asc')->get();
+            $selectionStages = \App\Models\Statuses::orderBy('id', 'asc')->get();
 
             // Get application history
             $applicationHistory = \App\Models\ApplicationsHistory::where('application_id', $id)
-                ->with(['selection:id,name'])
+                ->with(['status:id,name'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -172,30 +214,30 @@ class ApplicationHistoryController extends Controller
                     'company' => $application->vacancy->company ? $application->vacancy->company->name : 'Unknown',
                     'department' => $application->vacancy->department ? $application->vacancy->department->name : null,
                     'location' => $application->vacancy->location,
-                    'type' => $application->vacancy->jobType ? $application->vacancy->jobType->name : 'Full Time',
+                    'type' => $application->vacancy->vacancyType ? $application->vacancy->vacancyType->name : 'Full Time',
                     'requirements' => $this->safeJsonDecode($application->vacancy->requirements),
                     'benefits' => $this->safeJsonDecode($application->vacancy->benefits),
                     'description' => $application->vacancy->job_description
                 ],
                 'current_stage' => [
-                    'id' => $application->selection_id,
-                    'name' => $application->selection ? $application->selection->name : 'Administrasi',
-                    'description' => $application->selection ? $application->selection->description : null,
+                    'id' => $application->status_id,
+                    'name' => $application->status ? $application->status->name : 'Administrasi',
+                    'description' => $application->status ? $application->status->description : null,
                 ],
                 'stages' => $selectionStages->map(function ($stage) use ($application) {
                     return [
                         'id' => $stage->id,
                         'name' => $stage->name,
                         'description' => $stage->description,
-                        'is_current' => $stage->id === $application->selection_id,
-                        'is_completed' => $stage->id < $application->selection_id,
-                        'is_future' => $stage->id > $application->selection_id
+                        'is_current' => $stage->id === $application->status_id,
+                        'is_completed' => $stage->id < $application->status_id,
+                        'is_future' => $stage->id > $application->status_id
                     ];
                 }),
                 'history' => $applicationHistory->map(function ($history) {
                     return [
                         'id' => $history->id,
-                        'stage' => $history->selection ? $history->selection->name : 'Unknown',
+                        'stage' => $history->status ? $history->status->name : 'Unknown',
                         'notes' => $history->notes,
                         'status' => $history->status,
                         'date' => $history->created_at ? $history->created_at->format('Y-m-d H:i:s') : null,
@@ -239,14 +281,14 @@ class ApplicationHistoryController extends Controller
             ->where('user_id', $user->id)
             ->with(['job', 'job.company'])
             ->firstOrFail();
-            
+
         // Ambil data assessment yang terkait dengan aplikasi ini
         $applicationHistory = ApplicationsHistory::where('application_id', $applicationId)
             ->where('assessments_id', '!=', null)
             ->first();
-        
+
         $assessmentId = $applicationHistory ? $applicationHistory->assessments_id : null;
-            
+
         // Siapkan data untuk halaman status
         $data = [
             'application' => [
@@ -262,7 +304,7 @@ class ApplicationHistoryController extends Controller
                 'profile_image' => $user->candidateProfile ? asset('storage/' . $user->candidateProfile->profile_image) : null,
             ]
         ];
-            
+
         return Inertia::render('candidate/candidate-status', $data);
     }
 

@@ -108,7 +108,11 @@ class JobsController extends Controller
             $companies = DB::table('companies')->pluck('name')->toArray();
 
             // Periksa apakah profile kandidat sudah lengkap
-            $profileComplete = $this->checkProfileComplete(Auth::user());
+            if (Auth::check()) {
+                $profileComplete = $this->checkProfileComplete(Auth::user());
+            } else {
+                $profileComplete = ['is_complete' => false, 'message' => 'User belum login'];
+            }
 
             Log::info('Jobs data loaded successfully', [
                 'job_count' => count($formattedJobs),
@@ -131,109 +135,137 @@ class JobsController extends Controller
         }
     }
 
-    public function apply(Request $request, $id)
+    /**
+     * Handle job application
+     */
+    public function apply($id)
     {
         try {
-            // Check if profile is complete
-            $profileComplete = $this->checkProfileComplete(Auth::user());
-
-            if (!$profileComplete['complete']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $profileComplete['message'],
-                    'redirect' => route('candidate.profile')
-                ], 422);
-            }
-
-            // Proses aplikasi jika data sudah lengkap
-            $userId = Auth::id();
-
-            // Get vacancy details
+            // Verifikasi bahwa vacancy masih tersedia
             $vacancy = Vacancies::findOrFail($id);
 
-            // Get active vacancy period for this vacancy
-            $vacancyPeriod = DB::table('vacancy_periods')
-                ->join('periods', 'vacancy_periods.period_id', '=', 'periods.id')
-                ->where('vacancy_periods.vacancy_id', $id)
-                ->where('periods.end_time', '>=', now())
-                ->orderBy('periods.end_time', 'asc')
-                ->select('vacancy_periods.id')
-                ->first();
-
-            if (!$vacancyPeriod) {
+            // Verifikasi user sudah login
+            $user = Auth::user();
+            if (!$user) {
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Periode rekrutasi untuk lowongan ini telah berakhir.',
-                ], 422);
+                    'message' => 'Anda harus login terlebih dahulu.',
+                    'redirect' => '/login'
+                ], 401);
             }
 
-            // Check if user has already applied
-            $existingApplication = Applications::where('user_id', $userId)
-                ->where('vacancy_period_id', $vacancyPeriod->id)
+            // Cek kelengkapan profil
+            $profileCheck = $this->checkProfileComplete($user);
+            if (!$profileCheck['is_complete']) {
+                // Untuk permintaan Ajax/Fetch, kembalikan respons JSON dengan header X-Inertia
+                if (request()->ajax() || request()->wantsJson()) {
+                    return response()->json([
+                        'message' => $profileCheck['message'],
+                        'redirect' => "/candidate/confirm-data/{$id}"
+                    ], 422)->header('X-Inertia', 'true');
+                }
+
+                // Untuk permintaan langsung, gunakan redirect dengan flash data
+                return redirect()->route('candidate.confirm-data', ['id' => $id])
+                    ->with('warning', $profileCheck['message']);
+            }
+
+            // Cek apakah sudah pernah apply untuk lowongan ini
+            $existingApplication = Applications::where('user_id', $user->id)
+                ->where('vacancies_id', $id)
                 ->first();
 
             if ($existingApplication) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda sudah pernah melamar pekerjaan ini.',
-                    'redirect' => route('candidate.application-history')
-                ], 422);
+                if (request()->ajax() || request()->wantsJson()) {
+                    return response()->json([
+                        'message' => 'Anda sudah pernah melamar pekerjaan ini.',
+                        'redirect' => '/candidate/application-history'
+                    ], 422)->header('X-Inertia', 'true');
+                }
+
+                return redirect()->route('candidate.application-history')
+                    ->with('warning', 'Anda sudah pernah melamar pekerjaan ini.');
             }
 
-            // Get default status (usually "Applied")
-            $initialStatus = DB::table('statuses')->where('name', 'Applied')->first();
-            if (!$initialStatus) {
-                $initialStatusId = DB::table('statuses')->insertGetId([
-                    'name' => 'Applied',
+            // Ambil data selection
+            $selection = DB::table('selection')->where('name', 'Administrasi')->first();
+            if (!$selection) {
+                if (request()->ajax() || request()->wantsJson()) {
+                    return response()->json([
+                        'message' => 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.'
+                    ], 500)->header('X-Inertia', 'true');
+                }
+
+                return back()->with('error', 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.');
+            }
+
+            // Simpan data aplikasi baru
+            DB::beginTransaction();
+            try {
+                // Cari vacancy_period yang aktif
+                $vacancyPeriod = DB::table('vacancy_periods')
+                    ->where('vacancy_id', $id)
+                    ->where('is_active', true)
+                    ->first();
+
+                // Jika tidak ada periode aktif, gunakan ID vacancy langsung
+                $vacancyPeriodId = $vacancyPeriod ? $vacancyPeriod->id : $id;
+
+                // Buat aplikasi baru
+                $application = Applications::create([
+                    'user_id' => $user->id,
+                    'vacancies_id' => $id,
+                    'vacancies_period_id' => $vacancyPeriodId,
+                    'status_id' => $selection->id, // Changed from selection_id to status_id
                     'created_at' => now(),
-                    'updated_at' => now()
+                    'updated_at' => now(),
                 ]);
-            } else {
-                $initialStatusId = $initialStatus->id;
+
+                // Buat history aplikasi
+                DB::table('application_history')->insert([
+                    'application_id' => $application->id,
+                    'status_id' => $selection->id, // Changed from selection_id to status_id
+                    'question_pack_id' => null,
+                    'interviews_id' => null,
+                    'reviewed_by' => null,
+                    'is_qualified' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::commit();
+
+                if (request()->ajax() || request()->wantsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".',
+                        'redirect' => '/candidate/application-history'
+                    ])->header('X-Inertia', 'true');
+                }
+
+                return redirect()->route('candidate.application-history')
+                    ->with('success', 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error('Error saat menyimpan aplikasi: ' . $e->getMessage());
+
+                if (request()->ajax() || request()->wantsJson()) {
+                    return response()->json([
+                        'message' => 'Terjadi kesalahan saat menyimpan data lamaran: ' . $e->getMessage()
+                    ], 500)->header('X-Inertia', 'true');
+                }
+
+                return back()->with('error', 'Terjadi kesalahan saat menyimpan data lamaran.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error saat apply lowongan: ' . $e->getMessage());
+
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json([
+                    'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+                ], 500)->header('X-Inertia', 'true');
             }
 
-            // Get candidate CV
-            $candidateCV = DB::table('candidates_cv')
-                ->where('user_id', $userId)
-                ->orderBy('created_at', 'desc')
-                ->first();
-
-            $resumePath = $candidateCV ? $candidateCV->file_path : null;
-
-            // Create new application
-            $application = Applications::create([
-                'user_id' => $userId,
-                'vacancy_period_id' => $vacancyPeriod->id,
-                'status_id' => $initialStatusId,
-                'resume_path' => $resumePath,
-                'cover_letter_path' => null, // Could be added in the future
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-
-            // Create initial application history entry
-            DB::table('application_history')->insert([
-                'application_id' => $application->id,
-                'stage' => 'administrative_selection',
-                'processed_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Lamaran berhasil dikirim! Silakan pantau status lamaran Anda di halaman Riwayat Lamaran.',
-                'redirect' => route('candidate.application-history')
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error applying for job: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan saat melamar pekerjaan: ' . $e->getMessage()
-            ], 500);
+            return back()->with('error', 'Terjadi kesalahan saat melamar pekerjaan.');
         }
     }
 
@@ -580,56 +612,170 @@ class JobsController extends Controller
         return $jobs;
     }
 
-    // Metode tambahan untuk memeriksa kelengkapan profil
+    // Metode untuk memeriksa kelengkapan profil
     private function checkProfileComplete($user)
     {
-        $profile = \App\Models\CandidatesProfiles::where('user_id', $user->id)->first();
-
-        if (
-            !$profile ||
-            empty($user->name) ||
-            empty($user->email) ||
-            empty($profile->phone_number)
-        ) {
+        if (!$user) {
             return [
-                'complete' => false,
-                'message' => 'Nama, email, dan nomor telepon wajib diisi.'
+                'is_complete' => false,
+                'profile_complete' => false,
+                'education_complete' => false,
+                'skills_complete' => false,
+                'work_experience_complete' => false,
+                'organization_complete' => false,
+                'achievements_complete' => false,
+                'social_media_complete' => false,
+                'additional_data_complete' => false,
+                'message' => 'User tidak ditemukan.'
             ];
         }
 
-        if (empty($profile->address)) {
-            return [
-                'complete' => false,
-                'message' => 'Alamat wajib diisi.'
-            ];
+        $profile = \App\Models\CandidatesProfiles::where('user_id', $user->id)->first();
+
+        // Cek data pribadi
+        $profileComplete = false;
+        if (
+            $profile &&
+            !empty($user->name) &&
+            !empty($user->email) &&
+            !empty($profile->phone_number) &&
+            !empty($profile->address)
+        ) {
+            $profileComplete = true;
         }
 
         // Cek pendidikan
         $education = CandidatesEducations::where('user_id', $user->id)->first();
+        $educationComplete = false;
         if (
-            !$education ||
-            empty($education->institution) ||
-            empty($education->major_id) ||
-            empty($education->year_graduated)
+            $education &&
+            !empty($education->institution) &&
+            !empty($education->major_id) &&
+            !empty($education->year_graduated)
         ) {
-            return [
-                'complete' => false,
-                'message' => 'Data pendidikan belum lengkap.'
-            ];
+            $educationComplete = true;
         }
 
-        // Cek CV
-        $hasCV = \Storage::disk('public')->exists('cv/'.$user->id.'.pdf');
-        if (!$hasCV) {
-            return [
-                'complete' => false,
-                'message' => 'CV belum diupload.'
-            ];
-        }
+        // Cek skills/kemampuan (anggap lengkap jika profil dan pendidikan lengkap)
+        $skillsComplete = $profileComplete && $educationComplete;
+
+        // Cek pengalaman kerja (opsional)
+        $workExperienceComplete = true;
+
+        // Cek organisasi (opsional)
+        $organizationComplete = true;
+
+        // Cek prestasi (opsional)
+        $achievementsComplete = true;
+
+        // Cek social media (opsional)
+        $socialMediaComplete = true;
+
+        // Cek data tambahan (opsional)
+        $additionalDataComplete = true;
+
+        // Wajib: profile dan education harus lengkap
+        $isComplete = $profileComplete && $educationComplete && $skillsComplete;
+
+        $message = $isComplete ?
+            'Data profil lengkap.' :
+            'Harap lengkapi profil Anda terlebih dahulu untuk melamar pekerjaan.';
+
+        // Log profile completeness for debugging
+        \Log::info('Profile completeness check result', [
+            'user_id' => $user->id,
+            'is_complete' => $isComplete,
+            'profile' => $profileComplete,
+            'education' => $educationComplete,
+            'skills' => $skillsComplete,
+        ]);
 
         return [
-            'complete' => true,
-            'message' => 'Data profil lengkap.'
+            'is_complete' => $isComplete,
+            'profile_complete' => $profileComplete,
+            'education_complete' => $educationComplete,
+            'skills_complete' => $skillsComplete,
+            'work_experience_complete' => $workExperienceComplete,
+            'organization_complete' => $organizationComplete,
+            'achievements_complete' => $achievementsComplete,
+            'social_media_complete' => $socialMediaComplete,
+            'additional_data_complete' => $additionalDataComplete,
+            'message' => $message,
+            'overall_complete' => $isComplete // added for consistency with frontend
         ];
+    }
+
+    /**
+     * Halaman konfirmasi data sebelum melamar
+     *
+     * @param string|null $job_id
+     * @return \Inertia\Response
+     */
+    public function confirmData($job_id = null)
+    {
+        // Verifikasi user sudah login
+        $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
+        }
+
+        // Cek kelengkapan profil
+        $profileCheck = $this->checkProfileComplete($user);
+
+        // Jika job_id ada, verifikasi lowongan ada
+        $vacancyExists = false;
+        if ($job_id) {
+            $vacancy = Vacancies::find($job_id);
+            if ($vacancy) {
+                $vacancyExists = true;
+            }
+        }
+
+        return Inertia::render('candidate/confirm-data', [
+            'completeness' => [
+                'profile' => $profileCheck['profile_complete'] ?? false,
+                'education' => $profileCheck['education_complete'] ?? false,
+                'skills' => $profileCheck['skills_complete'] ?? false,
+                'work_experience' => $profileCheck['work_experience_complete'] ?? false,
+                'organization' => $profileCheck['organization_complete'] ?? false,
+                'achievements' => $profileCheck['achievements_complete'] ?? false,
+                'social_media' => $profileCheck['social_media_complete'] ?? false,
+                'additional_data' => $profileCheck['additional_data_complete'] ?? false,
+                'overall_complete' => $profileCheck['is_complete'] ?? false,
+            ],
+            'job_id' => $vacancyExists ? $job_id : null
+        ]);
+    }
+
+    /**
+     * Endpoint JSON untuk memeriksa kelengkapan profil
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function checkProfileCompleteEndpoint()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json([
+                'isComplete' => false,
+                'message' => 'User tidak ditemukan'
+            ]);
+        }
+
+        $profileCheck = $this->checkProfileComplete($user);
+
+        return response()->json([
+            'isComplete' => $profileCheck['is_complete'],
+            'overall_complete' => $profileCheck['is_complete'],
+            'profile' => $profileCheck['profile_complete'],
+            'education' => $profileCheck['education_complete'],
+            'skills' => $profileCheck['skills_complete'],
+            'work_experience' => $profileCheck['work_experience_complete'],
+            'organization' => $profileCheck['organization_complete'],
+            'achievements' => $profileCheck['achievements_complete'],
+            'social_media' => $profileCheck['social_media_complete'],
+            'additional_data' => $profileCheck['additional_data_complete'],
+            'message' => $profileCheck['message']
+        ]);
     }
 }
