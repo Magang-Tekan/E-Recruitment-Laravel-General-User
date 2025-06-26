@@ -27,6 +27,7 @@ class ApplicationsSeeder extends Seeder
             foreach ($selectedVacancyPeriods as $vacancyPeriod) {
                 Applications::create([
                     'user_id' => $user->id,
+                    'vacancies_id' => $vacancyPeriod->vacancy_id, // Include vacancies_id reference
                     'vacancy_period_id' => $vacancyPeriod->id,
                     'resume_path' => 'resumes/user_' . $user->id . '_resume.pdf',
                     'cover_letter_path' => 'cover_letters/user_' . $user->id . '_cover.pdf',
