@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Applications;
-use App\Models\ApplicationsHistory;
+use App\Models\ApplicationHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +47,16 @@ class ApplicationHistoryController extends Controller
                     'has_vacancy' => isset($vacancy),
                     'has_status' => isset($status)
                 ]);
+
+                // Jika tidak ada data vacancy, coba ambil dari vacancies_id
+                if (!$vacancy && $application->vacancies_id) {
+                    try {
+                        $vacancy = \App\Models\Vacancies::with(['company', 'vacancyType'])
+                                    ->find($application->vacancies_id);
+                    } catch (\Exception $e) {
+                        Log::error('Error fetching vacancy data: ' . $e->getMessage());
+                    }
+                }
 
                 // Menentukan warna status
                 $statusColor = '#1a73e8'; // Default blue
@@ -196,7 +206,7 @@ class ApplicationHistoryController extends Controller
             $selectionStages = \App\Models\Statuses::orderBy('id', 'asc')->get();
 
             // Get application history
-            $applicationHistory = \App\Models\ApplicationsHistory::where('application_id', $id)
+            $applicationHistory = \App\Models\ApplicationHistory::where('application_id', $id)
                 ->with(['status:id,name'])
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -283,7 +293,7 @@ class ApplicationHistoryController extends Controller
             ->firstOrFail();
 
         // Ambil data assessment yang terkait dengan aplikasi ini
-        $applicationHistory = ApplicationsHistory::where('application_id', $applicationId)
+        $applicationHistory = \App\Models\ApplicationHistory::where('application_id', $applicationId)
             ->where('assessments_id', '!=', null)
             ->first();
 

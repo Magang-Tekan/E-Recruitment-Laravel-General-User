@@ -2,9 +2,10 @@ import { faInstagram, faLinkedin, faWhatsapp, faXTwitter, faYoutube } from '@for
 import { faEnvelope, faMapMarkerAlt, faPhone } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Head, Link, usePage } from "@inertiajs/react";
+import axios from 'axios';
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import axios from 'axios';
+import Swal from 'sweetalert2';
 
 type Completeness = {
   profile: boolean;
@@ -59,7 +60,7 @@ const ConfirmData = () => {
       try {
         const response = await axios.get('/candidate/applicant-completeness');
         console.log('Completeness response:', response.data); // Untuk debugging
-        
+
         // Update localCompleteness jika ada data baru
         if (response.data.success && response.data.completeness) {
           setLocalCompleteness(response.data.completeness);
@@ -77,7 +78,7 @@ const ConfirmData = () => {
     try {
       const response = await axios.get('/candidate/applicant-completeness');
       console.log('Fresh completeness data:', response.data);
-      
+
       // Update state completeness jika diperlukan
       if (response.data.success) {
         setLocalCompleteness(response.data.completeness);
@@ -150,11 +151,77 @@ const ConfirmData = () => {
     return "text-red-500"; // Wajib belum terisi = merah
   };
 
+  // Fungsi untuk mengirim aplikasi secara langsung
+  const handleApplyNow = async () => {
+    if (!job_id || hasIncompleteRequired || !localCompleteness?.overall_complete) {
+      return false; // Jangan lanjutkan jika ada data yang belum lengkap
+    }
+
+    try {
+      // Tampilkan loading state
+      const loadingToast = Swal.fire({
+        title: 'Memproses Lamaran',
+        html: 'Mohon tunggu sebentar...',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Kirim aplikasi ke backend
+      const response = await axios.post(`/candidate/apply/${job_id}`, {}, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      loadingToast.close();
+
+      if (response.data.success) {
+        // Tampilkan pesan sukses
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil!',
+          text: response.data.message || 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".',
+          confirmButtonColor: '#3085d6'
+        }).then(() => {
+          // Redirect ke halaman history
+          window.location.href = '/candidate/application-history';
+        });
+      } else {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Perhatian',
+          text: response.data.message || 'Terjadi kesalahan saat mengirim lamaran.',
+          confirmButtonColor: '#3085d6'
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting application:', error);
+
+      // Cek jika ada response dengan redirect
+      if (error.response && error.response.data && error.response.data.redirect) {
+        window.location.href = error.response.data.redirect;
+        return;
+      }
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.message || 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.',
+        confirmButtonColor: '#3085d6'
+      });
+    }
+  };
+
   // Log untuk debugging status sections
-  console.log('Sections status:', sections.map(s => ({ 
-    title: s.title, 
-    isComplete: s.isComplete, 
-    isRequired: s.isRequired 
+  console.log('Sections status:', sections.map(s => ({
+    title: s.title,
+    isComplete: s.isComplete,
+    isRequired: s.isRequired
   })));
   console.log('Has incomplete required:', hasIncompleteRequired);
 
@@ -251,15 +318,13 @@ const ConfirmData = () => {
         {/* Submit Button */}
         <div className="text-center mt-6">
           {localCompleteness?.overall_complete && job_id ? (
-            <Link
-              href={`/candidate/apply/${job_id}`}
-              method="post"
-              as="button"
+            <button
+              onClick={handleApplyNow}
               className="px-8 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium mb-10"
               data-job-id={job_id}
             >
               Lamar Sekarang
-            </Link>
+            </button>
           ) : job_id ? (
             <div className="space-y-4">
               <button
@@ -268,6 +333,9 @@ const ConfirmData = () => {
               >
                 Lamar Sekarang
               </button>
+              <p className="text-sm text-gray-500">
+                Lengkapi profil Anda terlebih dahulu untuk melamar pekerjaan ini.
+              </p>
             </div>
           ) : (
             <Link

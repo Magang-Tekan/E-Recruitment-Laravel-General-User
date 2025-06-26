@@ -186,9 +186,9 @@ class JobsController extends Controller
                     ->with('warning', 'Anda sudah pernah melamar pekerjaan ini.');
             }
 
-            // Ambil data selection
-            $selection = DB::table('selection')->where('name', 'Administrasi')->first();
-            if (!$selection) {
+            // Ambil data status dari tabel statuses
+            $status = DB::table('statuses')->where('name', 'Administrative Selection')->first();
+            if (!$status) {
                 if (request()->ajax() || request()->wantsJson()) {
                     return response()->json([
                         'message' => 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.'
@@ -214,8 +214,8 @@ class JobsController extends Controller
                 $application = Applications::create([
                     'user_id' => $user->id,
                     'vacancies_id' => $id,
-                    'vacancies_period_id' => $vacancyPeriodId,
-                    'status_id' => $selection->id, // Changed from selection_id to status_id
+                    'vacancy_period_id' => $vacancyPeriodId,
+                    'status_id' => $status->id,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -223,7 +223,7 @@ class JobsController extends Controller
                 // Buat history aplikasi
                 DB::table('application_history')->insert([
                     'application_id' => $application->id,
-                    'status_id' => $selection->id, // Changed from selection_id to status_id
+                    'status_id' => $status->id,
                     'question_pack_id' => null,
                     'interviews_id' => null,
                     'reviewed_by' => null,
