@@ -34,55 +34,75 @@ class CandidateController extends Controller
 {
     public function checkApplicationDataCompleteness()
 {
-    $userId = Auth::id();
+    try {
+        $userId = Auth::id();
+        
+        // Debug log untuk memastikan pengecekan berjalan
+        \Log::info('Checking application data completeness for user:', ['user_id' => $userId]);
 
-    $completeness = [
-        'profile' => false,
-        'education' => false,
-        'skills' => false,
-        'work_experience' => false,
-        'organization' => false,
-        'achievements' => false,
-        'social_media' => false,
-        'additional_data' => true, // Set default ke true untuk menghindari error
-        'overall_complete' => false
-    ];
+        // Koleksi data untuk pengecekan
+        $profile = CandidatesProfiles::where('user_id', $userId)->first();
+        $education = CandidatesEducations::where('user_id', $userId)->first();
+        $skills = CandidatesSkills::where('user_id', $userId)->get();
 
-    // Data Pribadi
-    $profile = CandidatesProfiles::where('user_id', $userId)->first();
-    $completeness['profile'] = $profile && $profile->phone_number && $profile->address && $profile->date_of_birth;
+        \Log::info('Found profile data:', ['exists' => (bool)$profile]);
+        \Log::info('Found education data:', ['exists' => (bool)$education]);
+        \Log::info('Found skills count:', ['count' => $skills->count()]);
 
-    // Pendidikan
-    $education = CandidatesEducations::where('user_id', $userId)->first();
-    $completeness['education'] = (bool) $education;
+        $completeness = [
+            'profile' => false,
+            'education' => false,
+            'skills' => false,
+            'work_experience' => false,
+            'organization' => false,
+            'achievements' => false,
+            'social_media' => false,
+            'additional_data' => true
+        ];
 
-    // Skill
-    $skillsCount = CandidatesSkills::where('user_id', $userId)->count();
-    $completeness['skills'] = $skillsCount > 0;
+        // Gunakan logika yang konsisten dengan checkDataCompleteness
+        // Check Profile Data
+        $completeness['profile'] = $profile && 
+            !empty($profile->phone_number) && 
+            !empty($profile->address) && 
+            !empty($profile->date_of_birth);
 
-    // Pengalaman Kerja
-    $completeness['work_experience'] = CandidatesWorkExperiences::where('user_id', $userId)->exists();
+        // Check Education - cukup ada data pendidikan
+        $completeness['education'] = (bool)$education;
 
-    // Organisasi
-    $completeness['organization'] = CandidatesOrganizations::where('user_id', $userId)->exists();
+        // Check Skills - minimal 1 skill
+        $completeness['skills'] = $skills->count() > 0;
 
-    // Prestasi
-    $completeness['achievements'] = CandidatesAchievements::where('user_id', $userId)->exists();
+        // Optional checks
+        $completeness['work_experience'] = CandidatesWorkExperiences::where('user_id', $userId)->exists();
+        $completeness['organization'] = CandidatesOrganizations::where('user_id', $userId)->exists();
+        $completeness['achievements'] = CandidatesAchievements::where('user_id', $userId)->exists();
+        $completeness['social_media'] = CandidatesSocialMedia::where('user_id', $userId)->exists();
 
-    // Social Media
-    $completeness['social_media'] = CandidatesSocialMedia::where('user_id', $userId)->exists();
+        // Overall completeness berdasarkan data wajib saja
+        $completeness['overall_complete'] = 
+            $completeness['profile'] && 
+            $completeness['education'] && 
+            $completeness['skills'];
 
-    // Hapus atau ubah referensi ke CandidatesAdditionalData
-    // $completeness['additional_data'] = CandidatesAdditionalData::where('user_id', $userId)->exists();
+        \Log::info('Final completeness status:', $completeness);
 
-    // Kelengkapan total minimal 3
-    $completeness['overall_complete'] = $completeness['profile'] &&
-                                        $completeness['education'] &&
-                                        $completeness['skills'];
+        return response()->json([
+            'success' => true,
+            'completeness' => $completeness
+        ]);
 
-    return response()->json([
-        'completeness' => $completeness
-    ]);
+    } catch (\Exception $e) {
+        \Log::error('Error checking application completeness:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error checking completeness: ' . $e->getMessage()
+        ], 500);
+    }
 }
     public function index()
     {

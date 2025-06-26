@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Head, Link, usePage } from "@inertiajs/react";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import axios from 'axios';
 
 type Completeness = {
   profile: boolean;
@@ -35,8 +36,9 @@ type PageProps = {
 };
 
 const ConfirmData = () => {
-  const { completeness, job_id, flash } = usePage<PageProps>().props;
+  const { completeness: initialCompleteness, job_id, flash } = usePage<PageProps>().props;
   const [showAlert, setShowAlert] = useState<boolean>(!!flash?.warning);
+  const [localCompleteness, setLocalCompleteness] = useState<Completeness>(initialCompleteness);
 
   useEffect(() => {
     if (flash?.warning) {
@@ -51,53 +53,95 @@ const ConfirmData = () => {
     }
   }, [flash?.warning]);
 
+  // Update useEffect untuk mengecek data saat komponen dimount
+  useEffect(() => {
+    const checkCompleteness = async () => {
+      try {
+        const response = await axios.get('/candidate/applicant-completeness');
+        console.log('Completeness response:', response.data); // Untuk debugging
+        
+        // Update localCompleteness jika ada data baru
+        if (response.data.success && response.data.completeness) {
+          setLocalCompleteness(response.data.completeness);
+        }
+      } catch (error) {
+        console.error('Error checking completeness:', error);
+      }
+    };
+
+    checkCompleteness();
+  }, []);
+
+  // Tambahkan fungsi untuk refresh data
+  const refreshCompleteness = async () => {
+    try {
+      const response = await axios.get('/candidate/applicant-completeness');
+      console.log('Fresh completeness data:', response.data);
+      
+      // Update state completeness jika diperlukan
+      if (response.data.success) {
+        setLocalCompleteness(response.data.completeness);
+      }
+    } catch (error) {
+      console.error('Error refreshing completeness data:', error);
+    }
+  };
+
+  // Panggil saat komponen dimount
+  useEffect(() => {
+    refreshCompleteness();
+  }, []);
+
   const sections = [
     {
       title: "Data Pribadi",
-      isComplete: completeness?.profile,
+      isComplete: localCompleteness?.profile,
       isRequired: true
     },
     {
       title: "Pendidikan",
-      isComplete: completeness?.education,
+      isComplete: localCompleteness?.education,
       isRequired: true
     },
     {
       title: "Skills/Kemampuan",
-      isComplete: completeness?.skills,
+      isComplete: localCompleteness?.skills,
       isRequired: true
     },
     {
       title: "Pengalaman Kerja",
-      isComplete: completeness?.work_experience,
+      isComplete: localCompleteness?.work_experience,
       isOptional: true
     },
     {
       title: "Organisasi",
-      isComplete: completeness?.organization,
+      isComplete: localCompleteness?.organization,
       isOptional: true
     },
     {
       title: "Prestasi",
-      isComplete: completeness?.achievements,
+      isComplete: localCompleteness?.achievements,
       isOptional: true
     },
     {
       title: "Social Media",
-      isComplete: completeness?.social_media,
+      isComplete: localCompleteness?.social_media,
       isOptional: true
     },
     {
       title: "Data Tambahan",
-      isComplete: completeness?.additional_data,
+      isComplete: localCompleteness?.additional_data,
       isOptional: true
     }
   ];
 
-  // Cek apakah ada data wajib yang belum lengkap
-  const hasIncompleteRequired = sections.some(section =>
-    section.isRequired && !section.isComplete
-  );
+  // Log untuk debugging
+  console.log('Initial completeness from props:', initialCompleteness);
+  console.log('Local completeness state:', localCompleteness);
+
+  // Update pengecekan required sections
+  const requiredSections = sections.filter(section => section.isRequired);
+  const hasIncompleteRequired = requiredSections.some(section => !section.isComplete);
 
   // Fungsi untuk mendapatkan warna ikon
   const getIconColor = (isComplete: boolean, isOptional: boolean) => {
@@ -105,6 +149,14 @@ const ConfirmData = () => {
     if (isOptional) return "text-yellow-500"; // Opsional belum terisi = kuning
     return "text-red-500"; // Wajib belum terisi = merah
   };
+
+  // Log untuk debugging status sections
+  console.log('Sections status:', sections.map(s => ({ 
+    title: s.title, 
+    isComplete: s.isComplete, 
+    isRequired: s.isRequired 
+  })));
+  console.log('Has incomplete required:', hasIncompleteRequired);
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -198,7 +250,7 @@ const ConfirmData = () => {
 
         {/* Submit Button */}
         <div className="text-center mt-6">
-          {completeness?.overall_complete && job_id ? (
+          {localCompleteness?.overall_complete && job_id ? (
             <Link
               href={`/candidate/apply/${job_id}`}
               method="post"
