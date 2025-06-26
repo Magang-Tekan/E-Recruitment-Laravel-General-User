@@ -229,7 +229,7 @@ class ApplicationHistorySeeder extends Seeder
         $this->command->info('Application history seeded successfully with user 1 and 2 having complete stages.');
     }
 
-    private function createStageHistory($application, $status, $admin, $date, $score, $notes, $isActive = true, $rejectionReason = null)
+    private function createStageHistory($application, $status, $admin, $date, $score, $notes, $isActive = true)
     {
         // Validasi parameter untuk menghindari null reference
         if (!$application || !$status || !$admin) {
@@ -251,8 +251,7 @@ class ApplicationHistorySeeder extends Seeder
                 'completed_at' => $date,
                 'reviewed_by' => $admin->id,
                 'reviewed_at' => $date->copy()->addHours(rand(1, 24)),
-                'is_active' => $isActive,
-                'rejection_reason' => $rejectionReason
+                'is_active' => $isActive
             ]);
         } catch (\Exception $e) {
             $this->command->error('Error creating history: ' . $e->getMessage());

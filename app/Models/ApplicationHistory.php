@@ -24,7 +24,6 @@ class ApplicationHistory extends Model
         'reviewed_by',
         'reviewed_at',
         'is_active',
-        'rejection_reason',
     ];
 
     protected $casts = [

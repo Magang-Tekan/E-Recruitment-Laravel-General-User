@@ -31,8 +31,8 @@ class CreateApplicationHistoryTable extends Migration
             // Mengubah is_qualified menjadi is_active
             $table->boolean('is_active')->default(true);
             
-            // Tetap menyimpan alasan penolakan jika dibutuhkan
-            $table->text('rejection_reason')->nullable();
+            // Hapus kolom rejection_reason karena redundant dengan notes
+            // $table->text('rejection_reason')->nullable();
             
             // Kolom timestamps standar
             $table->timestamps();
