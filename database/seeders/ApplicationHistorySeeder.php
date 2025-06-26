@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\CandidatesStage;
 use App\Models\Applications;
 use App\Models\ApplicationHistory;
+use App\Models\Statuses;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -16,6 +17,29 @@ class ApplicationHistorySeeder extends Seeder
         // Get necessary data
         $applications = Applications::all();
         $admins = User::whereIn('role', ['super_admin', 'hr', 'head_hr'])->get();
+        
+        $this->command->info('Mencari status di database...');
+        
+        // Dapatkan semua status berdasarkan enum CandidatesStage
+        $adminStatus = Statuses::where('stage', CandidatesStage::ADMINISTRATIVE_SELECTION->value)->first();
+        $psychoTestStatus = Statuses::where('stage', CandidatesStage::PSYCHOTEST->value)->first();
+        $interviewStatus = Statuses::where('stage', CandidatesStage::INTERVIEW->value)->first();
+        $acceptedStatus = Statuses::where('stage', CandidatesStage::ACCEPTED->value)->first();
+        $rejectedStatus = Statuses::where('stage', CandidatesStage::REJECTED->value)->first();
+        
+        // Debugging info
+        $this->command->info("Status yang ditemukan:");
+        $this->command->info("- Admin: " . ($adminStatus ? $adminStatus->name : 'TIDAK DITEMUKAN'));
+        $this->command->info("- Psiko: " . ($psychoTestStatus ? $psychoTestStatus->name : 'TIDAK DITEMUKAN'));
+        $this->command->info("- Interview: " . ($interviewStatus ? $interviewStatus->name : 'TIDAK DITEMUKAN'));
+        $this->command->info("- Accepted: " . ($acceptedStatus ? $acceptedStatus->name : 'TIDAK DITEMUKAN'));
+        $this->command->info("- Rejected: " . ($rejectedStatus ? $rejectedStatus->name : 'TIDAK DITEMUKAN'));
+        
+        // Validasi status yang dibutuhkan
+        if (!$adminStatus || !$psychoTestStatus || !$interviewStatus || !$acceptedStatus || !$rejectedStatus) {
+            $this->command->error('Beberapa status tidak ditemukan. Jalankan migrasi statuses_table terlebih dahulu.');
+            return;
+        }
 
         if ($applications->isEmpty()) {
             $this->command->error('No applications found. Please run ApplicationsSeeder first.');
@@ -26,95 +50,213 @@ class ApplicationHistorySeeder extends Seeder
             $this->command->error('No admin users found. Please run SuperAdminSeeder first.');
             return;
         }
-
-        foreach ($applications as $application) {
+        
+        // Mendapatkan aplikasi milik user 1 dan 2
+        $specialApplications = Applications::whereIn('user_id', [1, 2])->get();
+        
+        if ($specialApplications->isEmpty()) {
+            $this->command->warn('Tidak menemukan aplikasi untuk user 1 dan 2. Pastikan data aplikasi sudah dibuat.');
+        } else {
+            $this->command->info('Ditemukan ' . $specialApplications->count() . ' aplikasi untuk user 1 dan 2.');
+        }
+        
+        // Proses khusus untuk user 1 dan 2 (lengkap semua tahap)
+        foreach ($specialApplications as $application) {
+            $startDate = Carbon::now()->subDays(90); // 3 bulan yang lalu
+            $admin = $admins->first(); // Gunakan admin pertama untuk konsistensi
+            
+            // User 1 diterima, User 2 ditolak di tahap terakhir
+            $isAccepted = $application->user_id === 1;
+            
+            $this->command->info('Membuat riwayat lengkap untuk aplikasi #' . $application->id . ' (User ID: ' . $application->user_id . ')');
+            
+            // 1. Tahap Administrasi
+            $adminDate = $startDate->copy();
+            $this->createStageHistory(
+                $application,
+                $adminStatus,
+                $admin,
+                $adminDate,
+                rand(80, 95),
+                $this->getAdminNotes(85),
+                true
+            );
+            
+            // 2. Tahap Psikotes
+            $psychoDate = $adminDate->copy()->addDays(7);
+            $this->createStageHistory(
+                $application,
+                $psychoTestStatus,
+                $admin,
+                $psychoDate,
+                rand(80, 95),
+                $this->getTestNotes(85),
+                true
+            );
+            
+            // 3. Tahap Interview (keduanya - HR dan User)
+            $interviewDate = $psychoDate->copy()->addDays(7);
+            $this->createStageHistory(
+                $application,
+                $interviewStatus,
+                $admin,
+                $interviewDate,
+                rand(80, 95),
+                $this->getInterviewNotes(85),
+                true
+            );
+            
+            // 4. Tahap Final: Accepted/Rejected
+            $finalDate = $interviewDate->copy()->addDays(7);
+            if ($isAccepted) {
+                // User 1: Accepted
+                $this->createStageHistory(
+                    $application,
+                    $acceptedStatus,
+                    $admin,
+                    $finalDate,
+                    95,
+                    "Kandidat telah menerima penawaran dan akan mulai bekerja pada " . $finalDate->copy()->addDays(14)->format('d M Y'),
+                    true
+                );
+            } else {
+                // User 2: Rejected
+                $this->createStageHistory(
+                    $application,
+                    $rejectedStatus,
+                    $admin,
+                    $finalDate,
+                    60,
+                    "Setelah pertimbangan menyeluruh, perusahaan memilih kandidat lain yang lebih sesuai.",
+                    false,
+                    "Kandidat memiliki kualifikasi yang baik, namun kandidat lain lebih memenuhi kebutuhan spesifik posisi."
+                );
+            }
+        }
+        
+        // Proses aplikasi lainnya secara acak
+        $otherApplications = $applications->whereNotIn('id', $specialApplications->pluck('id'));
+        
+        $this->command->info('Memproses ' . $otherApplications->count() . ' aplikasi lainnya secara acak.');
+        
+        foreach ($otherApplications as $application) {
             $appliedAt = Carbon::now()->subDays(rand(60, 90));
+            $admin = $admins->random();
             
             // Distribute stages realistically
             $stageDistribution = rand(1, 100);
             
             if ($stageDistribution <= 35) {
                 // 35% - Still in administrative review
-                $currentStage = CandidatesStage::ADMINISTRATIVE_SELECTION;
-                $adminScore = rand(60, 85);
+                $currentStatus = $adminStatus;
+                $score = rand(60, 85);
             } elseif ($stageDistribution <= 55) {
                 // 20% - Moved to psychological test
-                $currentStage = CandidatesStage::PSYCHOTEST;  // Changed from ASSESSMENT
-                $adminScore = rand(75, 95);
-                $testScore = rand(65, 90);
+                $currentStatus = $psychoTestStatus;
+                $score = rand(65, 90);
             } elseif ($stageDistribution <= 70) {
                 // 15% - Moved to interview
-                $currentStage = CandidatesStage::INTERVIEW;
-                $adminScore = rand(80, 95);
-                $testScore = rand(70, 95);
-                $interviewScore = rand(70, 90);
+                $currentStatus = $interviewStatus;
+                $score = rand(70, 90);
             } else {
-                // 30% - Rejected at various stages
-                $rejectionStage = rand(1, 3);
-                $currentStage = CandidatesStage::REJECTED;
-                
-                if ($rejectionStage == 1) {
-                    $adminScore = rand(30, 65);
-                } elseif ($rejectionStage == 2) {
-                    $adminScore = rand(70, 80);
-                    $testScore = rand(30, 60);
-                } else {
-                    $adminScore = rand(75, 85);
-                    $testScore = rand(70, 85);
-                    $interviewScore = rand(30, 65);
-                }
+                // 30% - Accepted or Rejected
+                $currentStatus = rand(0, 1) ? $acceptedStatus : $rejectedStatus;
+                $score = $currentStatus->id == $rejectedStatus->id ? rand(30, 65) : rand(80, 95);
             }
 
             // Create Administrative Selection History
             $this->createStageHistory(
                 $application,
-                CandidatesStage::ADMINISTRATIVE_SELECTION,
-                $admins->random(),
+                $adminStatus,
+                $admin,
                 $appliedAt,
-                $adminScore,
-                $this->getAdminNotes($adminScore)
+                rand(60, 85),
+                $this->getAdminNotes(rand(60, 85))
             );
 
             // Create Psychological Test History if applicable
-            if (isset($testScore)) {
+            if ($currentStatus->id >= $psychoTestStatus->id) {
                 $this->createStageHistory(
                     $application,
-                    CandidatesStage::PSYCHOTEST,  // Changed from ASSESSMENT
-                    $admins->random(),
+                    $psychoTestStatus,
+                    $admin,
                     $appliedAt->copy()->addDays(rand(5, 10)),
-                    $testScore,
-                    $this->getTestNotes($testScore)
+                    rand(65, 90),
+                    $this->getTestNotes(rand(65, 90))
                 );
             }
 
             // Create Interview History if applicable
-            if (isset($interviewScore)) {
+            if ($currentStatus->id >= $interviewStatus->id) {
                 $this->createStageHistory(
                     $application,
-                    CandidatesStage::INTERVIEW,
-                    $admins->random(),
-                    $appliedAt->copy()->addDays(rand(15, 20)),
-                    $interviewScore,
-                    $this->getInterviewNotes($interviewScore)
+                    $interviewStatus,
+                    $admin,
+                    $appliedAt->copy()->addDays(rand(12, 18)),
+                    rand(70, 90),
+                    $this->getInterviewNotes(rand(70, 90))
+                );
+            }
+            
+            // If rejected, add rejection history
+            if ($currentStatus->id == $rejectedStatus->id) {
+                $this->createStageHistory(
+                    $application,
+                    $rejectedStatus,
+                    $admin,
+                    $appliedAt->copy()->addDays(rand(20, 30)),
+                    rand(30, 65),
+                    "Kandidat tidak memenuhi kriteria yang dibutuhkan",
+                    false,
+                    $this->getRejectionReason()
+                );
+            }
+            
+            // If accepted, add acceptance history
+            if ($currentStatus->id == $acceptedStatus->id) {
+                $this->createStageHistory(
+                    $application,
+                    $acceptedStatus, 
+                    $admin,
+                    $appliedAt->copy()->addDays(rand(20, 30)),
+                    rand(80, 95),
+                    "Kandidat diterima untuk bergabung dengan perusahaan",
+                    true
                 );
             }
         }
 
-        $this->command->info('Application history seeded successfully with realistic data.');
+        $this->command->info('Application history seeded successfully with user 1 and 2 having complete stages.');
     }
 
-    private function createStageHistory($application, $stage, $admin, $date, $score, $notes)
+    private function createStageHistory($application, $status, $admin, $date, $score, $notes, $isActive = true, $rejectionReason = null)
     {
-        ApplicationHistory::create([
-            'application_id' => $application->id,
-            'stage' => $stage,
-            'processed_at' => $date,
-            'admin_score' => $score,
-            'admin_notes' => $notes,
-            'admin_reviewed_at' => $date->copy()->addHours(rand(1, 48)),
-            'admin_reviewed_by' => $admin->id,
-            'is_qualified' => $score >= 70
-        ]);
+        // Validasi parameter untuk menghindari null reference
+        if (!$application || !$status || !$admin) {
+            $this->command->error('Invalid parameters for createStageHistory:');
+            $this->command->error('- Application: ' . ($application ? 'OK' : 'NULL'));
+            $this->command->error('- Status: ' . ($status ? 'OK' : 'NULL'));
+            $this->command->error('- Admin: ' . ($admin ? 'OK' : 'NULL'));
+            return;
+        }
+        
+        try {
+            ApplicationHistory::create([
+                'application_id' => $application->id,
+                'status_id' => $status->id,
+                'processed_at' => $date,
+                'score' => $score,
+                'notes' => $notes,
+                'scheduled_at' => $date->copy()->subDays(rand(1, 3)),
+                'completed_at' => $date,
+                'reviewed_by' => $admin->id,
+                'reviewed_at' => $date->copy()->addHours(rand(1, 24)),
+                'is_active' => $isActive,
+                'rejection_reason' => $rejectionReason
+            ]);
+        } catch (\Exception $e) {
+            $this->command->error('Error creating history: ' . $e->getMessage());
+        }
     }
 
     private function getAdminNotes($score)
@@ -184,5 +326,18 @@ class ApplicationHistorySeeder extends Seeder
                 'Perlu banyak perbaikan dalam hal komunikasi dan pemahaman materi.'
             ]);
         }
+    }
+    
+    private function getRejectionReason()
+    {
+        return fake()->randomElement([
+            'Tidak memenuhi kualifikasi minimum yang dibutuhkan.',
+            'Kurangnya pengalaman yang relevan dengan posisi.',
+            'Hasil tes psikologi tidak sesuai dengan karakter yang dibutuhkan.',
+            'Kandidat menunjukkan performa yang kurang baik dalam wawancara.',
+            'Ekspektasi gaji lebih tinggi dari anggaran yang tersedia.',
+            'Kandidat lain memiliki kualifikasi yang lebih baik.',
+            'Hasil background check tidak memenuhi standar perusahaan.'
+        ]);
     }
 }

@@ -1,7 +1,10 @@
+import { Link, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
+// Update the import path to the correct location or ensure the file exists
+import UserLayout from '../../layouts/UserLayout'; // Verify the file path or adjust it accordingly
+
 // === Ikon SVG ===
 // Definisi semua ikon yang digunakan di dalam satu file.
-import { Link } from '@inertiajs/react';
-
 const BriefcaseIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-2 text-gray-700">
         <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
@@ -44,60 +47,72 @@ const DocumentIcon = () => (
 );
 
 // Define the props interface for the component
-interface ApplicationStatusProps {
+interface ApplicationStatusPageProps {
     application: {
         id: number;
-        user: {
-            name: string;
-            email: string;
-        };
+        status_id: number;
         job: {
             id: number;
             title: string;
             company: string;
-            department: string;
             location: string;
             type: string;
-            requirements: string[];
-            benefits: string[];
-            description: string;
         };
-        current_stage: {
-            id: number;
-            name: string;
-            description: string;
-        };
-        stages: Array<{
-            id: number;
-            name: string;
-            description: string;
-            is_current: boolean;
-            is_completed: boolean;
-            is_future: boolean;
-        }>;
-        history: Array<{
-            id: number;
-            stage: string;
-            notes: string;
-            status: string;
-            date: string;
-        }>;
         applied_at: string;
-        updated_at: string;
-        assessment_id?: number; // Tambahkan properti ini
+        histories: Array<{
+            id: number;
+            status_id: number;
+            status_name: string;
+            status_color: string;
+            is_qualified: boolean;
+            created_at: string;
+            notes: string;
+        }>;
+        // Add any other necessary fields
     };
 }
 
-// === Komponen Halaman Status Kandidat ===
-export default function StatusCandidatePage({ application }: ApplicationStatusProps) {
-    // Find the current stage to display more details
-    const currentStage = application.stages.find(stage => stage.is_current);
+// Breadcrumb data
+const breadcrumbs = [
+    { name: 'Dashboard', href: '/candidate' },
+    { name: 'Application Status', href: '#' },
+];
+
+export default function StatusCandidatePage({ application }: ApplicationStatusPageProps) {
+    // Get the auth user data from Inertia shared props
+    const { auth } = usePage<any>().props;
+    const user = auth?.user;
+    
+    // Get the latest history entry
+    const latestHistory = application.histories[0];
+    
+    // Define recruitment stages
+    const stages = [
+        { id: 1, name: 'Administrasi', status_id: 1 },
+        { id: 2, name: 'Psikotest', status_id: 2 },
+        { id: 3, name: 'Interview HR', status_id: 3 },
+        { id: 4, name: 'Interview User', status_id: 4 },
+        { id: 5, name: 'Medical Checkup', status_id: 5 },
+    ];
+    
+    // Determine stage statuses
+    const stagesWithStatus = stages.map(stage => {
+        const stageHistory = application.histories.find(h => h.status_id === stage.status_id);
+        
+        return {
+            ...stage,
+            is_completed: stageHistory?.is_qualified,
+            is_current: stage.status_id === application.status_id,
+            is_future: stage.status_id > application.status_id,
+            history: stageHistory,
+        };
+    });
+    
+    // Find current stage
+    const currentStage = stagesWithStatus.find(stage => stage.is_current);
 
     // Helper function to get appropriate status badge
-    const getStatusBadge = (stage: {
-        is_completed: boolean;
-        is_current: boolean;
-    }) => {
+    const getStatusBadge = (stage: any) => {
         if (stage.is_completed) {
             return <span className="text-xs font-bold text-green-700 bg-green-100 border border-green-300 px-3 py-1 rounded-full">Selesai</span>;
         } else if (stage.is_current) {
@@ -110,34 +125,15 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
     // Format date helper
     const formatDate = (dateString: string | null | undefined) => {
         if (!dateString) return '';
-
-        // Basic formatting, can be enhanced with date-fns if needed
+        
         const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
         return new Date(dateString).toLocaleDateString('id-ID', options);
     };
 
     return (
-        <div className="bg-gray-50 min-h-screen font-sans">
-            <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
-                {/* Header */}
-                <header className="flex justify-between items-center py-4 border-b border-gray-200">
-                    <h1 className="text-lg font-bold text-gray-800">MITRA KARYA GROUP</h1>
-                    <nav className="flex items-center space-x-6 text-sm font-medium text-gray-600">
-                        <a href="/candidate/dashboard" className="hover:text-blue-600">Dasbor</a>
-                        <a href="/candidate/profile" className="hover:text-blue-600">Profil</a>
-                        <a href="/candidate/jobs" className="hover:text-blue-600">Lowongan Pekerjaan</a>
-                        <a href="/candidate/application-history" className="hover:text-blue-600">Lamaran</a>
-                    </nav>
-                    <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
-                        </div>
-                    </div>
-                </header>
-
+        <UserLayout breadcrumbs={breadcrumbs}>
+            <Head title="Status Aplikasi" />
+            <div className="space-y-8">
                 <main className="mt-8">
                     {/* --- Informasi Pelamar --- */}
                     <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
@@ -145,13 +141,13 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                             <div className="flex flex-col sm:flex-row items-center sm:items-start">
                                 <div className="w-20 h-20 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center mr-6">
                                     <div className="text-2xl font-semibold text-blue-600">
-                                        {application.user.name.charAt(0).toUpperCase()}
+                                        {user?.name?.charAt(0).toUpperCase() || 'C'}
                                     </div>
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800">{application.user.name}</h2>
+                                    <h2 className="text-2xl font-bold text-gray-800">{user?.name || 'Candidate'}</h2>
                                     <p className="text-gray-600 mt-1">Posisi yang dilamar: <span className="font-semibold">{application.job.title}</span></p>
-                                    <p className="text-gray-700 font-semibold mt-1">PT MITRA KARYA ANALITIKA</p>
+                                    <p className="text-gray-700 font-semibold mt-1">{application.job.company}</p>
                                 </div>
                             </div>
                             <div className="flex mt-3">
@@ -162,15 +158,17 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                         <line x1="8" y1="2" x2="8" y2="6"></line>
                                         <line x1="3" y1="10" x2="21" y2="10"></line>
                                     </svg>
-                                    Lamaran: 5 Mar 2025
+                                    Lamaran: {formatDate(application.applied_at)}
                                 </div>
-                                <div className="flex items-center text-xs text-green-600 font-medium bg-green-50 rounded-md px-3 py-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 text-green-500">
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                    </svg>
-                                    Lolos Seleksi Administrasi
-                                </div>
+                                {latestHistory && (
+                                    <div className="flex items-center text-xs text-green-600 font-medium bg-green-50 rounded-md px-3 py-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 text-green-500">
+                                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                        </svg>
+                                        {latestHistory.status_name}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </section>
@@ -183,13 +181,11 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                         </h3>
 
                         <div className="relative">
-                            {/* Map through all stages excluding Hired and Rejected */}
-                            {application.stages
-                                .filter(stage => stage.name !== 'Hired' && stage.name !== 'Rejected')
-                                .map((stage, index) => (
+                            {/* Map through all stages */}
+                            {stagesWithStatus.map((stage, index) => (
                                 <div key={stage.id} className="relative">
                                     {/* Timeline Line */}
-                                    {index < application.stages.filter(s => s.name !== 'Hired' && s.name !== 'Rejected').length - 1 && (
+                                    {index < stagesWithStatus.length - 1 && (
                                         <div className="absolute left-[18px] top-10 bottom-0 w-1 bg-gray-200"></div>
                                     )}
 
@@ -217,8 +213,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                                 <div>
                                                     <h4 className="font-bold text-gray-800">{stage.name}</h4>
                                                     <p className="text-sm text-gray-500 mt-1">
-                                                        {stage.is_completed ? `Telah selesai pada ${formatDate(application.history.find(h => h.stage === stage.name)?.date || application.updated_at)}` :
-                                                        stage.is_current ? `Dijadwalkan pada ${formatDate(application.updated_at)}` :
+                                                        {stage.is_completed ? `Telah selesai pada ${formatDate(stage.history?.created_at || application.applied_at)}` :
+                                                        stage.is_current ? `Dijadwalkan pada ${formatDate(stage.history?.created_at || application.applied_at)}` :
                                                         'Menunggu penyelesaian tahap sebelumnya'}
                                                     </p>
                                                 </div>
@@ -226,14 +222,14 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                             </div>
 
                                             {/* Show details only for current stage */}
-                                            {stage.is_current && (
+                                            {stage.is_current && stage.history && (
                                                 <>
                                                     <div className="border-t border-blue-200 border-dashed mx-1 mt-4 pt-4"></div>
                                                     <div className="p-4">
                                                         <p className="font-semibold text-gray-700">Detail:</p>
 
                                                         {/* Different content based on stage name */}
-                                                        {stage.name === 'Administrasi' ? (
+                                                        {stage.name === 'Administrasi' && (
                                                             <>
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 mt-3 text-sm">
                                                                     <div>
@@ -242,7 +238,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-gray-500">Status Terakhir</p>
-                                                                        <p className="font-semibold text-gray-800">{formatDate(application.updated_at)}</p>
+                                                                        <p className="font-semibold text-gray-800">{formatDate(latestHistory?.created_at)}</p>
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-gray-500">Perusahaan</p>
@@ -264,10 +260,12 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
 
                                                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 text-sm">
                                                                     <p className="font-bold text-blue-800">Pesan dari Tim Rekrutmen:</p>
-                                                                    <p className="text-blue-700 mt-1">Selamat, Anda telah lolos tahap seleksi administrasi. Tim kami menemukan kesesuaian kualifikasi Anda dengan kebutuhan posisi. Silakan persiapkan diri untuk tahap selanjutnya.</p>
+                                                                    <p className="text-blue-700 mt-1">{stage.history.notes || "Lamaran Anda sedang dalam proses review."}</p>
                                                                 </div>
                                                             </>
-                                                        ) : (stage.name === 'Psikotest' || stage.name === 'Tes Psikotes') ? (
+                                                        )}
+                                                        
+                                                        {stage.name === 'Psikotest' && (
                                                             <>
                                                                 <div className="bg-blue-50 rounded-lg p-5 mt-3">
                                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -276,7 +274,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                                                                 <ClockIcon />
                                                                                 <p className="text-gray-700">Tanggal & Waktu</p>
                                                                             </div>
-                                                                            <p className="font-semibold text-gray-800 ml-7">12 Mar 2025, 09:30 WIB</p>
+                                                                            <p className="font-semibold text-gray-800 ml-7">{formatDate(stage.history.created_at)}</p>
                                                                         </div>
                                                                         <div>
                                                                             <div className="flex items-center">
@@ -312,21 +310,27 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
 
                                                                 <div className="bg-blue-100 border border-blue-300 rounded-lg p-4 mt-6">
                                                                     <p className="font-bold text-blue-800">Pesan dari Tim Rekrutmen:</p>
-                                                                    <p className="text-blue-700 mt-1">"Kami senang Anda telah mencapai tahap ini dalam proses rekrutmen. Percayalah pada kemampuan Anda dan tunjukkan potensi terbaik Anda. Semoga sukses!"</p>
+                                                                    <p className="text-blue-700 mt-1">{stage.history.notes || "Kami senang Anda telah mencapai tahap ini dalam proses rekrutmen. Percayalah pada kemampuan Anda dan tunjukkan potensi terbaik Anda. Semoga sukses!"}</p>
                                                                 </div>
 
                                                                 <div className="text-right mt-4">
-                                                                    <a href="#" className="inline-block text-white bg-blue-500 hover:bg-blue-600 font-medium rounded-full px-6 py-2 text-sm transition-colors">
+                                                                    {/* Link to psychotest */}
+                                                                    <Link 
+                                                                        href={`/candidate/tests/psychotest`}
+                                                                        className="inline-block text-white bg-blue-500 hover:bg-blue-600 font-medium rounded-full px-6 py-2 text-sm transition-colors"
+                                                                    >
                                                                         Lanjut ke Persiapan Tes
-                                                                    </a>
+                                                                    </Link>
                                                                 </div>
                                                             </>
-                                                        ) : (stage.name === 'Wawancara' || stage.name === 'Seleksi Wawancara') ? (
+                                                        )}
+                                                        
+                                                        {(stage.name === 'Interview HR' || stage.name === 'Interview User') && (
                                                             <>
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 mt-3 text-sm">
                                                                     <div>
                                                                         <p className="text-gray-500">Tanggal & Waktu</p>
-                                                                        <p className="font-semibold text-gray-800">{formatDate(application.updated_at)}</p>
+                                                                        <p className="font-semibold text-gray-800">{formatDate(stage.history.created_at)}</p>
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-gray-500">Lokasi</p>
@@ -334,7 +338,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-gray-500">Jenis Wawancara</p>
-                                                                        <p className="font-semibold text-gray-800">Wawancara dengan HR dan User</p>
+                                                                        <p className="font-semibold text-gray-800">{stage.name}</p>
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-gray-500">Durasi</p>
@@ -352,7 +356,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
 
                                                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 text-sm">
                                                                     <p className="font-bold text-blue-800">Pesan dari Tim Rekrutmen:</p>
-                                                                    <p className="text-blue-700 mt-1">Selamat telah lolos tahap seleksi sebelumnya! Kami tunggu kehadiran Anda pada jadwal wawancara yang telah ditentukan.</p>
+                                                                    <p className="text-blue-700 mt-1">{stage.history.notes || "Selamat telah lolos tahap seleksi sebelumnya! Kami tunggu kehadiran Anda pada jadwal wawancara yang telah ditentukan."}</p>
                                                                 </div>
 
                                                                 <div className="text-right mt-4">
@@ -361,13 +365,14 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                                                     </button>
                                                                 </div>
                                                             </>
-                                                        ) : (
-                                                            // Default content for other stages
+                                                        )}
+                                                        
+                                                        {!['Administrasi', 'Psikotest', 'Interview HR', 'Interview User'].includes(stage.name) && (
                                                             <>
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 mt-3 text-sm">
                                                                     <div>
                                                                         <p className="text-gray-500">Tanggal</p>
-                                                                        <p className="font-semibold text-gray-800">{formatDate(application.updated_at)}</p>
+                                                                        <p className="font-semibold text-gray-800">{formatDate(stage.history?.created_at)}</p>
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-gray-500">Status</p>
@@ -378,7 +383,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 text-sm">
                                                                     <p className="font-bold text-blue-800">Pesan dari Tim Rekrutmen:</p>
                                                                     <p className="text-blue-700 mt-1">
-                                                                        Kami sedang memproses tahap ini. Mohon tunggu informasi selanjutnya dari kami melalui email atau halaman ini.
+                                                                        {stage.history?.notes || "Kami sedang memproses tahap ini. Mohon tunggu informasi selanjutnya dari kami melalui email atau halaman ini."}
                                                                     </p>
                                                                 </div>
                                                             </>
@@ -394,7 +399,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                     </section>
 
                     {/* --- Persiapan Tes --- */}
-                    {currentStage && (currentStage.name === 'Psikotest' || currentStage.name === 'Tes Psikotes') && (
+                    {currentStage && currentStage.name === 'Psikotest' && (
                         <section className="mt-8 bg-white border border-gray-200 rounded-xl p-6 sm:p-8 shadow-sm">
                             <h3 className="text-xl font-bold text-gray-800">Persiapan Tes Psikotes</h3>
                             <p className="text-sm text-gray-600 mt-2">Beberapa hal yang perlu dipersiapkan sebelum tes</p>
@@ -413,7 +418,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                                 <div className="bg-gray-50 p-4 rounded-lg">
                                     <h4 className="font-semibold text-gray-800">Saat Hari Tes</h4>
                                     <ul className="mt-4 space-y-3 text-sm text-gray-700">
-                                        <li className="flex items-start"><CheckIcon /> Masuk ke sesi wawancara 30 menit sebelum jadwal yang ditentukan.</li>
+                                        <li className="flex items-start"><CheckIcon /> Masuk ke sistem 30 menit sebelum jadwal yang ditentukan.</li>
                                         <li className="flex items-start"><CheckIcon /> Siapkan perangkat dengan kamera dan mikrofon yang berfungsi dengan baik.</li>
                                         <li className="flex items-start"><CheckIcon /> Pastikan koneksi internet dalam kondisi stabil.</li>
                                         <li className="flex items-start"><CheckIcon /> Pilih ruangan yang tenang dan bebas dari gangguan.</li>
@@ -427,9 +432,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                             </div>
 
                             <div className="flex justify-center mt-6">
-                                {/* Ganti button dengan Link komponen dari Inertia */}
                                 <Link 
-                                    href={`/candidate/tests/psychotest/${application.assessment_id || 1}`} 
+                                    href={`/candidate/tests/psychotest`}
                                     className="bg-blue-600 text-white font-medium py-3 px-8 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105"
                                 >
                                     Mulai Mengerjakan
@@ -439,6 +443,6 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPr
                     )}
                 </main>
             </div>
-        </div>
+        </UserLayout>
     );
 }

@@ -258,14 +258,15 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     // Route untuk submit psychotest
     Route::post('/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
         ->name('candidate.psychotest.submit');
+});
 
-    // Route untuk melihat status aplikasi
+// ApplicationHistory routes
+Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
+    Route::get('/application-history', [ApplicationHistoryController::class, 'index'])
+        ->name('candidate.application-history');
+        
     Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])
-        ->name('candidate.application.status');
-
-    Route::post('/skills', [CandidateController::class, 'storeSkill']);
-    Route::get('/skills', [CandidateController::class, 'indexSkills']);
-    Route::delete('/skills/{id}', [CandidateController::class, 'deleteSkill']);
+        ->name('candidate.application-status');
 });
 
 // No redirect needed as the route is defined above and in candidate.php

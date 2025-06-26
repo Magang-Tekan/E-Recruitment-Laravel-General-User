@@ -3,10 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Applications;
-use App\Models\ApplicationsHistory;
+use App\Models\ApplicationHistory;
+use App\Models\Vacancies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ApplicationHistoryController extends Controller
@@ -14,321 +15,232 @@ class ApplicationHistoryController extends Controller
     public function index()
     {
         try {
-            // Ambil data aplikasi user yang sedang login
-            $applications = Applications::where('user_id', Auth::id())
-                ->with([
-                    'vacancy:id,title,location,vacancy_type_id,company_id',
-                    'vacancy.company:id,name',
-                    'vacancy.vacancyType:id,name',
-                    'status:id,name,description,stage'
-                ])
+            $user = Auth::user();
+            
+            if (!$user) {
+                return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
+            }
+            
+            // Ambil data aplikasi dari user yang sedang login
+            $applications = Applications::where('user_id', $user->id)
                 ->orderBy('created_at', 'desc')
                 ->get();
-
-            // Check if we have applications
-            if ($applications->isEmpty()) {
-                Log::info('No applications found for user', [
-                    'user_id' => Auth::id()
-                ]);
-
-                return Inertia::render('candidate/application-history', [
-                    'applications' => []
-                ]);
-            }
-
-            // Format data untuk frontend
-            $formattedApplications = $applications->map(function ($application) {
-                $vacancy = $application->vacancy;
-                $status = $application->status;
-
-                // Log for debugging
-                Log::info('Application data', [
-                    'id' => $application->id,
-                    'has_vacancy' => isset($vacancy),
-                    'has_status' => isset($status)
-                ]);
-
-                // Menentukan warna status
-                $statusColor = '#1a73e8'; // Default blue
-                if ($status) {
-                    if ($status->stage == 'REJECTED') {
-                        $statusColor = '#dc3545'; // Red for rejected
-                    } else if ($status->stage == 'ACCEPTED') {
-                        $statusColor = '#28a745'; // Green for accepted
-                    } else if ($status->stage == 'INTERVIEW') {
-                        $statusColor = '#fd7e14'; // Orange for interview
-                    }
-                }
-
-                return [
-                    'id' => $application->id,
-                    'status_id' => $status ? $status->id : 1,
-                    'status_name' => $status ? $status->name : 'Administrative Selection',
+                
+            $formattedApplications = [];
+            
+            foreach ($applications as $app) {
+                // Ambil data lowongan
+                $vacancy = Vacancies::with('company', 'vacancyType')->find($app->vacancies_id);
+                if (!$vacancy) continue;
+                
+                // Ambil history terbaru untuk aplikasi ini
+                $latestHistory = ApplicationHistory::where('application_id', $app->id)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+                
+                if (!$latestHistory) continue;
+                
+                // Ambil data status dari tabel selection
+                $status = DB::table('selection')->find($app->status_id);
+                if (!$status) continue;
+                
+                // Map status color berdasarkan nama status
+                $statusColor = $this->getStatusColor($status->name);
+                
+                // Format data untuk frontend
+                $formattedApplications[] = [
+                    'id' => $app->id,
+                    'status_id' => $app->status_id,
+                    'status_name' => $status->name,
                     'status_color' => $statusColor,
                     'job' => [
-                        'id' => $vacancy ? $vacancy->id : null,
-                        'title' => $vacancy ? $vacancy->title : 'Tidak tersedia',
-                        'company' => $vacancy && $vacancy->company ? $vacancy->company->name : 'Perusahaan tidak tersedia',
-                        'location' => $vacancy ? $vacancy->location : 'Lokasi tidak tersedia',
-                        'type' => $vacancy && $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Full Time'
+                        'id' => $vacancy->id,
+                        'title' => $vacancy->title,
+                        'company' => $vacancy->company ? $vacancy->company->name : 'Unknown',
+                        'location' => $vacancy->location ?: 'Location not specified',
+                        'type' => $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Unknown',
                     ],
-                    'applied_at' => $application->created_at ? $application->created_at->format('Y-m-d') : date('Y-m-d'),
-                    'updated_at' => $application->updated_at ? $application->updated_at->format('Y-m-d') : date('Y-m-d')
+                    'applied_at' => $app->created_at->format('Y-m-d H:i:s'),
+                    'updated_at' => $latestHistory->created_at->format('Y-m-d H:i:s'),
+                    'history' => [
+                        'id' => $latestHistory->id,
+                        'is_qualified' => $latestHistory->is_qualified,
+                        'created_at' => $latestHistory->created_at->format('Y-m-d H:i:s'),
+                    ]
                 ];
-            });
-
-            Log::info('Application history loaded successfully', [
-                'count' => count($formattedApplications)
-            ]);
-
+            }
+            
             return Inertia::render('candidate/application-history', [
-                'applications' => $formattedApplications
+                'applications' => $formattedApplications,
             ]);
-
+            
         } catch (\Exception $e) {
-            Log::error('Error in application history: ' . $e->getMessage(), [
+            \Log::error('Error in application history: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
-
+            
             return Inertia::render('candidate/application-history', [
                 'applications' => [],
-                'error' => 'Terjadi kesalahan: ' . $e->getMessage()
+                'error' => 'Terjadi kesalahan saat memuat data riwayat lamaran.'
             ]);
         }
     }
-
+    
     /**
-     * Check if vacancy relationship exists in the application model
-     * For debugging purposes
-     */
-    public function checkRelationships()
-    {
-        try {
-            $application = Applications::with(['vacancy', 'status'])->first();
-
-            return response()->json([
-                'success' => true,
-                'has_vacancy_relation' => method_exists($application, 'vacancy'),
-                'has_status_relation' => method_exists($application, 'status'),
-                'application' => $application
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-    // Untuk endpoint AJAX jika diperlukan
-    public function getApplications()
-    {
-        try {
-            // Ambil data aplikasi user yang sedang login
-            $applications = Applications::where('user_id', Auth::id())
-                ->with([
-                    'vacancy:id,title,location,vacancy_type_id,company_id',
-                    'vacancy.company:id,name',
-                    'vacancy.vacancyType:id,name',
-                    'status:id,name,description,stage'
-                ])
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            // Format data seperti fungsi index
-            $formattedApplications = $applications->map(function ($application) {
-                $vacancy = $application->vacancy;
-                $selection = $application->selection;
-
-                return [
-                    'id' => $application->id,
-                    'job' => [
-                        'id' => $vacancy ? $vacancy->id : null,
-                        'title' => $vacancy ? $vacancy->title : 'Tidak tersedia',
-                        'company' => $vacancy && $vacancy->company ? $vacancy->company->name : 'Perusahaan tidak tersedia',
-                        'location' => $vacancy ? $vacancy->location : 'Lokasi tidak tersedia',
-                        'type' => $vacancy && $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Tipe tidak tersedia'
-                    ],
-                    'status' => [
-                        'id' => $selection ? $selection->id : null,
-                        'name' => $selection ? $selection->name : 'Status tidak tersedia',
-                        'description' => $selection ? $selection->description : '',
-                        'stage' => $selection ? $selection->stage : null
-                    ],
-                    'applied_at' => $application->created_at ? $application->created_at->toDateString() : now()->toDateString(),
-                    'updated_at' => $application->updated_at ? $application->updated_at->toDateString() : now()->toDateString(),
-                ];
-            })->filter()->values();
-
-            // Return JSON untuk AJAX
-            return response()->json([
-                'applications' => $formattedApplications
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Show detailed application status
+     * Detail status aplikasi
      */
     public function applicationStatus($id)
     {
         try {
-            // Check application exists and belongs to current user
+            $user = Auth::user();
+            
+            if (!$user) {
+                return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
+            }
+            
+            // Verifikasi aplikasi milik user ini
             $application = Applications::where('id', $id)
-                ->where('user_id', Auth::id())
-                ->with([
-                    'vacancy:id,title,location,vacancy_type_id,company_id,requirements,benefits,job_description',
-                    'vacancy.company:id,name',
-                    'vacancy.vacancyType:id,name',
-                    'vacancy.department:id,name',
-                    'status:id,name,description,stage',
-                    // Include additional relations as needed
-                    'user:id,name,email'
-                ])
-                ->firstOrFail();
-
-            // Get application stages and status
-            $selectionStages = \App\Models\Statuses::orderBy('id', 'asc')->get();
-
-            // Get application history
-            $applicationHistory = \App\Models\ApplicationsHistory::where('application_id', $id)
-                ->with(['status:id,name'])
+                ->where('user_id', $user->id)
+                ->first();
+                
+            if (!$application) {
+                return redirect('/candidate/application-history')
+                    ->with('error', 'Data aplikasi tidak ditemukan');
+            }
+            
+            // Ambil data lowongan
+            $vacancy = Vacancies::with('company', 'vacancyType')->find($application->vacancies_id);
+            
+            if (!$vacancy) {
+                return redirect('/candidate/application-history')
+                    ->with('error', 'Data lowongan tidak ditemukan');
+            }
+            
+            // Ambil semua history aplikasi
+            $applicationHistories = ApplicationHistory::where('application_id', $id)
                 ->orderBy('created_at', 'desc')
                 ->get();
-
-            // Format data for frontend
-            $applicationData = [
+                
+            if ($applicationHistories->isEmpty()) {
+                return redirect('/candidate/application-history')
+                    ->with('error', 'Riwayat aplikasi tidak ditemukan');
+            }
+            
+            $formattedHistories = [];
+            foreach ($applicationHistories as $history) {
+                // Ambil data status
+                $status = DB::table('selection')->find($history->status_id);
+                if (!$status) continue;
+                
+                $formattedHistories[] = [
+                    'id' => $history->id,
+                    'status_id' => $history->status_id,
+                    'status_name' => $status->name,
+                    'status_color' => $this->getStatusColor($status->name),
+                    'is_qualified' => $history->is_qualified,
+                    'created_at' => $history->created_at->format('Y-m-d H:i:s'),
+                    'notes' => $this->getHistoryNotes($history, $status->name),
+                ];
+            }
+            
+            // Format data aplikasi untuk tampilan
+            $formattedApplication = [
                 'id' => $application->id,
-                'user' => $application->user ? [
-                    'name' => $application->user->name,
-                    'email' => $application->user->email
-                ] : null,
+                'status_id' => $application->status_id,
                 'job' => [
-                    'id' => $application->vacancy->id,
-                    'title' => $application->vacancy->title,
-                    'company' => $application->vacancy->company ? $application->vacancy->company->name : 'Unknown',
-                    'department' => $application->vacancy->department ? $application->vacancy->department->name : null,
-                    'location' => $application->vacancy->location,
-                    'type' => $application->vacancy->vacancyType ? $application->vacancy->vacancyType->name : 'Full Time',
-                    'requirements' => $this->safeJsonDecode($application->vacancy->requirements),
-                    'benefits' => $this->safeJsonDecode($application->vacancy->benefits),
-                    'description' => $application->vacancy->job_description
+                    'id' => $vacancy->id,
+                    'title' => $vacancy->title,
+                    'company' => $vacancy->company ? $vacancy->company->name : 'Unknown',
+                    'location' => $vacancy->location ?: 'Location not specified',
+                    'type' => $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Unknown',
                 ],
-                'current_stage' => [
-                    'id' => $application->status_id,
-                    'name' => $application->status ? $application->status->name : 'Administrasi',
-                    'description' => $application->status ? $application->status->description : null,
-                ],
-                'stages' => $selectionStages->map(function ($stage) use ($application) {
-                    return [
-                        'id' => $stage->id,
-                        'name' => $stage->name,
-                        'description' => $stage->description,
-                        'is_current' => $stage->id === $application->status_id,
-                        'is_completed' => $stage->id < $application->status_id,
-                        'is_future' => $stage->id > $application->status_id
-                    ];
-                }),
-                'history' => $applicationHistory->map(function ($history) {
-                    return [
-                        'id' => $history->id,
-                        'stage' => $history->status ? $history->status->name : 'Unknown',
-                        'notes' => $history->notes,
-                        'status' => $history->status,
-                        'date' => $history->created_at ? $history->created_at->format('Y-m-d H:i:s') : null,
-                    ];
-                }),
-                'applied_at' => $application->created_at ? $application->created_at->format('d M Y') : null,
-                'updated_at' => $application->updated_at ? $application->updated_at->format('d M Y') : null,
+                'applied_at' => $application->created_at->format('Y-m-d H:i:s'),
+                'histories' => $formattedHistories,
             ];
-
-            // Log data for debugging
-            \Log::info('Showing application status', [
-                'application_id' => $id,
-                'user_id' => Auth::id(),
+            
+            return Inertia::render('candidate/application-status', [
+                'application' => $formattedApplication,
             ]);
-
-            // Render the status page with application data
-            return Inertia::render('candidate/status-candidate', [
-                'application' => $applicationData
-            ]);
-
+            
         } catch (\Exception $e) {
-            \Log::error('Error showing application status: ' . $e->getMessage(), [
-                'application_id' => $id,
-                'user_id' => Auth::id(),
+            \Log::error('Error in application status: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
-
-            // Redirect back with error message
-            return redirect()->route('candidate.application-history')
-                ->with('error', 'Gagal menampilkan detail lamaran: ' . $e->getMessage());
+            
+            return redirect('/candidate/application-history')
+                ->with('error', 'Terjadi kesalahan saat memuat data status aplikasi.');
         }
     }
-
+    
     /**
-     * Di method yang menampilkan halaman candidate-status
+     * Helper method untuk mendapatkan warna status
      */
-    public function showStatus($applicationId)
+    private function getStatusColor($statusName)
     {
-        $user = Auth::user();
-        $application = Applications::where('id', $applicationId)
-            ->where('user_id', $user->id)
-            ->with(['job', 'job.company'])
-            ->firstOrFail();
-
-        // Ambil data assessment yang terkait dengan aplikasi ini
-        $applicationHistory = ApplicationsHistory::where('application_id', $applicationId)
-            ->where('assessments_id', '!=', null)
-            ->first();
-
-        $assessmentId = $applicationHistory ? $applicationHistory->assessments_id : null;
-
-        // Siapkan data untuk halaman status
-        $data = [
-            'application' => [
-                'id' => $application->id,
-                'job_title' => $application->job->title,
-                'company_name' => $application->job->company->name,
-                'status' => $application->status,
-                'applied_date' => $application->created_at->format('d M Y'),
-                'assessment_id' => $assessmentId, // Teruskan ID assessment
-            ],
-            'user' => [
-                'name' => $user->name,
-                'profile_image' => $user->candidateProfile ? asset('storage/' . $user->candidateProfile->profile_image) : null,
-            ]
-        ];
-
-        return Inertia::render('candidate/candidate-status', $data);
+        $statusName = strtolower($statusName);
+        
+        switch ($statusName) {
+            case 'administrasi':
+                return '#3498db'; // biru
+            case 'psikotes':
+            case 'psikologi':
+                return '#9b59b6'; // ungu
+            case 'interview hr':
+            case 'interview user':
+                return '#e67e22'; // oranye
+            case 'medical checkup':
+                return '#2ecc71'; // hijau
+            case 'penawaran':
+            case 'offering':
+                return '#1abc9c'; // turquoise
+            case 'ditolak':
+            case 'rejected':
+                return '#e74c3c'; // merah
+            case 'diterima':
+            case 'accepted':
+                return '#27ae60'; // hijau tua
+            default:
+                return '#7f8c8d'; // abu-abu
+        }
     }
-
+    
     /**
-     * Safely decode JSON or return an array depending on input type
-     * @param mixed $value The value to decode
-     * @return array The decoded array or empty array on error
+     * Helper method untuk mendapatkan catatan berdasarkan stage
      */
-    private function safeJsonDecode($value)
+    private function getHistoryNotes($history, $stageName)
     {
-        if (empty($value)) {
-            return [];
-        }
-
-        if (is_array($value)) {
-            return $value;
-        }
-
-        try {
-            $decoded = json_decode($value, true);
-            return (is_array($decoded) && json_last_error() === JSON_ERROR_NONE) ? $decoded : [];
-        } catch (\Exception $e) {
-            \Log::warning('JSON decode failed: ' . $e->getMessage());
-            return [];
+        $stageName = strtolower($stageName);
+        
+        switch ($stageName) {
+            case 'administrasi':
+                return $history->admin_notes ?? 'Saat ini lamaran Anda sedang dalam proses verifikasi administrasi.';
+            case 'psikotes':
+            case 'psikologi':
+                if ($history->test_scheduled_at) {
+                    return "Anda dijadwalkan untuk mengikuti psikotes pada " . 
+                        \Carbon\Carbon::parse($history->test_scheduled_at)->format('d M Y, H:i');
+                }
+                return $history->test_notes ?? 'Menunggu jadwal psikotes.';
+            case 'interview hr':
+            case 'interview user':
+                if ($history->interview_scheduled_at) {
+                    return "Anda dijadwalkan untuk interview pada " . 
+                        \Carbon\Carbon::parse($history->interview_scheduled_at)->format('d M Y, H:i');
+                }
+                return $history->interview_notes ?? 'Menunggu jadwal interview.';
+            case 'medical checkup':
+                return 'Anda diharapkan untuk menjalani medical checkup.';
+            case 'penawaran':
+            case 'offering':
+                return 'Selamat! Anda akan mendapatkan penawaran dari tim HR kami.';
+            case 'ditolak':
+            case 'rejected':
+                return $history->rejection_reason ?? 'Maaf, lamaran Anda belum berhasil pada tahap ini.';
+            case 'diterima':
+            case 'accepted':
+                return 'Selamat! Anda telah diterima.';
+            default:
+                return '';
         }
     }
 }
