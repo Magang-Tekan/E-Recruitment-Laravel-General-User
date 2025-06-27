@@ -248,7 +248,12 @@ Route::middleware(['auth', 'role:candidate'])->group(function () {
 Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
     // Detail job dan apply
     Route::get('/job/{id}', [JobsController::class, 'detail'])->name('candidate.job.detail');
-    Route::post('/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
+    
+    // API untuk apply job dari frontend
+    Route::post('/api/jobs/{id}/apply', [JobsController::class, 'applyJob']);
+    
+    // Endpoint untuk proses apply setelah confirm data
+    Route::post('/candidate/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
 
 
     // Routes untuk Psychotest
