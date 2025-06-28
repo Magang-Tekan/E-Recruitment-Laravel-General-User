@@ -198,6 +198,7 @@ interface Application {
         is_qualified: boolean | null;
         created_at: string;
     };
+    current_score?: number; // Add this property to fix the error
 }
 
 interface ApplicationHistoryProps {

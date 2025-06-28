@@ -920,8 +920,4 @@ class JobsController extends Controller
      * Handle job application dari halaman confirm-data
      * (digunakan dari halaman confirmation ketika user sudah melengkapi data)
      */
-    public function apply($id)
-    {
-        return $this->processJobApplication($id);
-    }
 }
