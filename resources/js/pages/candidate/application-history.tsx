@@ -193,9 +193,11 @@ interface Application {
     };
     applied_at: string;
     updated_at: string;
-    current_score?: number;
-    last_processed?: string;
-    reviewer?: string;
+    history: {
+        id: number;
+        is_qualified: boolean | null;
+        created_at: string;
+    };
 }
 
 interface ApplicationHistoryProps {

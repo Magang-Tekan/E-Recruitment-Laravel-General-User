@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import Swal from 'sweetalert2';
 import Footer from '../../../components/Footer';
 import Header from '../../../components/Header';
+import axios from 'axios';
 
 interface JobDetailProps {
     job: {
@@ -173,53 +174,46 @@ const JobDetailPage: React.FC = () => {
 
     const handleApply = async () => {
         try {
-            const response = await fetch(`/candidate/check-profile-complete`);
-            const data = await response.json();
+            Swal.fire({
+                title: 'Konfirmasi',
+                text: 'Anda akan melamar pekerjaan ini. Lanjutkan?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Lamar Sekarang',
+                cancelButtonText: 'Batal'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const response = await axios.post(`/api/jobs/${job.id}/apply`);
 
-            if (data.isComplete) {
-                // Jika data sudah lengkap, langsung submit aplikasi
-                const submitResponse = await fetch(`/candidate/apply/${job.id}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-
-                const result = await submitResponse.json();
-
-                if (submitResponse.ok) {
-                    Swal.fire({
-                        title: 'Berhasil!',
-                        text: 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".',
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        window.location.href = '/candidate/application-history';
-                    });
-                } else {
-                    if (result.redirect) {
-                        window.location.href = result.redirect;
-                    } else {
+                    if (response.data.success) {
                         Swal.fire({
-                            title: 'Perhatian',
-                            text: result.message || 'Terjadi kesalahan saat melamar.',
-                            icon: 'warning',
+                            title: 'Berhasil!',
+                            text: response.data.message,
+                            icon: 'success',
                             confirmButtonText: 'OK'
+                        }).then(() => {
+                            window.location.href = response.data.redirect;
                         });
+                    } else {
+                        // Jika butuh redirect (mis. ke halaman confirm data)
+                        if (response.data.redirect) {
+                            window.location.href = response.data.redirect;
+                        } else {
+                            Swal.fire({
+                                title: 'Perhatian',
+                                text: response.data.message,
+                                icon: 'warning',
+                                confirmButtonText: 'OK'
+                            });
+                        }
                     }
                 }
-            } else {
-                // Jika data belum lengkap, redirect ke halaman confirm-data
-                window.location.href = `/candidate/confirm-data/${job.id}`;
-            }
+            });
         } catch (error) {
-            console.error('Application error:', error);
-
+            console.error('Error:', error);
             Swal.fire({
                 title: 'Error',
-                text: 'Terjadi kesalahan saat memproses aplikasi. Silakan coba lagi nanti.',
+                text: 'Terjadi kesalahan saat melamar. Silakan coba lagi.',
                 icon: 'error',
                 confirmButtonText: 'OK'
             });

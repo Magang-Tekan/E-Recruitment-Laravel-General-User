@@ -248,7 +248,12 @@ Route::middleware(['auth', 'role:candidate'])->group(function () {
 Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
     // Detail job dan apply
     Route::get('/job/{id}', [JobsController::class, 'detail'])->name('candidate.job.detail');
-    Route::post('/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
+    
+    // API untuk apply job dari frontend
+    Route::post('/api/jobs/{id}/apply', [JobsController::class, 'applyJob']);
+    
+    // Endpoint untuk proses apply setelah confirm data
+    Route::post('/candidate/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
 
 
     // Routes untuk Psychotest
@@ -258,14 +263,15 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     // Route untuk submit psychotest
     Route::post('/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
         ->name('candidate.psychotest.submit');
+});
 
-    // Route untuk melihat status aplikasi
+// ApplicationHistory routes
+Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
+    Route::get('/application-history', [ApplicationHistoryController::class, 'index'])
+        ->name('candidate.application-history');
+        
     Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])
-        ->name('candidate.application.status');
-
-    Route::post('/skills', [CandidateController::class, 'storeSkill']);
-    Route::get('/skills', [CandidateController::class, 'indexSkills']);
-    Route::delete('/skills/{id}', [CandidateController::class, 'deleteSkill']);
+        ->name('candidate.application-status');
 });
 
 // No redirect needed as the route is defined above and in candidate.php

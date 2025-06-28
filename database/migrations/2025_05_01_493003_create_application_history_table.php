@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use App\Enums\CandidatesStage;
 
 class CreateApplicationHistoryTable extends Migration
 {
@@ -13,42 +12,34 @@ class CreateApplicationHistoryTable extends Migration
             $table->id();
             $table->foreignId('application_id')->constrained('applications')->onDelete('cascade');
             
-            // Stage tracking
-            $table->enum('stage', CandidatesStage::values())->default(CandidatesStage::ADMINISTRATIVE_SELECTION->value);
-            $table->timestamp('processed_at');
+            // Mengubah referensi dari 'selection' ke 'statuses'
+            $table->foreignId('status_id')->constrained('statuses')->onDelete('cascade');
+            $table->timestamp('processed_at')->nullable();
             
-            // Administrative Selection
-            $table->decimal('admin_score', 5, 2)->nullable();
-            $table->text('admin_notes')->nullable();
-            $table->timestamp('admin_reviewed_at')->nullable();
-            $table->foreignId('admin_reviewed_by')->nullable()->constrained('users')->onDelete('set null');
+            // Kolom score dan notes yang disederhanakan (tidak lagi dibagi per tahap)
+            $table->decimal('score', 5, 2)->nullable();
+            $table->text('notes')->nullable();
             
-            // Assessment/Psychotest
-            $table->decimal('test_score', 5, 2)->nullable();
-            $table->text('test_notes')->nullable();
-            $table->timestamp('test_scheduled_at')->nullable();
-            $table->timestamp('test_completed_at')->nullable();
+            // Jadwal dan penyelesaian yang disederhanakan
+            $table->timestamp('scheduled_at')->nullable();
+            $table->timestamp('completed_at')->nullable();
             
-            // Interview
-            $table->decimal('interview_score', 5, 2)->nullable();
-            $table->text('interview_notes')->nullable();
-            $table->timestamp('interview_scheduled_at')->nullable();
-            $table->timestamp('interview_completed_at')->nullable();
-            $table->foreignId('interviewer_id')->nullable()->constrained('users')->onDelete('set null');
-            
-            // Status and Decision
-            $table->boolean('is_qualified')->nullable();
-            $table->text('rejection_reason')->nullable();
+            // Review disederhanakan
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->timestamp('decision_made_at')->nullable();
-            $table->foreignId('decision_made_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('reviewed_at')->nullable();
             
+            // Mengubah is_qualified menjadi is_active
+            $table->boolean('is_active')->default(true);
+            
+            // Hapus kolom rejection_reason karena redundant dengan notes
+            // $table->text('rejection_reason')->nullable();
+            
+            // Kolom timestamps standar
             $table->timestamps();
             
-            // Add indexes for performance
-            $table->index(['application_id', 'stage']);
-            $table->index(['test_scheduled_at']);
-            $table->index(['interview_scheduled_at']);
+            // Indexing untuk performa
+            $table->index(['application_id', 'status_id']);
+            $table->index(['scheduled_at']);
             $table->index(['processed_at']);
         });
     }

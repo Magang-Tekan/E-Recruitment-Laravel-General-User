@@ -4,9 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Applications;
 use App\Models\ApplicationHistory;
+use App\Models\Vacancies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ApplicationHistoryController extends Controller
@@ -129,17 +130,17 @@ class ApplicationHistoryController extends Controller
             ]);
 
             return Inertia::render('candidate/application-history', [
-                'applications' => $formattedApplications
+                'applications' => $formattedApplications,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in application history: ' . $e->getMessage(), [
+            \Log::error('Error in application history: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
 
             return Inertia::render('candidate/application-history', [
                 'applications' => [],
-                'error' => 'Terjadi kesalahan: ' . $e->getMessage()
+                'error' => 'Terjadi kesalahan saat memuat data riwayat lamaran.'
             ]);
         }
     }
@@ -225,7 +226,13 @@ class ApplicationHistoryController extends Controller
     public function applicationStatus($id)
     {
         try {
-            // Check application exists and belongs to current user
+            $user = Auth::user();
+
+            if (!$user) {
+                return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
+            }
+
+            // Verifikasi aplikasi milik user ini
             $application = Applications::where('id', $id)
                 ->where('user_id', Auth::id())
                 ->with([
@@ -245,83 +252,82 @@ class ApplicationHistoryController extends Controller
             // Get application history
             $applicationHistory = \App\Models\ApplicationHistory::where('application_id', $id)
                 ->with(['status:id,name'])
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$application) {
+                return redirect('/candidate/application-history')
+                    ->with('error', 'Data aplikasi tidak ditemukan');
+            }
+
+            // Ambil data lowongan
+            $vacancy = Vacancies::with('company', 'vacancyType')->find($application->vacancies_id);
+
+            if (!$vacancy) {
+                return redirect('/candidate/application-history')
+                    ->with('error', 'Data lowongan tidak ditemukan');
+            }
+
+            // Ambil semua history aplikasi
+            $applicationHistories = ApplicationHistory::where('application_id', $id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Format data for frontend
-            $applicationData = [
+            if ($applicationHistories->isEmpty()) {
+                return redirect('/candidate/application-history')
+                    ->with('error', 'Riwayat aplikasi tidak ditemukan');
+            }
+
+            $formattedHistories = [];
+            foreach ($applicationHistories as $history) {
+                // Ambil data status
+                $status = DB::table('selection')->find($history->status_id);
+                if (!$status) continue;
+
+                $formattedHistories[] = [
+                    'id' => $history->id,
+                    'status_id' => $history->status_id,
+                    'status_name' => $status->name,
+                    'status_color' => $this->getStatusColor($status->name),
+                    'is_qualified' => $history->is_qualified,
+                    'created_at' => $history->created_at->format('Y-m-d H:i:s'),
+                    'notes' => $this->getHistoryNotes($history, $status->name),
+                ];
+            }
+
+            // Format data aplikasi untuk tampilan
+            $formattedApplication = [
                 'id' => $application->id,
-                'user' => $application->user ? [
-                    'name' => $application->user->name,
-                    'email' => $application->user->email
-                ] : null,
+                'status_id' => $application->status_id,
                 'job' => [
-                    'id' => $application->vacancy->id,
-                    'title' => $application->vacancy->title,
-                    'company' => $application->vacancy->company ? $application->vacancy->company->name : 'Unknown',
-                    'department' => $application->vacancy->department ? $application->vacancy->department->name : null,
-                    'location' => $application->vacancy->location,
-                    'type' => $application->vacancy->vacancyType ? $application->vacancy->vacancyType->name : 'Full Time',
-                    'requirements' => $this->safeJsonDecode($application->vacancy->requirements),
-                    'benefits' => $this->safeJsonDecode($application->vacancy->benefits),
-                    'description' => $application->vacancy->job_description
+                    'id' => $vacancy->id,
+                    'title' => $vacancy->title,
+                    'company' => $vacancy->company ? $vacancy->company->name : 'Unknown',
+                    'location' => $vacancy->location ?: 'Location not specified',
+                    'type' => $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Unknown',
                 ],
-                'current_stage' => [
-                    'id' => $application->status_id,
-                    'name' => $application->status ? $application->status->name : 'Administrasi',
-                    'description' => $application->status ? $application->status->description : null,
-                ],
-                'stages' => $selectionStages->map(function ($stage) use ($application) {
-                    return [
-                        'id' => $stage->id,
-                        'name' => $stage->name,
-                        'description' => $stage->description,
-                        'is_current' => $stage->id === $application->status_id,
-                        'is_completed' => $stage->id < $application->status_id,
-                        'is_future' => $stage->id > $application->status_id
-                    ];
-                }),
-                'history' => $applicationHistory->map(function ($history) {
-                    return [
-                        'id' => $history->id,
-                        'stage' => $history->status ? $history->status->name : 'Unknown',
-                        'notes' => $history->notes,
-                        'status' => $history->status,
-                        'date' => $history->created_at ? $history->created_at->format('Y-m-d H:i:s') : null,
-                    ];
-                }),
-                'applied_at' => $application->created_at ? $application->created_at->format('d M Y') : null,
-                'updated_at' => $application->updated_at ? $application->updated_at->format('d M Y') : null,
+                'applied_at' => $application->created_at->format('Y-m-d H:i:s'),
+                'histories' => $formattedHistories,
             ];
 
-            // Log data for debugging
-            \Log::info('Showing application status', [
-                'application_id' => $id,
-                'user_id' => Auth::id(),
-            ]);
-
-            // Render the status page with application data
-            return Inertia::render('candidate/status-candidate', [
-                'application' => $applicationData
+            return Inertia::render('candidate/application-status', [
+                'application' => $formattedApplication,
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error showing application status: ' . $e->getMessage(), [
-                'application_id' => $id,
-                'user_id' => Auth::id(),
+            \Log::error('Error in application status: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
 
-            // Redirect back with error message
-            return redirect()->route('candidate.application-history')
-                ->with('error', 'Gagal menampilkan detail lamaran: ' . $e->getMessage());
+            return redirect('/candidate/application-history')
+                ->with('error', 'Terjadi kesalahan saat memuat data status aplikasi.');
         }
     }
 
     /**
-     * Di method yang menampilkan halaman candidate-status
+     * Helper method untuk mendapatkan warna status
      */
-    public function showStatus($applicationId)
+    private function getStatusColor($statusName)
     {
         $user = Auth::user();
         $application = Applications::where('id', $applicationId)
