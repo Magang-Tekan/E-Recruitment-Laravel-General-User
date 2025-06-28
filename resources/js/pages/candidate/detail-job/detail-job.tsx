@@ -1,10 +1,10 @@
 import { usePage } from '@inertiajs/react';
+import axios from 'axios';
 import React from 'react';
 import styled from 'styled-components';
 import Swal from 'sweetalert2';
 import Footer from '../../../components/Footer';
 import Header from '../../../components/Header';
-import axios from 'axios';
 
 interface JobDetailProps {
     job: {
@@ -19,7 +19,19 @@ interface JobDetailProps {
     };
     userMajor: number | null;
     isMajorMatched: boolean;
-    [key: string]: any; // Add index signature to satisfy PageProps constraint
+    canApply: boolean;
+    applicationMessage: string;
+    flash?: { success?: string; error?: string; };
+}
+
+interface ApiErrorResponse {
+    response?: {
+        status?: number;
+        data?: {
+            message?: string;
+            redirect?: string;
+        };
+    };
 }
 
 const PageWrapper = styled.div`
@@ -145,8 +157,24 @@ const MatchIcon = styled.span`
     font-size: 24px;
 `;
 
+const ApplicationAlert = styled.div`
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 16px;
+    border-radius: 8px;
+    margin: 20px 0;
+    border-left: 5px solid #f5c6cb;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+`;
+
+const ApplicationIcon = styled.span`
+    font-size: 24px;
+`;
+
 const JobDetailPage: React.FC = () => {
-    const { job, userMajor, isMajorMatched, flash } = usePage<JobDetailProps & { flash: any }>().props;
+    const { job, userMajor, isMajorMatched, canApply, applicationMessage, flash } = usePage<JobDetailProps>().props;
 
     React.useEffect(() => {
         // Tampilkan flash messages dari backend
@@ -173,17 +201,36 @@ const JobDetailPage: React.FC = () => {
     }, [flash]);
 
     const handleApply = async () => {
-        try {
-            Swal.fire({
-                title: 'Konfirmasi',
-                text: 'Anda akan melamar pekerjaan ini. Lanjutkan?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, Lamar Sekarang',
-                cancelButtonText: 'Batal'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    const response = await axios.post(`/api/jobs/${job.id}/apply`);
+        Swal.fire({
+            title: 'Konfirmasi',
+            text: 'Anda akan melamar pekerjaan ini. Lanjutkan?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Lamar Sekarang',
+            cancelButtonText: 'Batal'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    // Tampilkan loading
+                    Swal.fire({
+                        title: 'Memproses...',
+                        text: 'Mohon tunggu sebentar',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    const response = await axios.post(`/candidate/apply/${job.id}`, {}, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    Swal.close();
 
                     if (response.data.success) {
                         Swal.fire({
@@ -192,32 +239,57 @@ const JobDetailPage: React.FC = () => {
                             icon: 'success',
                             confirmButtonText: 'OK'
                         }).then(() => {
-                            window.location.href = response.data.redirect;
+                            // Redirect ke halaman application history
+                            window.location.href = response.data.redirect || '/candidate/application-history';
                         });
                     } else {
-                        // Jika butuh redirect (mis. ke halaman confirm data)
-                        if (response.data.redirect) {
-                            window.location.href = response.data.redirect;
-                        } else {
+                        Swal.fire({
+                            title: 'Perhatian',
+                            text: response.data.message,
+                            icon: 'warning',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                } catch (error: unknown) {
+                    Swal.close();
+                    console.error('Apply error:', error);
+                    
+                    // Check if error response contains redirect
+                    if (error instanceof Error && 'response' in error) {
+                        const axiosError = error as ApiErrorResponse;
+                        if (axiosError.response?.data?.redirect) {
+                            window.location.href = axiosError.response.data.redirect;
+                            return;
+                        }
+
+                        // Handle different error statuses
+                        if (axiosError.response?.status === 422) {
+                            const errorMessage = axiosError.response?.data?.message || 'Data profil belum lengkap.';
                             Swal.fire({
-                                title: 'Perhatian',
-                                text: response.data.message,
+                                title: 'Data Belum Lengkap',
+                                text: errorMessage,
                                 icon: 'warning',
                                 confirmButtonText: 'OK'
                             });
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: axiosError.response?.data?.message || 'Terjadi kesalahan saat melamar. Silakan coba lagi.',
+                                icon: 'error',
+                                confirmButtonText: 'OK'
+                            });
                         }
+                    } else {
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
                     }
                 }
-            });
-        } catch (error) {
-            console.error('Error:', error);
-            Swal.fire({
-                title: 'Error',
-                text: 'Terjadi kesalahan saat melamar. Silakan coba lagi.',
-                icon: 'error',
-                confirmButtonText: 'OK'
-            });
-        }
+            }
+        });
     };
 
     return (
@@ -256,6 +328,16 @@ const JobDetailPage: React.FC = () => {
                         </MajorWarning>
                     )}
 
+                    {/* Tampilkan pesan status aplikasi */}
+                    {!canApply && applicationMessage && (
+                        <ApplicationAlert>
+                            <ApplicationIcon>🚫</ApplicationIcon>
+                            <div>
+                                <strong>Tidak dapat melamar!</strong> {applicationMessage}
+                            </div>
+                        </ApplicationAlert>
+                    )}
+
                     <InfoSection>
                         <SectionHeading>Job Description</SectionHeading>
                         <JobDescription>{job?.job_description}</JobDescription>
@@ -280,13 +362,18 @@ const JobDetailPage: React.FC = () => {
                     {/* Button Apply dengan kondisi */}
                     <ApplyButton
                         onClick={handleApply}
-                        disabled={!isMajorMatched}
+                        disabled={!isMajorMatched || !canApply}
                         style={{
-                            backgroundColor: !isMajorMatched ? '#cccccc' : '#1a73e8',
-                            cursor: !isMajorMatched ? 'not-allowed' : 'pointer'
+                            backgroundColor: (!isMajorMatched || !canApply) ? '#cccccc' : '#1a73e8',
+                            cursor: (!isMajorMatched || !canApply) ? 'not-allowed' : 'pointer'
                         }}
                     >
-                        {!isMajorMatched ? 'Tidak Dapat Apply (Jurusan Tidak Sesuai)' : 'Lamar Sekarang'}
+                        {!isMajorMatched 
+                            ? 'Tidak Dapat Apply (Jurusan Tidak Sesuai)' 
+                            : !canApply 
+                                ? 'Tidak Dapat Apply (Sudah Pernah Melamar)' 
+                                : 'Lamar Sekarang'
+                        }
                     </ApplyButton>
                 </ContentContainer>
             </PageWrapper>

@@ -174,7 +174,7 @@ class JobsController extends Controller
                 ], 422);
             }
 
-            // Cek apakah sudah pernah apply untuk lowongan ini
+            // Cek apakah sudah pernah apply dalam periode yang sama
             // Karena aplikasi disimpan berdasarkan vacancy_period_id, kita perlu cari vacancy_period untuk vacancy ini
             $vacancyPeriod = DB::table('vacancy_periods')
                 ->where('vacancy_id', $id)
@@ -188,15 +188,57 @@ class JobsController extends Controller
                 ], 422);
             }
 
-            $existingApplication = Applications::where('user_id', $user->id)
-                ->where('vacancy_period_id', $vacancyPeriod->id)
+            // VALIDASI BARU: Cek apakah candidate sudah pernah apply di periode yang sama (untuk lowongan apapun)
+            // Ambil semua vacancy_period_id yang memiliki period_id yang sama dengan lowongan ini
+            $samePeriodsVacancyIds = DB::table('vacancy_periods')
+                ->where('period_id', $vacancyPeriod->period_id)
+                ->pluck('id')
+                ->toArray();
+
+            // Cek apakah user sudah pernah apply ke salah satu vacancy di periode yang sama
+            $existingApplicationInPeriod = Applications::where('user_id', $user->id)
+                ->whereIn('vacancy_period_id', $samePeriodsVacancyIds)
+                ->with('vacancyPeriod.vacancy:id,title')
                 ->first();
 
-            if ($existingApplication) {
-                Log::warning('User already applied', ['application_id' => $existingApplication->id]);
+            if ($existingApplicationInPeriod) {
+                $appliedVacancy = $existingApplicationInPeriod->vacancyPeriod->vacancy;
+
+                if ($appliedVacancy->id == $id) {
+                    // Sudah apply ke lowongan yang sama
+                    Log::warning('User already applied to this vacancy', ['application_id' => $existingApplicationInPeriod->id]);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.',
+                        'redirect' => '/candidate/application-history'
+                    ], 422);
+                } else {
+                    // Sudah apply ke lowongan lain di periode yang sama
+                    Log::warning('User already applied to another vacancy in the same period', [
+                        'existing_application_id' => $existingApplicationInPeriod->id,
+                        'existing_vacancy_title' => $appliedVacancy->title,
+                        'current_vacancy_id' => $id
+                    ]);
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode ini. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.",
+                        'redirect' => '/candidate/application-history'
+                    ], 422);
+                }
+            }
+
+            // VALIDASI JENJANG PENDIDIKAN: Cek apakah jenjang pendidikan candidate memenuhi syarat
+            $educationValidation = $this->validateCandidateEducation($user, $vacancy);
+            if (!$educationValidation['is_valid']) {
+                Log::warning('Candidate education does not meet requirements', [
+                    'user_id' => $user->id,
+                    'vacancy_id' => $id,
+                    'candidate_education' => $educationValidation['candidate_education'],
+                    'required_education' => $educationValidation['required_education']
+                ]);
                 return response()->json([
                     'success' => false,
-                    'message' => 'Anda sudah pernah melamar pekerjaan ini.',
+                    'message' => $educationValidation['message'],
                     'redirect' => '/candidate/application-history'
                 ], 422);
             }
@@ -228,9 +270,8 @@ class JobsController extends Controller
                 // Buat entry pertama di application_history untuk tracking
                 ApplicationHistory::create([
                     'application_id' => $application->id,
-                    'stage' => 'administrative_selection', // Use string directly
+                    'status_id' => $status->id, // Use status_id instead of stage
                     'processed_at' => now(),
-                    'is_qualified' => null, // Will be determined later by admin
                 ]);
 
                 Log::info('Application history created');
@@ -322,28 +363,26 @@ class JobsController extends Controller
                     } else if (isset($requirements['pendidikan_minimal'])) {
                         $requiredEducation = $requirements['pendidikan_minimal'];
                     } else {
-                        // Try to extract from requirements text
+                        // Try to extract from requirements text - IMPROVED LOGIC (consistent with validateCandidateEducation)
                         foreach ($requirements as $req) {
-                            if (is_string($req) &&
-                                (stripos($req, 'pendidikan minimal') !== false ||
-                                 stripos($req, 'minimum pendidikan') !== false) &&
-                                (stripos($req, 'S1') !== false ||
-                                 stripos($req, 'S2') !== false ||
-                                 stripos($req, 'S3') !== false ||
-                                 stripos($req, 'D3') !== false ||
-                                 stripos($req, 'SMA') !== false ||
-                                 stripos($req, 'SMK') !== false ||
-                                 stripos($req, 'SMP') !== false ||
-                                 stripos($req, 'SD') !== false)) {
-
-                                if (stripos($req, 'S3') !== false) $requiredEducation = 'S3';
-                                else if (stripos($req, 'S2') !== false) $requiredEducation = 'S2';
-                                else if (stripos($req, 'S1') !== false) $requiredEducation = 'S1';
-                                else if (stripos($req, 'D3') !== false) $requiredEducation = 'D3';
-                                else if (stripos($req, 'SMA') !== false || stripos($req, 'SMK') !== false) $requiredEducation = 'SMA/SMK';
-                                else if (stripos($req, 'SMP') !== false) $requiredEducation = 'SMP';
-                                else if (stripos($req, 'SD') !== false) $requiredEducation = 'SD';
-                                break;
+                            if (is_string($req)) {
+                                // Check for various education patterns
+                                if (stripos($req, 'S3') !== false || stripos($req, 'Doktor') !== false) {
+                                    $requiredEducation = 'S3';
+                                    break;
+                                } elseif (stripos($req, 'S2') !== false || stripos($req, 'Magister') !== false || stripos($req, 'Master') !== false) {
+                                    $requiredEducation = 'S2';
+                                    break;
+                                } elseif (stripos($req, 'S1') !== false || stripos($req, 'Sarjana') !== false || stripos($req, 'Lulusan S1') !== false) {
+                                    $requiredEducation = 'S1';
+                                    break;
+                                } elseif (stripos($req, 'D3') !== false || stripos($req, 'Diploma') !== false) {
+                                    $requiredEducation = 'D3';
+                                    break;
+                                } elseif (stripos($req, 'SMA') !== false || stripos($req, 'SMK') !== false) {
+                                    $requiredEducation = 'SMA/SMK';
+                                    break;
+                                }
                             }
                         }
                     }
@@ -357,6 +396,27 @@ class JobsController extends Controller
                     'required_education' => $requiredEducation,
                     'is_matched' => $educationMatched
                 ]);
+            }
+        }
+
+        // Cek status aplikasi user untuk periode ini
+        $applicationStatus = null;
+        $canApply = true;
+        $applicationMessage = '';
+
+        if (Auth::check()) {
+            $applicationStatus = $this->checkApplicationStatus(Auth::id(), $id);
+            $canApply = $applicationStatus['can_apply'];
+            $applicationMessage = $applicationStatus['message'];
+
+            // Jika bisa apply berdasarkan periode, cek juga validasi pendidikan
+            if ($canApply) {
+                $user = Auth::user();
+                $educationValidation = $this->validateCandidateEducation($user, $vacancy);
+                if (!$educationValidation['is_valid']) {
+                    $canApply = false;
+                    $applicationMessage = $educationValidation['message'];
+                }
             }
         }
 
@@ -375,7 +435,9 @@ class JobsController extends Controller
             'userMajor' => $userMajor,
             'isMajorMatched' => $isMajorMatched,
             'userEducation' => $userEducation,
-            'educationMatched' => $educationMatched
+            'educationMatched' => $educationMatched,
+            'canApply' => $canApply,
+            'applicationMessage' => $applicationMessage
         ]);
     }
 
@@ -827,6 +889,22 @@ class JobsController extends Controller
                 ]);
             }
 
+            // VALIDASI JENJANG PENDIDIKAN: Cek apakah jenjang pendidikan candidate memenuhi syarat
+            $educationValidation = $this->validateCandidateEducation($user, $vacancy);
+            if (!$educationValidation['is_valid']) {
+                \Log::warning('Candidate education does not meet requirements in applyJob', [
+                    'user_id' => $user->id,
+                    'vacancy_id' => $id,
+                    'candidate_education' => $educationValidation['candidate_education'],
+                    'required_education' => $educationValidation['required_education']
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => $educationValidation['message'],
+                    'redirect' => '/candidate/application-history'
+                ], 422);
+            }
+
             // Cek kelengkapan data profil secara langsung
             $candidateController = new CandidateController();
             $completenessResponse = $candidateController->checkApplicationDataCompleteness();
@@ -864,6 +942,22 @@ class JobsController extends Controller
         try {
             $user = Auth::user();
             $vacancy = Vacancies::findOrFail($id);
+
+            // VALIDASI JENJANG PENDIDIKAN: Double check sebelum proses aplikasi final
+            $educationValidation = $this->validateCandidateEducation($user, $vacancy);
+            if (!$educationValidation['is_valid']) {
+                \Log::warning('Candidate education validation failed in processJobApplication', [
+                    'user_id' => $user->id,
+                    'vacancy_id' => $id,
+                    'candidate_education' => $educationValidation['candidate_education'],
+                    'required_education' => $educationValidation['required_education']
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => $educationValidation['message'],
+                    'redirect' => '/candidate/application-history'
+                ], 422);
+            }
 
             DB::beginTransaction();
 
@@ -917,7 +1011,166 @@ class JobsController extends Controller
     }
 
     /**
-     * Handle job application dari halaman confirm-data
-     * (digunakan dari halaman confirmation ketika user sudah melengkapi data)
+     * Validate candidate education level against vacancy requirements
      */
+    private function validateCandidateEducation($user, $vacancy)
+    {
+        try {
+            // Ambil data pendidikan terakhir candidate
+            $education = CandidatesEducations::where('user_id', $user->id)->first();
+
+            if (!$education) {
+                return [
+                    'is_valid' => false,
+                    'message' => 'Data pendidikan tidak ditemukan. Harap lengkapi data pendidikan Anda terlebih dahulu.',
+                    'candidate_education' => null,
+                    'required_education' => null
+                ];
+            }
+
+            // Ambil requirements dari vacancy
+            $requirements = is_string($vacancy->requirements)
+                ? json_decode($vacancy->requirements, true)
+                : $vacancy->requirements;
+
+            // Default minimum education requirement (bisa disesuaikan)
+            $requiredEducation = 'SMA'; // Default requirement
+
+            // Extract minimum education dari requirements
+            if (is_array($requirements)) {
+                // Check for structured fields
+                if (isset($requirements['min_education'])) {
+                    $requiredEducation = $requirements['min_education'];
+                } elseif (isset($requirements['minimum_education'])) {
+                    $requiredEducation = $requirements['minimum_education'];
+                } elseif (isset($requirements['pendidikan_minimal'])) {
+                    $requiredEducation = $requirements['pendidikan_minimal'];
+                } else {
+                    // Try to extract from requirements text - IMPROVED LOGIC
+                    foreach ($requirements as $req) {
+                        if (is_string($req)) {
+                            // Check for various education patterns
+                            if (stripos($req, 'S3') !== false || stripos($req, 'Doktor') !== false) {
+                                $requiredEducation = 'S3';
+                                break;
+                            } elseif (stripos($req, 'S2') !== false || stripos($req, 'Magister') !== false || stripos($req, 'Master') !== false) {
+                                $requiredEducation = 'S2';
+                                break;
+                            } elseif (stripos($req, 'S1') !== false || stripos($req, 'Sarjana') !== false || stripos($req, 'Lulusan S1') !== false) {
+                                $requiredEducation = 'S1';
+                                break;
+                            } elseif (stripos($req, 'D3') !== false || stripos($req, 'Diploma') !== false) {
+                                $requiredEducation = 'D3';
+                                break;
+                            } elseif (stripos($req, 'SMA') !== false || stripos($req, 'SMK') !== false) {
+                                $requiredEducation = 'SMA/SMK';
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            $candidateEducation = $education->education_level;
+
+            // Validate using existing method
+            $isValid = $this->validateEducationLevel($candidateEducation, $requiredEducation);
+
+            $message = $isValid
+                ? 'Jenjang pendidikan memenuhi syarat.'
+                : "Jenjang pendidikan Anda ({$candidateEducation}) tidak memenuhi persyaratan minimal ({$requiredEducation}) untuk lowongan ini.";
+
+            Log::info('Education validation result', [
+                'user_id' => $user->id,
+                'candidate_education' => $candidateEducation,
+                'required_education' => $requiredEducation,
+                'is_valid' => $isValid
+            ]);
+
+            return [
+                'is_valid' => $isValid,
+                'message' => $message,
+                'candidate_education' => $candidateEducation,
+                'required_education' => $requiredEducation
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error validating candidate education: ' . $e->getMessage());
+            return [
+                'is_valid' => false,
+                'message' => 'Terjadi kesalahan saat memvalidasi jenjang pendidikan.',
+                'candidate_education' => null,
+                'required_education' => null
+            ];
+        }
+    }
+
+    /**
+     * Check application status for a user and vacancy
+     */
+    private function checkApplicationStatus($userId, $vacancyId)
+    {
+        try {
+            // Cari vacancy period untuk lowongan ini
+            $vacancyPeriod = DB::table('vacancy_periods')
+                ->where('vacancy_id', $vacancyId)
+                ->first();
+
+            if (!$vacancyPeriod) {
+                return [
+                    'can_apply' => false,
+                    'message' => 'Lowongan ini tidak memiliki periode aktif.',
+                    'status' => 'no_period'
+                ];
+            }
+
+            // Cek apakah user sudah pernah apply di periode yang sama (untuk lowongan apapun)
+            $samePeriodsVacancyIds = DB::table('vacancy_periods')
+                ->where('period_id', $vacancyPeriod->period_id)
+                ->pluck('id')
+                ->toArray();
+
+            $existingApplication = Applications::where('user_id', $userId)
+                ->whereIn('vacancy_period_id', $samePeriodsVacancyIds)
+                ->with('vacancyPeriod.vacancy:id,title')
+                ->first();
+
+            if ($existingApplication) {
+                $appliedVacancy = $existingApplication->vacancyPeriod->vacancy;
+
+                if ($appliedVacancy->id == $vacancyId) {
+                    // Sudah apply ke lowongan yang sama
+                    return [
+                        'can_apply' => false,
+                        'message' => 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.',
+                        'status' => 'already_applied_same',
+                        'applied_vacancy' => $appliedVacancy->title
+                    ];
+                } else {
+                    // Sudah apply ke lowongan lain di periode yang sama
+                    return [
+                        'can_apply' => false,
+                        'message' => "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode ini. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.",
+                        'status' => 'already_applied_other',
+                        'applied_vacancy' => $appliedVacancy->title
+                    ];
+                }
+            }
+
+            // Tidak ada aplikasi sebelumnya, bisa apply
+            return [
+                'can_apply' => true,
+                'message' => '',
+                'status' => 'can_apply'
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error checking application status: ' . $e->getMessage());
+            return [
+                'can_apply' => false,
+                'message' => 'Terjadi kesalahan saat memeriksa status aplikasi.',
+                'status' => 'error'
+            ];
+        }
+    }
 }

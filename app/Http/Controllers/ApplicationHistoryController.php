@@ -8,6 +8,7 @@ use App\Models\Vacancies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ApplicationHistoryController extends Controller
@@ -50,7 +51,7 @@ class ApplicationHistoryController extends Controller
 
                     // Ambil application history terbaru untuk aplikasi ini
                     $latestHistory = ApplicationHistory::where('application_id', $application->id)
-                        ->with(['adminReviewer:id,name', 'interviewer:id,name'])
+                        ->with(['status:id,name,stage', 'reviewer:id,name'])
                         ->orderBy('processed_at', 'desc')
                         ->first();
 
@@ -59,7 +60,7 @@ class ApplicationHistoryController extends Controller
                         'has_vacancy' => isset($vacancy),
                         'has_status' => isset($status),
                         'has_history' => isset($latestHistory),
-                        'history_stage' => $latestHistory ? $latestHistory->stage : null
+                        'history_stage' => $latestHistory && $latestHistory->status ? $latestHistory->status->stage : null
                     ]);
 
                     // Fallback jika tidak ada data vacancy
@@ -79,11 +80,12 @@ class ApplicationHistoryController extends Controller
                     $stageInfo = '';
 
                     if ($latestHistory) {
-                        $currentStage = $this->getStageDisplayName($latestHistory->stage);
-                        $statusColor = $this->getStageColor($latestHistory->stage, $latestHistory->is_qualified);
+                        $historyStatus = $latestHistory->status;
+                        $currentStage = $historyStatus ? $this->getStageDisplayName($historyStatus->stage) : 'Administrative Selection';
+                        $statusColor = $historyStatus ? $this->getStageColor($historyStatus->stage, null) : '#1a73e8';
 
                         // Tambahkan informasi tambahan berdasarkan stage
-                        $stageInfo = $this->getStageInfo($latestHistory);
+                        $stageInfo = $historyStatus ? $this->getStageInfo($historyStatus) : '';
                     } elseif ($status) {
                         $currentStage = $status->name;
                         if ($status->stage == 'REJECTED') {
@@ -111,9 +113,9 @@ class ApplicationHistoryController extends Controller
                         'applied_at' => $application->created_at ? $application->created_at->format('Y-m-d') : date('Y-m-d'),
                         'updated_at' => $application->updated_at ? $application->updated_at->format('Y-m-d') : date('Y-m-d'),
                         // Tambahkan informasi dari application history
-                        'current_score' => $latestHistory ? $this->getCurrentScore($latestHistory) : null,
+                        'current_score' => $latestHistory ? $latestHistory->score : null,
                         'last_processed' => $latestHistory ? $latestHistory->processed_at->format('Y-m-d') : null,
-                        'reviewer' => $latestHistory && $latestHistory->adminReviewer ? $latestHistory->adminReviewer->name : null
+                        'reviewer' => $latestHistory && $latestHistory->reviewer ? $latestHistory->reviewer->name : null
                     ];
                 } catch (\Exception $e) {
                     Log::error('Error processing application', [
@@ -288,10 +290,10 @@ class ApplicationHistoryController extends Controller
                     'id' => $history->id,
                     'status_id' => $history->status_id,
                     'status_name' => $status->name,
-                    'status_color' => $this->getStatusColor($status->name),
+                    'status_color' => $this->getStageColor($status->stage, null),
                     'is_qualified' => $history->is_qualified,
                     'created_at' => $history->created_at->format('Y-m-d H:i:s'),
-                    'notes' => $this->getHistoryNotes($history, $status->name),
+                    'notes' => $history->notes ?? '',
                 ];
             }
 
@@ -325,47 +327,13 @@ class ApplicationHistoryController extends Controller
     }
 
     /**
-     * Helper method untuk mendapatkan warna status
-     */
-    private function getStatusColor($statusName)
-    {
-        $user = Auth::user();
-        $application = Applications::where('id', $applicationId)
-            ->where('user_id', $user->id)
-            ->with(['job', 'job.company'])
-            ->firstOrFail();
-
-        // Ambil data assessment yang terkait dengan aplikasi ini
-        $applicationHistory = \App\Models\ApplicationHistory::where('application_id', $applicationId)
-            ->where('assessments_id', '!=', null)
-            ->first();
-
-        $assessmentId = $applicationHistory ? $applicationHistory->assessments_id : null;
-
-        // Siapkan data untuk halaman status
-        $data = [
-            'application' => [
-                'id' => $application->id,
-                'job_title' => $application->job->title,
-                'company_name' => $application->job->company->name,
-                'status' => $application->status,
-                'applied_date' => $application->created_at->format('d M Y'),
-                'assessment_id' => $assessmentId, // Teruskan ID assessment
-            ],
-            'user' => [
-                'name' => $user->name,
-                'profile_image' => $user->candidateProfile ? asset('storage/' . $user->candidateProfile->profile_image) : null,
-            ]
-        ];
-
-        return Inertia::render('candidate/candidate-status', $data);
-    }
-
-    /**
      * Helper methods
      */
     private function getStageDisplayName($stage)
     {
+        // Convert enum to string if needed
+        $stageValue = is_object($stage) ? $stage->value : $stage;
+
         $stageNames = [
             'administrative_selection' => 'Administrative Selection',
             'psychological_test' => 'Psychological Test',
@@ -374,20 +342,23 @@ class ApplicationHistoryController extends Controller
             'rejected' => 'Rejected'
         ];
 
-        return $stageNames[$stage] ?? $stage;
+        return $stageNames[$stageValue] ?? $stageValue;
     }
 
     private function getStageColor($stage, $isQualified = null)
     {
-        if ($stage === 'rejected' || $isQualified === false) {
+        // Convert enum to string if needed
+        $stageValue = is_object($stage) ? $stage->value : $stage;
+
+        if ($stageValue === 'rejected' || $isQualified === false) {
             return '#dc3545'; // Red
         }
 
-        if ($stage === 'accepted' || $isQualified === true) {
+        if ($stageValue === 'accepted' || $isQualified === true) {
             return '#28a745'; // Green
         }
 
-        switch ($stage) {
+        switch ($stageValue) {
             case 'administrative_selection':
                 return '#1a73e8'; // Blue
             case 'psychological_test':
@@ -399,39 +370,25 @@ class ApplicationHistoryController extends Controller
         }
     }
 
-    private function getStageInfo($history)
+    private function getStageInfo($status)
     {
-        if ($history->is_qualified === false) {
-            return 'Tidak lulus seleksi';
-        }
+        // Since we don't have is_qualified column in database,
+        // we'll use the status stage to determine info
+        $stageValue = is_object($status->stage) ? $status->stage->value : $status->stage;
 
-        if ($history->is_qualified === true) {
-            return 'Lulus seleksi';
-        }
-
-        switch ($history->stage) {
+        switch ($stageValue) {
             case 'administrative_selection':
                 return 'Sedang dalam proses review dokumen';
             case 'psychological_test':
-                return $history->test_scheduled_at ? 'Tes terjadwal' : 'Menunggu jadwal tes';
+                return 'Tahap tes psikologi';
             case 'interview':
-                return $history->interview_scheduled_at ? 'Interview terjadwal' : 'Menunggu jadwal interview';
+                return 'Tahap interview';
+            case 'accepted':
+                return 'Diterima';
+            case 'rejected':
+                return 'Tidak lulus seleksi';
             default:
                 return 'Dalam proses';
-        }
-    }
-
-    private function getCurrentScore($history)
-    {
-        switch ($history->stage) {
-            case 'administrative_selection':
-                return $history->admin_score;
-            case 'psychological_test':
-                return $history->test_score;
-            case 'interview':
-                return $history->interview_score;
-            default:
-                return null;
         }
     }
 
