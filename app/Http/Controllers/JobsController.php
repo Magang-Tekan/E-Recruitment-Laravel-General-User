@@ -6,6 +6,7 @@ use App\Enums\CandidatesStage;
 use App\Models\Candidate;
 use App\Models\Vacancies;
 use App\Models\Applications;
+use App\Models\ApplicationHistory;
 use App\Models\CandidatesEducations;
 use App\Models\MasterMajor;
 use App\Models\CandidatesProfile;
@@ -141,131 +142,132 @@ class JobsController extends Controller
     public function apply($id)
     {
         try {
+            Log::info('Starting apply process', ['vacancy_id' => $id, 'user_id' => Auth::id()]);
+
             // Verifikasi bahwa vacancy masih tersedia
             $vacancy = Vacancies::findOrFail($id);
+            Log::info('Vacancy found', ['vacancy_title' => $vacancy->title]);
 
             // Verifikasi user sudah login
             $user = Auth::user();
             if (!$user) {
+                Log::warning('User not authenticated');
                 return response()->json([
+                    'success' => false,
                     'message' => 'Anda harus login terlebih dahulu.',
                     'redirect' => '/login'
                 ], 401);
             }
 
+            Log::info('User authenticated', ['user_id' => $user->id]);
+
             // Cek kelengkapan profil
             $profileCheck = $this->checkProfileComplete($user);
-            if (!$profileCheck['is_complete']) {
-                // Untuk permintaan Ajax/Fetch, kembalikan respons JSON dengan header X-Inertia
-                if (request()->ajax() || request()->wantsJson()) {
-                    return response()->json([
-                        'message' => $profileCheck['message'],
-                        'redirect' => "/candidate/confirm-data/{$id}"
-                    ], 422)->header('X-Inertia', 'true');
-                }
+            Log::info('Profile check result', $profileCheck);
 
-                // Untuk permintaan langsung, gunakan redirect dengan flash data
-                return redirect()->route('candidate.confirm-data', ['id' => $id])
-                    ->with('warning', $profileCheck['message']);
+            if (!$profileCheck['is_complete']) {
+                Log::warning('Profile incomplete', ['message' => $profileCheck['message']]);
+                return response()->json([
+                    'success' => false,
+                    'message' => $profileCheck['message'],
+                    'redirect' => "/candidate/confirm-data/{$id}"
+                ], 422);
             }
 
             // Cek apakah sudah pernah apply untuk lowongan ini
+            // Karena aplikasi disimpan berdasarkan vacancy_period_id, kita perlu cari vacancy_period untuk vacancy ini
+            $vacancyPeriod = DB::table('vacancy_periods')
+                ->where('vacancy_id', $id)
+                ->first();
+
+            if (!$vacancyPeriod) {
+                Log::error('No vacancy period found for vacancy', ['vacancy_id' => $id]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Lowongan ini tidak memiliki periode aktif.'
+                ], 422);
+            }
+
             $existingApplication = Applications::where('user_id', $user->id)
-                ->where('vacancies_id', $id)
+                ->where('vacancy_period_id', $vacancyPeriod->id)
                 ->first();
 
             if ($existingApplication) {
-                if (request()->ajax() || request()->wantsJson()) {
-                    return response()->json([
-                        'message' => 'Anda sudah pernah melamar pekerjaan ini.',
-                        'redirect' => '/candidate/application-history'
-                    ], 422)->header('X-Inertia', 'true');
-                }
-
-                return redirect()->route('candidate.application-history')
-                    ->with('warning', 'Anda sudah pernah melamar pekerjaan ini.');
+                Log::warning('User already applied', ['application_id' => $existingApplication->id]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda sudah pernah melamar pekerjaan ini.',
+                    'redirect' => '/candidate/application-history'
+                ], 422);
             }
 
             // Ambil data status dari tabel statuses
             $status = DB::table('statuses')->where('name', 'Administrative Selection')->first();
             if (!$status) {
-                if (request()->ajax() || request()->wantsJson()) {
-                    return response()->json([
-                        'message' => 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.'
-                    ], 500)->header('X-Inertia', 'true');
-                }
-
-                return back()->with('error', 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.');
+                Log::error('Administrative Selection status not found');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.'
+                ], 500);
             }
+
+            Log::info('Status found', ['status_id' => $status->id]);
 
             // Simpan data aplikasi baru
             DB::beginTransaction();
             try {
-                // Cari vacancy_period yang aktif
-                $vacancyPeriod = DB::table('vacancy_periods')
-                    ->where('vacancy_id', $id)
-                    ->where('is_active', true)
-                    ->first();
-
-                // Jika tidak ada periode aktif, gunakan ID vacancy langsung
-                $vacancyPeriodId = $vacancyPeriod ? $vacancyPeriod->id : $id;
-
                 // Buat aplikasi baru
                 $application = Applications::create([
                     'user_id' => $user->id,
-                    'vacancies_id' => $id,
-                    'vacancy_period_id' => $vacancyPeriodId,
+                    'vacancy_period_id' => $vacancyPeriod->id,
                     'status_id' => $status->id,
-                    'created_at' => now(),
-                    'updated_at' => now(),
                 ]);
 
-                // Buat history aplikasi
-                DB::table('application_history')->insert([
+                Log::info('Application created', ['application_id' => $application->id]);
+
+                // Buat entry pertama di application_history untuk tracking
+                ApplicationHistory::create([
                     'application_id' => $application->id,
-                    'status_id' => $status->id,
-                    'question_pack_id' => null,
-                    'interviews_id' => null,
-                    'reviewed_by' => null,
-                    'is_qualified' => null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'stage' => 'administrative_selection', // Use string directly
+                    'processed_at' => now(),
+                    'is_qualified' => null, // Will be determined later by admin
                 ]);
+
+                Log::info('Application history created');
 
                 DB::commit();
 
-                if (request()->ajax() || request()->wantsJson()) {
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".',
-                        'redirect' => '/candidate/application-history'
-                    ])->header('X-Inertia', 'true');
-                }
+                Log::info('Application created successfully', [
+                    'application_id' => $application->id,
+                    'user_id' => $user->id,
+                    'vacancy_id' => $id
+                ]);
 
-                return redirect()->route('candidate.application-history')
-                    ->with('success', 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".');
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".',
+                    'redirect' => '/candidate/application-history'
+                ]);
+
             } catch (\Exception $e) {
                 DB::rollBack();
-                \Log::error('Error saat menyimpan aplikasi: ' . $e->getMessage());
+                Log::error('Error saat menyimpan aplikasi: ' . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
 
-                if (request()->ajax() || request()->wantsJson()) {
-                    return response()->json([
-                        'message' => 'Terjadi kesalahan saat menyimpan data lamaran: ' . $e->getMessage()
-                    ], 500)->header('X-Inertia', 'true');
-                }
-
-                return back()->with('error', 'Terjadi kesalahan saat menyimpan data lamaran.');
-            }
-        } catch (\Exception $e) {
-            \Log::error('Error saat apply lowongan: ' . $e->getMessage());
-
-            if (request()->ajax() || request()->wantsJson()) {
                 return response()->json([
-                    'message' => 'Terjadi kesalahan: ' . $e->getMessage()
-                ], 500)->header('X-Inertia', 'true');
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.'
+                ], 500);
             }
 
-            return back()->with('error', 'Terjadi kesalahan saat melamar pekerjaan.');
+        } catch (\Exception $e) {
+            Log::error('Error saat apply lowongan: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan sistem. Silakan coba lagi.'
+            ], 500);
         }
     }
 
@@ -649,9 +651,9 @@ class JobsController extends Controller
         $educationComplete = false;
         if (
             $education &&
-            !empty($education->institution) &&
+            !empty($education->institution_name) &&
             !empty($education->major_id) &&
-            !empty($education->year_graduated)
+            !empty($education->year_out)
         ) {
             $educationComplete = true;
         }
@@ -716,7 +718,30 @@ class JobsController extends Controller
         // Verifikasi user sudah login
         $user = Auth::user();
         if (!$user) {
-            return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
+            // For AJAX requests, return JSON response
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Silakan login terlebih dahulu',
+                    'redirect' => '/login'
+                ], 401);
+            }
+
+            // For regular requests, render confirm data page with error
+            return \Inertia\Inertia::render('candidate/confirm-data', [
+                'error' => 'Silakan login terlebih dahulu',
+                'completeness' => [
+                    'profile' => false,
+                    'education' => false,
+                    'skills' => false,
+                    'work_experience' => false,
+                    'organization' => false,
+                    'achievements' => false,
+                    'social_media' => false,
+                    'additional_data' => false,
+                    'overall_complete' => false
+                ]
+            ]);
         }
 
         // Cek kelengkapan profil

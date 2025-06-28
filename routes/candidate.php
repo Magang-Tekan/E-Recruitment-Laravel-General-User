@@ -21,7 +21,6 @@ Route::middleware(['auth'])
             ->name('candidate.jobs.')
             ->group(function () {
                 Route::get('/', [JobsController::class, 'index'])->name('index');
-                Route::post('/{id}/apply', [JobsController::class, 'apply'])->name('apply');
             });
 
         Route::get('/job/{id}', [JobsController::class, 'detail'])->name('candidate.job.detail');
@@ -31,7 +30,6 @@ Route::middleware(['auth'])
         Route::get('/check-profile-complete', [JobsController::class, 'checkProfileCompleteEndpoint'])->name('candidate.check-profile-complete');
         Route::get('/check-relationships', [ApplicationHistoryController::class, 'checkRelationships'])->name('candidate.check-relationships');
         Route::post('/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
-        Route::get('/check-profile-complete', [JobsController::class, 'checkProfileCompleteEndpoint'])->name('candidate.check-profile-complete');
     });
 
 // Route::middleware(['auth'])->group(function () {

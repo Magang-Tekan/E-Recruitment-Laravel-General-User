@@ -36,7 +36,6 @@ class ApplicationHistory extends Model
     ];
 
     protected $casts = [
-        'stage' => CandidatesStage::class,
         'processed_at' => 'datetime',
         'admin_reviewed_at' => 'datetime',
         'test_scheduled_at' => 'datetime',

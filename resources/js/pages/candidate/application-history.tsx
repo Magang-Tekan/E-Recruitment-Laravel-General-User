@@ -183,6 +183,7 @@ interface Application {
     status_id: number;
     status_name: string;
     status_color: string;
+    stage_info?: string;
     job: {
         id: number;
         title: string;
@@ -192,6 +193,9 @@ interface Application {
     };
     applied_at: string;
     updated_at: string;
+    current_score?: number;
+    last_processed?: string;
+    reviewer?: string;
 }
 
 interface ApplicationHistoryProps {
@@ -280,11 +284,26 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
                                             <StatusBadge color={app.status_color}>
                                                 {app.status_name}
                                             </StatusBadge>
+                                            {app.stage_info && (
+                                                <div style={{ fontSize: '0.75rem', marginTop: '4px', color: '#6c757d' }}>
+                                                    {app.stage_info}
+                                                </div>
+                                            )}
+                                            {app.current_score && (
+                                                <div style={{ fontSize: '0.75rem', marginTop: '2px', color: '#495057' }}>
+                                                    Skor: {app.current_score}
+                                                </div>
+                                            )}
                                         </td>
                                         <td>
-                                            <Link href={`/candidate/application/${app.id}/status`} className="inline-block bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
-                                                Detail
-                                            </Link>
+                                            <ViewButton
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    window.location.href = `/candidate/application/${app.id}/status`;
+                                                }}
+                                            >
+                                                Lihat Detail
+                                            </ViewButton>
                                         </td>
                                     </tr>
                                 ))}
@@ -338,6 +357,22 @@ const LoadingSpinner = styled.div`
     @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
+    }
+`;
+
+// Tambahkan styled component untuk ViewButton
+const ViewButton = styled.button`
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+
+    &:hover {
+        background-color: #1557b0;
     }
 `;
 

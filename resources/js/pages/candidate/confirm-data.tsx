@@ -19,6 +19,16 @@ type Completeness = {
   overall_complete: boolean;
 };
 
+interface ApiErrorResponse {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+      redirect?: string;
+    };
+  };
+}
+
 type PageProps = {
   auth: {
     user: {
@@ -153,13 +163,20 @@ const ConfirmData = () => {
 
   // Fungsi untuk mengirim aplikasi secara langsung
   const handleApplyNow = async () => {
-    if (!job_id || hasIncompleteRequired || !localCompleteness?.overall_complete) {
-      return false; // Jangan lanjutkan jika ada data yang belum lengkap
+    // Pastikan profile sudah lengkap untuk requirement wajib
+    if (!job_id || hasIncompleteRequired) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Data Belum Lengkap',
+        text: 'Harap lengkapi data profil wajib terlebih dahulu.',
+        confirmButtonColor: '#3085d6'
+      });
+      return false;
     }
 
     try {
       // Tampilkan loading state
-      const loadingToast = Swal.fire({
+      Swal.fire({
         title: 'Memproses Lamaran',
         html: 'Mohon tunggu sebentar...',
         allowOutsideClick: false,
@@ -178,19 +195,28 @@ const ConfirmData = () => {
         }
       });
 
-      loadingToast.close();
+      Swal.close();
 
+      // Jika berhasil, langsung redirect ke application-history
       if (response.data.success) {
-        // Tampilkan pesan sukses
+        // Tampilkan pesan sukses dan langsung redirect
         Swal.fire({
           icon: 'success',
           title: 'Berhasil!',
-          text: response.data.message || 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".',
-          confirmButtonColor: '#3085d6'
+          text: response.data.message || 'Lamaran berhasil dikirim! Anda akan dialihkan ke halaman riwayat lamaran.',
+          confirmButtonColor: '#3085d6',
+          timer: 2000,
+          timerProgressBar: true,
+          showConfirmButton: false
         }).then(() => {
           // Redirect ke halaman history
           window.location.href = '/candidate/application-history';
         });
+
+        // Backup redirect jika SweetAlert gagal
+        setTimeout(() => {
+          window.location.href = '/candidate/application-history';
+        }, 2500);
       } else {
         Swal.fire({
           icon: 'warning',
@@ -199,21 +225,46 @@ const ConfirmData = () => {
           confirmButtonColor: '#3085d6'
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error submitting application:', error);
+      Swal.close();
 
-      // Cek jika ada response dengan redirect
-      if (error.response && error.response.data && error.response.data.redirect) {
-        window.location.href = error.response.data.redirect;
-        return;
+      // Cek jika ada response dengan redirect dari backend
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as ApiErrorResponse;
+        if (axiosError.response?.data?.redirect) {
+          window.location.href = axiosError.response.data.redirect;
+          return;
+        }
+
+        // Cek jika error 422 (Unprocessable Content) dengan pesan khusus
+        if (axiosError.response?.status === 422) {
+          const errorMessage = axiosError.response?.data?.message || 'Data profil belum lengkap.';
+          Swal.fire({
+            icon: 'warning',
+            title: 'Data Belum Lengkap',
+            text: errorMessage,
+            confirmButtonColor: '#3085d6'
+          });
+          return;
+        }
+
+        // Error lainnya dengan response dari server
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: axiosError.response?.data?.message || 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.',
+          confirmButtonColor: '#3085d6'
+        });
+      } else {
+        // Error tanpa response (network error, dll)
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
+          confirmButtonColor: '#3085d6'
+        });
       }
-
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: error.response?.data?.message || 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.',
-        confirmButtonColor: '#3085d6'
-      });
     }
   };
 
@@ -317,7 +368,7 @@ const ConfirmData = () => {
 
         {/* Submit Button */}
         <div className="text-center mt-6">
-          {localCompleteness?.overall_complete && job_id ? (
+          {!hasIncompleteRequired && job_id ? (
             <button
               onClick={handleApplyNow}
               className="px-8 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium mb-10"

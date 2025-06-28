@@ -14,18 +14,21 @@ class ApplicationHistoryController extends Controller
     public function index()
     {
         try {
-            // Ambil data aplikasi user yang sedang login
+            Log::info('Starting application history index');
+
+            // Ambil data aplikasi user yang sedang login dengan relasi yang diperlukan
             $applications = Applications::where('user_id', Auth::id())
                 ->with([
-                    'vacancy:id,title,location,vacancy_type_id,company_id',
-                    'vacancy.company:id,name',
-                    'vacancy.vacancyType:id,name',
+                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id',
+                    'vacancyPeriod.vacancy.company:id,name',
+                    'vacancyPeriod.vacancy.vacancyType:id,name',
                     'status:id,name,description,stage'
                 ])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Check if we have applications
+            Log::info('Applications loaded', ['count' => $applications->count()]);
+
             if ($applications->isEmpty()) {
                 Log::info('No applications found for user', [
                     'user_id' => Auth::id()
@@ -36,55 +39,89 @@ class ApplicationHistoryController extends Controller
                 ]);
             }
 
-            // Format data untuk frontend
+            // Format data untuk frontend dengan data dari application_history
             $formattedApplications = $applications->map(function ($application) {
-                $vacancy = $application->vacancy;
-                $status = $application->status;
+                try {
+                    Log::info('Processing application', ['id' => $application->id]);
 
-                // Log for debugging
-                Log::info('Application data', [
-                    'id' => $application->id,
-                    'has_vacancy' => isset($vacancy),
-                    'has_status' => isset($status)
-                ]);
+                    $vacancy = $application->vacancyPeriod ? $application->vacancyPeriod->vacancy : null;
+                    $status = $application->status;
 
-                // Jika tidak ada data vacancy, coba ambil dari vacancies_id
-                if (!$vacancy && $application->vacancies_id) {
-                    try {
-                        $vacancy = \App\Models\Vacancies::with(['company', 'vacancyType'])
-                                    ->find($application->vacancies_id);
-                    } catch (\Exception $e) {
-                        Log::error('Error fetching vacancy data: ' . $e->getMessage());
+                    // Ambil application history terbaru untuk aplikasi ini
+                    $latestHistory = ApplicationHistory::where('application_id', $application->id)
+                        ->with(['adminReviewer:id,name', 'interviewer:id,name'])
+                        ->orderBy('processed_at', 'desc')
+                        ->first();
+
+                    Log::info('Application data processed', [
+                        'id' => $application->id,
+                        'has_vacancy' => isset($vacancy),
+                        'has_status' => isset($status),
+                        'has_history' => isset($latestHistory),
+                        'history_stage' => $latestHistory ? $latestHistory->stage : null
+                    ]);
+
+                    // Fallback jika tidak ada data vacancy
+                    if (!$vacancy && $application->vacancy_period_id) {
+                        try {
+                            $vacancyPeriod = \App\Models\VacancyPeriods::with(['vacancy.company', 'vacancy.vacancyType'])
+                                            ->find($application->vacancy_period_id);
+                            $vacancy = $vacancyPeriod ? $vacancyPeriod->vacancy : null;
+                        } catch (\Exception $e) {
+                            Log::error('Error fetching vacancy data: ' . $e->getMessage());
+                        }
                     }
-                }
 
-                // Menentukan warna status
-                $statusColor = '#1a73e8'; // Default blue
-                if ($status) {
-                    if ($status->stage == 'REJECTED') {
-                        $statusColor = '#dc3545'; // Red for rejected
-                    } else if ($status->stage == 'ACCEPTED') {
-                        $statusColor = '#28a745'; // Green for accepted
-                    } else if ($status->stage == 'INTERVIEW') {
-                        $statusColor = '#fd7e14'; // Orange for interview
+                    // Menentukan status dan warna berdasarkan application history
+                    $currentStage = 'Administrative Selection';
+                    $statusColor = '#1a73e8'; // Default blue
+                    $stageInfo = '';
+
+                    if ($latestHistory) {
+                        $currentStage = $this->getStageDisplayName($latestHistory->stage);
+                        $statusColor = $this->getStageColor($latestHistory->stage, $latestHistory->is_qualified);
+
+                        // Tambahkan informasi tambahan berdasarkan stage
+                        $stageInfo = $this->getStageInfo($latestHistory);
+                    } elseif ($status) {
+                        $currentStage = $status->name;
+                        if ($status->stage == 'REJECTED') {
+                            $statusColor = '#dc3545';
+                        } elseif ($status->stage == 'ACCEPTED') {
+                            $statusColor = '#28a745';
+                        } elseif ($status->stage == 'INTERVIEW') {
+                            $statusColor = '#fd7e14';
+                        }
                     }
-                }
 
-                return [
-                    'id' => $application->id,
-                    'status_id' => $status ? $status->id : 1,
-                    'status_name' => $status ? $status->name : 'Administrative Selection',
-                    'status_color' => $statusColor,
-                    'job' => [
-                        'id' => $vacancy ? $vacancy->id : null,
-                        'title' => $vacancy ? $vacancy->title : 'Tidak tersedia',
-                        'company' => $vacancy && $vacancy->company ? $vacancy->company->name : 'Perusahaan tidak tersedia',
-                        'location' => $vacancy ? $vacancy->location : 'Lokasi tidak tersedia',
-                        'type' => $vacancy && $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Full Time'
-                    ],
-                    'applied_at' => $application->created_at ? $application->created_at->format('Y-m-d') : date('Y-m-d'),
-                    'updated_at' => $application->updated_at ? $application->updated_at->format('Y-m-d') : date('Y-m-d')
-                ];
+                    return [
+                        'id' => $application->id,
+                        'status_id' => $status ? $status->id : 1,
+                        'status_name' => $currentStage,
+                        'status_color' => $statusColor,
+                        'stage_info' => $stageInfo,
+                        'job' => [
+                            'id' => $vacancy ? $vacancy->id : null,
+                            'title' => $vacancy ? $vacancy->title : 'Tidak tersedia',
+                            'company' => $vacancy && $vacancy->company ? $vacancy->company->name : 'Perusahaan tidak tersedia',
+                            'location' => $vacancy ? $vacancy->location : 'Lokasi tidak tersedia',
+                            'type' => $vacancy && $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Full Time'
+                        ],
+                        'applied_at' => $application->created_at ? $application->created_at->format('Y-m-d') : date('Y-m-d'),
+                        'updated_at' => $application->updated_at ? $application->updated_at->format('Y-m-d') : date('Y-m-d'),
+                        // Tambahkan informasi dari application history
+                        'current_score' => $latestHistory ? $this->getCurrentScore($latestHistory) : null,
+                        'last_processed' => $latestHistory ? $latestHistory->processed_at->format('Y-m-d') : null,
+                        'reviewer' => $latestHistory && $latestHistory->adminReviewer ? $latestHistory->adminReviewer->name : null
+                    ];
+                } catch (\Exception $e) {
+                    Log::error('Error processing application', [
+                        'application_id' => $application->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    throw $e; // Re-throw to be caught by outer try-catch
+                }
             });
 
             Log::info('Application history loaded successfully', [
@@ -137,9 +174,9 @@ class ApplicationHistoryController extends Controller
             // Ambil data aplikasi user yang sedang login
             $applications = Applications::where('user_id', Auth::id())
                 ->with([
-                    'vacancy:id,title,location,vacancy_type_id,company_id',
-                    'vacancy.company:id,name',
-                    'vacancy.vacancyType:id,name',
+                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id',
+                    'vacancyPeriod.vacancy.company:id,name',
+                    'vacancyPeriod.vacancy.vacancyType:id,name',
                     'status:id,name,description,stage'
                 ])
                 ->orderBy('created_at', 'desc')
@@ -147,7 +184,7 @@ class ApplicationHistoryController extends Controller
 
             // Format data seperti fungsi index
             $formattedApplications = $applications->map(function ($application) {
-                $vacancy = $application->vacancy;
+                $vacancy = $application->vacancyPeriod ? $application->vacancyPeriod->vacancy : null;
                 $selection = $application->selection;
 
                 return [
@@ -316,6 +353,80 @@ class ApplicationHistoryController extends Controller
         ];
 
         return Inertia::render('candidate/candidate-status', $data);
+    }
+
+    /**
+     * Helper methods
+     */
+    private function getStageDisplayName($stage)
+    {
+        $stageNames = [
+            'administrative_selection' => 'Administrative Selection',
+            'psychological_test' => 'Psychological Test',
+            'interview' => 'Interview',
+            'accepted' => 'Accepted',
+            'rejected' => 'Rejected'
+        ];
+
+        return $stageNames[$stage] ?? $stage;
+    }
+
+    private function getStageColor($stage, $isQualified = null)
+    {
+        if ($stage === 'rejected' || $isQualified === false) {
+            return '#dc3545'; // Red
+        }
+
+        if ($stage === 'accepted' || $isQualified === true) {
+            return '#28a745'; // Green
+        }
+
+        switch ($stage) {
+            case 'administrative_selection':
+                return '#1a73e8'; // Blue
+            case 'psychological_test':
+                return '#fd7e14'; // Orange
+            case 'interview':
+                return '#6f42c1'; // Purple
+            default:
+                return '#6c757d'; // Gray
+        }
+    }
+
+    private function getStageInfo($history)
+    {
+        if ($history->is_qualified === false) {
+            return 'Tidak lulus seleksi';
+        }
+
+        if ($history->is_qualified === true) {
+            return 'Lulus seleksi';
+        }
+
+        switch ($history->stage) {
+            case 'administrative_selection':
+                return 'Sedang dalam proses review dokumen';
+            case 'psychological_test':
+                return $history->test_scheduled_at ? 'Tes terjadwal' : 'Menunggu jadwal tes';
+            case 'interview':
+                return $history->interview_scheduled_at ? 'Interview terjadwal' : 'Menunggu jadwal interview';
+            default:
+                return 'Dalam proses';
+        }
+    }
+
+    private function getCurrentScore($history)
+    {
+        switch ($history->stage) {
+            case 'administrative_selection':
+                return $history->admin_score;
+            case 'psychological_test':
+                return $history->test_score;
+            case 'interview':
+                return $history->interview_score;
+            default:
+                return null;
+        }
     }
 
     /**
