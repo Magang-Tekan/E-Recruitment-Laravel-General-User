@@ -116,8 +116,8 @@ class ApplicationHistoryController extends Controller
                         'last_processed' => $latestHistory ? $latestHistory->processed_at->format('Y-m-d') : null,
                         'reviewer' => $latestHistory && $latestHistory->reviewer ? $latestHistory->reviewer->name : null,
                         // Flag untuk frontend
-                        'is_qualified' => $latestHistory && $latestHistory->status && 
-                                        ($latestHistory->status->stage === 'accepted' || 
+                        'is_qualified' => $latestHistory && $latestHistory->status &&
+                                        ($latestHistory->status->stage === 'accepted' ||
                                          ($latestHistory->score && $latestHistory->score >= 70)),
                         'history' => [
                             'id' => $latestHistory ? $latestHistory->id : null,

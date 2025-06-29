@@ -84,9 +84,9 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
 
     const formatDateOnly = (dateString: string | null | undefined) => {
         if (!dateString) return '';
-        const options: Intl.DateTimeFormatOptions = { 
+        const options: Intl.DateTimeFormatOptions = {
             day: 'numeric',
-            month: 'short', 
+            month: 'short',
             year: 'numeric'
         };
         return new Date(dateString).toLocaleDateString('id-ID', options);
@@ -95,7 +95,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
     return (
         <div className="min-h-screen bg-gray-50">
             <Head title="Status Aplikasi" />
-            
+
             {/* Header */}
             <div className="bg-white shadow-sm border-b">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -158,14 +158,14 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                             const isActive = history.is_active;
                             const isRejected = history.stage === 'rejected';
                             const isAccepted = history.stage === 'accepted';
-                            
+
                             return (
                                 <div key={history.id} className="relative flex items-start mb-6">
                                     {/* Timeline line */}
                                     {index < sortedHistories.length - 1 && (
                                         <div className="absolute left-4 top-8 w-0.5 h-full bg-gray-200"></div>
                                     )}
-                                    
+
                                     {/* Circle marker */}
                                     <div className={`relative z-10 flex items-center justify-center w-8 h-8 rounded-full border-2 ${
                                         isCompleted || isAccepted ? 'bg-green-500 border-green-500' :
@@ -183,7 +183,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                     {/* Content */}
                                     <div className="ml-6 flex-1">
                                         <div className={`bg-white rounded-lg border p-4 ${
-                                            isActive ? 'border-blue-200 shadow-md' : 
+                                            isActive ? 'border-blue-200 shadow-md' :
                                             isCompleted || isAccepted ? 'border-green-200' :
                                             isRejected ? 'border-red-200' :
                                             'border-gray-200'
@@ -214,7 +214,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                             {(isActive || isCompleted || isAccepted) && (
                                                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                                                     <h5 className="font-medium text-gray-900 mb-3">Detail:</h5>
-                                                    
+
                                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                                         <div className="flex items-center">
                                                             <CalendarIcon />
@@ -223,29 +223,29 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                                 <p className="font-medium">{formatDateOnly(history.scheduled_at || history.processed_at)}</p>
                                                             </div>
                                                         </div>
-                                                        
+
                                                         <div className="flex items-center">
                                                             <MapPinIcon />
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Lokasi</p>
                                                                 <p className="font-medium">
-                                                                    {history.status_name.toLowerCase().includes('psikotes') || history.status_name.toLowerCase().includes('psikologi') ? 
+                                                                    {history.status_name.toLowerCase().includes('psikotes') || history.status_name.toLowerCase().includes('psikologi') ?
                                                                      'Online via Web' : 'Kantor Pusat'}
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        
+
                                                         <div className="flex items-center">
                                                             <ClockIcon />
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Durasi</p>
                                                                 <p className="font-medium">
-                                                                    {history.status_name.toLowerCase().includes('psikotes') || history.status_name.toLowerCase().includes('psikologi') ? 
+                                                                    {history.status_name.toLowerCase().includes('psikotes') || history.status_name.toLowerCase().includes('psikologi') ?
                                                                      '120 Menit' : '60 Menit'}
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        
+
                                                         {history.score && (
                                                             <div>
                                                                 <p className="text-gray-500">Skor</p>
@@ -261,7 +261,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <ul className="text-sm text-gray-600 space-y-1">
                                                                 <li>• Tes Kepribadian MBTI & Kecerdasan Logika</li>
                                                             </ul>
-                                                            
+
                                                             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                                                                 <h6 className="font-medium text-blue-900 mb-2">Tips Mengikuti Tes:</h6>
                                                                 <ul className="text-sm text-blue-800 space-y-1">
@@ -271,14 +271,14 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                                     <li>• Baca setiap soal dengan teliti, cermat, dan pahami isi dalam menjawab</li>
                                                                 </ul>
                                                             </div>
-                                                            
+
                                                             <div className="mt-4 p-3 bg-blue-100 rounded-lg">
                                                                 <p className="font-medium text-blue-900">Pesan dari Tim Rekrutmen:</p>
                                                                 <p className="text-sm text-blue-800 mt-1">
                                                                     "Kami senang Anda telah mencapai tahap ini dalam proses rekrutmen. Percayalah pada kemampuan Anda dan tunjukkan potensi terbaik Anda. Semoga sukses!"
                                                                 </p>
                                                             </div>
-                                                            
+
                                                             {isActive && (
                                                                 <div className="mt-4 text-right">
                                                                     <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
@@ -310,7 +310,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                 <div className="mt-12 bg-white rounded-lg border p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Persiapan Tes Psikotes</h3>
                     <p className="text-gray-600 mb-6">Beberapa hal yang perlu dipersiapkan sebelum tes</p>
-                    
+
                     <p className="text-sm text-gray-700 mb-6">
                         Tes psikotes akan menilai kemampuan kognitif dan kepribadian Anda untuk memastikan kesesuaian dengan posisi dan budaya perusahaan. Kami menyarankan agar Anda:
                     </p>
@@ -333,7 +333,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                 </li>
                             </ul>
                         </div>
-                        
+
                         <div>
                             <h4 className="font-semibold text-gray-900 mb-3">Saat Hari Tes</h4>
                             <ul className="space-y-2 text-sm text-gray-700">
