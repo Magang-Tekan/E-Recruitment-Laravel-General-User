@@ -47,18 +47,25 @@ class ApplicationHistoryController extends Controller
                     Log::info('Processing application', ['id' => $application->id]);
 
                     $vacancy = $application->vacancyPeriod ? $application->vacancyPeriod->vacancy : null;
-                    $status = $application->status;
 
-                    // Ambil application history terbaru untuk aplikasi ini
+                    // Ambil application history terbaru untuk aplikasi ini (yang aktif)
                     $latestHistory = ApplicationHistory::where('application_id', $application->id)
                         ->with(['status:id,name,stage', 'reviewer:id,name'])
+                        ->where('is_active', true)
                         ->orderBy('processed_at', 'desc')
                         ->first();
+
+                    // Jika tidak ada yang aktif, ambil yang terbaru
+                    if (!$latestHistory) {
+                        $latestHistory = ApplicationHistory::where('application_id', $application->id)
+                            ->with(['status:id,name,stage', 'reviewer:id,name'])
+                            ->orderBy('processed_at', 'desc')
+                            ->first();
+                    }
 
                     Log::info('Application data processed', [
                         'id' => $application->id,
                         'has_vacancy' => isset($vacancy),
-                        'has_status' => isset($status),
                         'has_history' => isset($latestHistory),
                         'history_stage' => $latestHistory && $latestHistory->status ? $latestHistory->status->stage : null
                     ]);
@@ -74,32 +81,24 @@ class ApplicationHistoryController extends Controller
                         }
                     }
 
-                    // Menentukan status dan warna berdasarkan application history
+                    // Menentukan status dan warna berdasarkan application history (SAMA dengan status-candidate)
                     $currentStage = 'Administrative Selection';
                     $statusColor = '#1a73e8'; // Default blue
                     $stageInfo = '';
+                    $currentScore = null;
 
-                    if ($latestHistory) {
+                    if ($latestHistory && $latestHistory->status) {
                         $historyStatus = $latestHistory->status;
-                        $currentStage = $historyStatus ? $this->getStageDisplayName($historyStatus->stage) : 'Administrative Selection';
-                        $statusColor = $historyStatus ? $this->getStageColor($historyStatus->stage, null) : '#1a73e8';
-
-                        // Tambahkan informasi tambahan berdasarkan stage
-                        $stageInfo = $historyStatus ? $this->getStageInfo($historyStatus) : '';
-                    } elseif ($status) {
-                        $currentStage = $status->name;
-                        if ($status->stage == 'REJECTED') {
-                            $statusColor = '#dc3545';
-                        } elseif ($status->stage == 'ACCEPTED') {
-                            $statusColor = '#28a745';
-                        } elseif ($status->stage == 'INTERVIEW') {
-                            $statusColor = '#fd7e14';
-                        }
+                        $currentStage = $historyStatus->name; // Gunakan nama asli status
+                        $statusColor = $this->getStageColor($historyStatus->stage, null);
+                        $stageInfo = $this->getStageInfo($historyStatus);
+                        $currentScore = $latestHistory->score;
                     }
 
+                    // Format sama dengan applicationStatus method
                     return [
                         'id' => $application->id,
-                        'status_id' => $status ? $status->id : 1,
+                        'status_id' => $latestHistory ? $latestHistory->status_id : $application->status_id,
                         'status_name' => $currentStage,
                         'status_color' => $statusColor,
                         'stage_info' => $stageInfo,
@@ -112,10 +111,19 @@ class ApplicationHistoryController extends Controller
                         ],
                         'applied_at' => $application->created_at ? $application->created_at->format('Y-m-d') : date('Y-m-d'),
                         'updated_at' => $application->updated_at ? $application->updated_at->format('Y-m-d') : date('Y-m-d'),
-                        // Tambahkan informasi dari application history
-                        'current_score' => $latestHistory ? $latestHistory->score : null,
+                        // Tambahkan informasi dari application history (SINKRON dengan status-candidate)
+                        'current_score' => $currentScore,
                         'last_processed' => $latestHistory ? $latestHistory->processed_at->format('Y-m-d') : null,
-                        'reviewer' => $latestHistory && $latestHistory->reviewer ? $latestHistory->reviewer->name : null
+                        'reviewer' => $latestHistory && $latestHistory->reviewer ? $latestHistory->reviewer->name : null,
+                        // Flag untuk frontend
+                        'is_qualified' => $latestHistory && $latestHistory->status && 
+                                        ($latestHistory->status->stage === 'accepted' || 
+                                         ($latestHistory->score && $latestHistory->score >= 70)),
+                        'history' => [
+                            'id' => $latestHistory ? $latestHistory->id : null,
+                            'is_qualified' => $latestHistory ? $latestHistory->is_qualified : null,
+                            'created_at' => $latestHistory ? $latestHistory->created_at->format('Y-m-d H:i:s') : null,
+                        ]
                     ];
                 } catch (\Exception $e) {
                     Log::error('Error processing application', [
@@ -238,23 +246,11 @@ class ApplicationHistoryController extends Controller
             $application = Applications::where('id', $id)
                 ->where('user_id', Auth::id())
                 ->with([
-                    'vacancy:id,title,location,vacancy_type_id,company_id,requirements,benefits,job_description',
-                    'vacancy.company:id,name',
-                    'vacancy.vacancyType:id,name',
-                    'vacancy.department:id,name',
-                    'status:id,name,description,stage',
-                    // Include additional relations as needed
-                    'user:id,name,email'
+                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,requirements,benefits,job_description',
+                    'vacancyPeriod.vacancy.company:id,name',
+                    'vacancyPeriod.vacancy.vacancyType:id,name',
+                    'status:id,name,description,stage'
                 ])
-                ->firstOrFail();
-
-            // Get application stages and status
-            $selectionStages = \App\Models\Statuses::orderBy('id', 'asc')->get();
-
-            // Get application history
-            $applicationHistory = \App\Models\ApplicationHistory::where('application_id', $id)
-                ->with(['status:id,name'])
-                ->where('user_id', $user->id)
                 ->first();
 
             if (!$application) {
@@ -262,42 +258,51 @@ class ApplicationHistoryController extends Controller
                     ->with('error', 'Data aplikasi tidak ditemukan');
             }
 
-            // Ambil data lowongan
-            $vacancy = Vacancies::with('company', 'vacancyType')->find($application->vacancies_id);
+            // Ambil data lowongan dari relasi
+            $vacancy = $application->vacancyPeriod ? $application->vacancyPeriod->vacancy : null;
 
             if (!$vacancy) {
                 return redirect('/candidate/application-history')
                     ->with('error', 'Data lowongan tidak ditemukan');
             }
 
-            // Ambil semua history aplikasi
+            // Ambil semua history aplikasi dengan relasi lengkap - SINKRON dengan index method
             $applicationHistories = ApplicationHistory::where('application_id', $id)
-                ->orderBy('created_at', 'desc')
+                ->with(['status:id,name,description,stage', 'reviewer:id,name'])
+                ->orderBy('processed_at', 'asc') // Ubah ke ASC untuk timeline yang benar
                 ->get();
 
-            if ($applicationHistories->isEmpty()) {
-                return redirect('/candidate/application-history')
-                    ->with('error', 'Riwayat aplikasi tidak ditemukan');
-            }
+            Log::info('Application histories found', [
+                'application_id' => $id,
+                'count' => $applicationHistories->count(),
+                'histories' => $applicationHistories->toArray()
+            ]);
 
-            $formattedHistories = [];
-            foreach ($applicationHistories as $history) {
-                // Ambil data status
-                $status = DB::table('selection')->find($history->status_id);
-                if (!$status) continue;
+            // Format histories dengan semua detail - SINKRON dengan logika index
+            $formattedHistories = $applicationHistories->map(function ($history) {
+                $status = $history->status;
 
-                $formattedHistories[] = [
+                return [
                     'id' => $history->id,
                     'status_id' => $history->status_id,
-                    'status_name' => $status->name,
-                    'status_color' => $this->getStageColor($status->stage, null),
-                    'is_qualified' => $history->is_qualified,
+                    'status_name' => $status ? $status->name : 'Unknown Status', // Sama dengan index
+                    'status_color' => $status ? $this->getStageColor($status->stage, null) : '#6c757d', // Sama dengan index
+                    'stage' => $status ? $status->stage : null,
+                    'score' => $history->score,
+                    'notes' => $history->notes,
+                    'scheduled_at' => $history->scheduled_at ? $history->scheduled_at->format('Y-m-d H:i:s') : null,
+                    'completed_at' => $history->completed_at ? $history->completed_at->format('Y-m-d H:i:s') : null,
+                    'processed_at' => $history->processed_at ? $history->processed_at->format('Y-m-d H:i:s') : $history->created_at->format('Y-m-d H:i:s'),
+                    'reviewed_by' => $history->reviewer ? $history->reviewer->name : null,
+                    'reviewed_at' => $history->reviewed_at ? $history->reviewed_at->format('Y-m-d H:i:s') : null,
+                    'is_active' => $history->is_active,
                     'created_at' => $history->created_at->format('Y-m-d H:i:s'),
-                    'notes' => $history->notes ?? '',
+                    // Add helper flags for frontend - SINKRON dengan index
+                    'is_qualified' => $status && ($status->stage === 'accepted' || ($history->score && $history->score >= 70)),
                 ];
-            }
+            })->toArray();
 
-            // Format data aplikasi untuk tampilan
+            // Format data aplikasi untuk tampilan - SINKRON dengan index
             $formattedApplication = [
                 'id' => $application->id,
                 'status_id' => $application->status_id,
@@ -312,12 +317,17 @@ class ApplicationHistoryController extends Controller
                 'histories' => $formattedHistories,
             ];
 
-            return Inertia::render('candidate/application-status', [
+            Log::info('Formatted application data', [
+                'application' => $formattedApplication
+            ]);
+
+            return Inertia::render('candidate/status-candidate', [
                 'application' => $formattedApplication,
             ]);
 
         } catch (\Exception $e) {
             \Log::error('Error in application status: ' . $e->getMessage(), [
+                'application_id' => $id,
                 'trace' => $e->getTraceAsString()
             ]);
 
@@ -327,24 +337,8 @@ class ApplicationHistoryController extends Controller
     }
 
     /**
-     * Helper methods
+     * Helper methods - SINKRONISASI UNTUK KEDUA METHOD
      */
-    private function getStageDisplayName($stage)
-    {
-        // Convert enum to string if needed
-        $stageValue = is_object($stage) ? $stage->value : $stage;
-
-        $stageNames = [
-            'administrative_selection' => 'Administrative Selection',
-            'psychological_test' => 'Psychological Test',
-            'interview' => 'Interview',
-            'accepted' => 'Accepted',
-            'rejected' => 'Rejected'
-        ];
-
-        return $stageNames[$stageValue] ?? $stageValue;
-    }
-
     private function getStageColor($stage, $isQualified = null)
     {
         // Convert enum to string if needed

@@ -14,19 +14,25 @@ class ApplicationHistorySeeder extends Seeder
 {
     public function run(): void
     {
+        // Check if data already exists
+        if (ApplicationHistory::count() > 0) {
+            $this->command->info('Application history data already exists. Skipping seeder.');
+            return;
+        }
+
         // Get necessary data
         $applications = Applications::all();
         $admins = User::whereIn('role', ['super_admin', 'hr', 'head_hr'])->get();
-        
+
         $this->command->info('Mencari status di database...');
-        
+
         // Dapatkan semua status berdasarkan enum CandidatesStage
         $adminStatus = Statuses::where('stage', CandidatesStage::ADMINISTRATIVE_SELECTION->value)->first();
         $psychoTestStatus = Statuses::where('stage', CandidatesStage::PSYCHOTEST->value)->first();
         $interviewStatus = Statuses::where('stage', CandidatesStage::INTERVIEW->value)->first();
         $acceptedStatus = Statuses::where('stage', CandidatesStage::ACCEPTED->value)->first();
         $rejectedStatus = Statuses::where('stage', CandidatesStage::REJECTED->value)->first();
-        
+
         // Debugging info
         $this->command->info("Status yang ditemukan:");
         $this->command->info("- Admin: " . ($adminStatus ? $adminStatus->name : 'TIDAK DITEMUKAN'));
@@ -34,7 +40,7 @@ class ApplicationHistorySeeder extends Seeder
         $this->command->info("- Interview: " . ($interviewStatus ? $interviewStatus->name : 'TIDAK DITEMUKAN'));
         $this->command->info("- Accepted: " . ($acceptedStatus ? $acceptedStatus->name : 'TIDAK DITEMUKAN'));
         $this->command->info("- Rejected: " . ($rejectedStatus ? $rejectedStatus->name : 'TIDAK DITEMUKAN'));
-        
+
         // Validasi status yang dibutuhkan
         if (!$adminStatus || !$psychoTestStatus || !$interviewStatus || !$acceptedStatus || !$rejectedStatus) {
             $this->command->error('Beberapa status tidak ditemukan. Jalankan migrasi statuses_table terlebih dahulu.');
@@ -50,26 +56,26 @@ class ApplicationHistorySeeder extends Seeder
             $this->command->error('No admin users found. Please run SuperAdminSeeder first.');
             return;
         }
-        
+
         // Mendapatkan aplikasi milik user 1 dan 2
         $specialApplications = Applications::whereIn('user_id', [1, 2])->get();
-        
+
         if ($specialApplications->isEmpty()) {
             $this->command->warn('Tidak menemukan aplikasi untuk user 1 dan 2. Pastikan data aplikasi sudah dibuat.');
         } else {
             $this->command->info('Ditemukan ' . $specialApplications->count() . ' aplikasi untuk user 1 dan 2.');
         }
-        
+
         // Proses khusus untuk user 1 dan 2 (lengkap semua tahap)
         foreach ($specialApplications as $application) {
             $startDate = Carbon::now()->subDays(90); // 3 bulan yang lalu
             $admin = $admins->first(); // Gunakan admin pertama untuk konsistensi
-            
+
             // User 1 diterima, User 2 ditolak di tahap terakhir
             $isAccepted = $application->user_id === 1;
-            
+
             $this->command->info('Membuat riwayat lengkap untuk aplikasi #' . $application->id . ' (User ID: ' . $application->user_id . ')');
-            
+
             // 1. Tahap Administrasi
             $adminDate = $startDate->copy();
             $this->createStageHistory(
@@ -79,9 +85,9 @@ class ApplicationHistorySeeder extends Seeder
                 $adminDate,
                 rand(80, 95),
                 $this->getAdminNotes(85),
-                true
+                false // Not active
             );
-            
+
             // 2. Tahap Psikotes
             $psychoDate = $adminDate->copy()->addDays(7);
             $this->createStageHistory(
@@ -91,9 +97,9 @@ class ApplicationHistorySeeder extends Seeder
                 $psychoDate,
                 rand(80, 95),
                 $this->getTestNotes(85),
-                true
+                false // Not active
             );
-            
+
             // 3. Tahap Interview (keduanya - HR dan User)
             $interviewDate = $psychoDate->copy()->addDays(7);
             $this->createStageHistory(
@@ -103,10 +109,10 @@ class ApplicationHistorySeeder extends Seeder
                 $interviewDate,
                 rand(80, 95),
                 $this->getInterviewNotes(85),
-                true
+                false // Not active
             );
-            
-            // 4. Tahap Final: Accepted/Rejected
+
+            // 4. Tahap Final: Accepted/Rejected (This is the active stage)
             $finalDate = $interviewDate->copy()->addDays(7);
             if ($isAccepted) {
                 // User 1: Accepted
@@ -117,7 +123,7 @@ class ApplicationHistorySeeder extends Seeder
                     $finalDate,
                     95,
                     "Kandidat telah menerima penawaran dan akan mulai bekerja pada " . $finalDate->copy()->addDays(14)->format('d M Y'),
-                    true
+                    true // This is active
                 );
             } else {
                 // User 2: Rejected
@@ -128,24 +134,23 @@ class ApplicationHistorySeeder extends Seeder
                     $finalDate,
                     60,
                     "Setelah pertimbangan menyeluruh, perusahaan memilih kandidat lain yang lebih sesuai.",
-                    false,
-                    "Kandidat memiliki kualifikasi yang baik, namun kandidat lain lebih memenuhi kebutuhan spesifik posisi."
+                    true // This is active
                 );
             }
         }
-        
+
         // Proses aplikasi lainnya secara acak
         $otherApplications = $applications->whereNotIn('id', $specialApplications->pluck('id'));
-        
+
         $this->command->info('Memproses ' . $otherApplications->count() . ' aplikasi lainnya secara acak.');
-        
+
         foreach ($otherApplications as $application) {
             $appliedAt = Carbon::now()->subDays(rand(60, 90));
             $admin = $admins->random();
-            
+
             // Distribute stages realistically
             $stageDistribution = rand(1, 100);
-            
+
             if ($stageDistribution <= 35) {
                 // 35% - Still in administrative review
                 $currentStatus = $adminStatus;
@@ -197,7 +202,7 @@ class ApplicationHistorySeeder extends Seeder
                     $this->getInterviewNotes(rand(70, 90))
                 );
             }
-            
+
             // If rejected, add rejection history
             if ($currentStatus->id == $rejectedStatus->id) {
                 $this->createStageHistory(
@@ -211,12 +216,12 @@ class ApplicationHistorySeeder extends Seeder
                     $this->getRejectionReason()
                 );
             }
-            
+
             // If accepted, add acceptance history
             if ($currentStatus->id == $acceptedStatus->id) {
                 $this->createStageHistory(
                     $application,
-                    $acceptedStatus, 
+                    $acceptedStatus,
                     $admin,
                     $appliedAt->copy()->addDays(rand(20, 30)),
                     rand(80, 95),
@@ -229,7 +234,7 @@ class ApplicationHistorySeeder extends Seeder
         $this->command->info('Application history seeded successfully with user 1 and 2 having complete stages.');
     }
 
-    private function createStageHistory($application, $status, $admin, $date, $score, $notes, $isActive = true)
+    private function createStageHistory($application, $status, $admin, $date, $score, $notes, $isActive = true, $rejectionReason = null)
     {
         // Validasi parameter untuk menghindari null reference
         if (!$application || !$status || !$admin) {
@@ -239,14 +244,23 @@ class ApplicationHistorySeeder extends Seeder
             $this->command->error('- Admin: ' . ($admin ? 'OK' : 'NULL'));
             return;
         }
-        
+
         try {
+            // If this is going to be the active stage, deactivate all other stages for this application
+            if ($isActive) {
+                ApplicationHistory::where('application_id', $application->id)
+                    ->update(['is_active' => false]);
+            }
+
+            // Use rejection reason in notes if provided, otherwise use the notes parameter
+            $finalNotes = $rejectionReason !== null ? $rejectionReason : $notes;
+
             ApplicationHistory::create([
                 'application_id' => $application->id,
                 'status_id' => $status->id,
                 'processed_at' => $date,
                 'score' => $score,
-                'notes' => $notes,
+                'notes' => $finalNotes,
                 'scheduled_at' => $date->copy()->subDays(rand(1, 3)),
                 'completed_at' => $date,
                 'reviewed_by' => $admin->id,
@@ -326,7 +340,7 @@ class ApplicationHistorySeeder extends Seeder
             ]);
         }
     }
-    
+
     private function getRejectionReason()
     {
         return fake()->randomElement([

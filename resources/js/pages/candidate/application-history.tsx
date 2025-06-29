@@ -299,14 +299,29 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
                                             )}
                                         </td>
                                         <td>
-                                            <ViewButton
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    window.location.href = `/candidate/application/${app.id}/status`;
+                                            <Link
+                                                href={`/candidate/application/${app.id}/status`}
+                                                style={{
+                                                    backgroundColor: '#1a73e8',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    padding: '6px 12px',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: '500',
+                                                    textDecoration: 'none',
+                                                    display: 'inline-block'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.backgroundColor = '#1557b0';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.backgroundColor = '#1a73e8';
                                                 }}
                                             >
                                                 Lihat Detail
-                                            </ViewButton>
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))}
@@ -360,22 +375,6 @@ const LoadingSpinner = styled.div`
     @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
-    }
-`;
-
-// Tambahkan styled component untuk ViewButton
-const ViewButton = styled.button`
-    background-color: #1a73e8;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 500;
-
-    &:hover {
-        background-color: #1557b0;
     }
 `;
 
