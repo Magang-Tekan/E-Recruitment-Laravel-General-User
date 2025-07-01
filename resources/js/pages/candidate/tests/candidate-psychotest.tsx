@@ -4,14 +4,22 @@ import type { PageProps as InertiaPageProps } from '@inertiajs/core';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 
+interface Choice {
+    id: number;
+    text: string;
+    is_correct?: boolean; // Optional karena mungkin tidak diekspos ke frontend
+}
+
 interface Question {
     id: number;
     question: string;
-    options: string[];
+    question_type: string;
+    options: Choice[];
 }
 
 interface Assessment {
-    id: number;
+    id: number; // application_id
+    question_pack_id: number;
     title: string;
     description: string;
     duration: number; // in minutes
@@ -20,7 +28,7 @@ interface Assessment {
 interface TestInfo {
     title: string;
     type: string;
-    duration: number; // in minutes
+    duration: number;
     totalQuestions: number;
     instructions: string;
 }
@@ -76,14 +84,11 @@ export default function CandidatePsychotest() {
         setCurrentPhase('test');
     };
 
-    const handleAnswerChange = (answer: string) => {
-        const questionId = questions[currentQuestion]?.id;
-        if (questionId) {
-            setUserAnswers(prev => ({
-                ...prev,
-                [questionId]: answer
-            }));
-        }
+    const handleAnswerChange = (questionId: number, choiceId: string) => {
+        setUserAnswers(prev => ({
+            ...prev,
+            [questionId]: choiceId
+        }));
     };
 
     const handlePreviousQuestion = () => {
@@ -110,16 +115,15 @@ export default function CandidatePsychotest() {
 
     const handleCompleteTest = async () => {
         try {
-            // Validasi apakah semua soal sudah dijawab (opsional)
-            const totalAnswered = Object.keys(userAnswers).length;
-            if (totalAnswered === 0) {
+            // Validasi
+            if (Object.keys(userAnswers).length === 0) {
                 alert('Mohon jawab setidaknya satu pertanyaan sebelum menyelesaikan tes.');
                 return;
             }
 
             // Konfirmasi sebelum submit
             const confirmSubmit = window.confirm(
-                `Anda telah menjawab ${totalAnswered} dari ${questions.length} pertanyaan. ` +
+                `Anda telah menjawab ${Object.keys(userAnswers).length} dari ${questions.length} pertanyaan. ` +
                 'Apakah Anda yakin ingin menyelesaikan tes ini? Jawaban tidak dapat diubah setelah diserahkan.'
             );
 
@@ -127,13 +131,14 @@ export default function CandidatePsychotest() {
                 return;
             }
 
+            setIsSubmitting(true);
             setCurrentPhase('complete');
             setTestCompleted(true);
             
             // Submit semua jawaban sekaligus ke backend
-            const response = await axios.post('/candidate/psychotest/submit', {
-                answers: userAnswers,
-                assessment_id: assessment?.id
+            const response = await axios.post('/candidate/tests/psychotest/submit', {
+                application_id: assessment?.id,
+                answers: userAnswers
             });
 
             if (response.data.success) {
@@ -153,6 +158,7 @@ export default function CandidatePsychotest() {
                 // Kembalikan ke fase test jika gagal
                 setCurrentPhase('test');
                 setTestCompleted(false);
+                setIsSubmitting(false);
             }
         } catch (error) {
             console.error('Error submitting psychotest:', error);
@@ -160,6 +166,7 @@ export default function CandidatePsychotest() {
             // Kembalikan ke fase test jika gagal
             setCurrentPhase('test');
             setTestCompleted(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -283,11 +290,11 @@ export default function CandidatePsychotest() {
                                 </p>
                                 {/* Answer Options */}
                                 <div className="space-y-3">
-                                    {currentQuestionData?.options.map((option, index) => (
+                                    {currentQuestionData?.options.map((option) => (
                                         <label
-                                            key={index}
+                                            key={option.id}
                                             className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${
-                                                currentAnswer === option 
+                                                userAnswers[currentQuestionData.id] === option.id.toString() 
                                                     ? 'border-blue-500 bg-blue-50' 
                                                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                             }`}
@@ -295,12 +302,12 @@ export default function CandidatePsychotest() {
                                             <input
                                                 type="radio"
                                                 name={`question-${currentQuestionData.id}`}
-                                                value={option}
-                                                checked={currentAnswer === option}
-                                                onChange={(e) => handleAnswerChange(e.target.value)}
+                                                value={option.id}
+                                                checked={userAnswers[currentQuestionData.id] === option.id.toString()}
+                                                onChange={() => handleAnswerChange(currentQuestionData.id, option.id.toString())}
                                                 className="mt-1 mr-3 text-blue-500 w-5 h-5"
                                             />
-                                            <span className="text-gray-900 text-base leading-relaxed">{option}</span>
+                                            <span className="text-gray-900 text-base leading-relaxed">{option.text}</span>
                                         </label>
                                     ))}
                                 </div>

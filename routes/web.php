@@ -262,7 +262,7 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
 
     // Route untuk submit psychotest
     Route::post('/tests/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
-        ->name('candidate.psychotest.submit');
+        ->name('candidate.tests.psychotest.submit');
 });
 
 // ApplicationHistory routes

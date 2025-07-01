@@ -358,9 +358,13 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
 
                                                             {isActive && (
                                                                 <div className="mt-4 text-right">
-                                                                    <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                                                                    {/* Perbaiki URL dengan prefix candidate/tests/psychotest */}
+                                                                    <a 
+                                                                        href={`/candidate/tests/psychotest/${application.id}`}
+                                                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                                                                    >
                                                                         Lanjut ke Persiapan Tes
-                                                                    </button>
+                                                                    </a>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -381,76 +385,25 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                             );
                         })}
                     </div>
+
+                    {/* Hanya tampilkan sebagai fallback jika tidak ada tombol dalam detail tahap */}
+                    {sortedHistories.some(h => 
+    h.is_active && 
+    !h.completed_at && 
+    (h.status_name.toLowerCase().includes('test') || 
+     h.status_name.toLowerCase().includes('psikotes') || 
+     h.status_name.toLowerCase().includes('psychological'))
+) && (
+    <div className="mt-6 text-center">
+        <a 
+            href={`/candidate/tests/psychotest/${application.id}`}
+            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 inline-block"
+        >
+            Mulai Mengerjakan
+        </a>
+    </div>
+)}
                 </div>
-
-                {/* Test Preparation Section - Only show if there's an active test stage */}
-                {sortedHistories.some(h => h.is_active && (h.status_name.toLowerCase().includes('test') || h.status_name.toLowerCase().includes('psikotes') || h.status_name.toLowerCase().includes('psychological'))) && (
-                    <div className="mt-12 bg-white rounded-lg border p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Persiapan Tes Psikotes</h3>
-                        <p className="text-gray-600 mb-6">Beberapa hal yang perlu dipersiapkan sebelum tes</p>
-
-                        <p className="text-sm text-gray-700 mb-6">
-                            Tes psikotes akan menilai kemampuan kognitif dan kepribadian Anda untuk memastikan kesesuaian dengan posisi dan budaya perusahaan. Kami menyarankan agar Anda:
-                        </p>
-
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <div>
-                                <h4 className="font-semibold text-gray-900 mb-3">Sebelum Hari Tes</h4>
-                                <ul className="space-y-2 text-sm text-gray-700">
-                                    <li className="flex items-start">
-                                        <CheckIcon />
-                                        <span className="ml-2">Lakukan penelitian mendalam mengenai perusahaan serta posisi yang dituju</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <CheckIcon />
-                                        <span className="ml-2">Persiapkan seluruh dokumen yang diperlukan, seperti KTP, CV, dan lainnya</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <CheckIcon />
-                                        <span className="ml-2">Latih diri dengan mengerjakan contoh soal psikotes umum</span>
-                                    </li>
-                                </ul>
-                            </div>
-
-                            <div>
-                                <h4 className="font-semibold text-gray-900 mb-3">Saat Hari Tes</h4>
-                                <ul className="space-y-2 text-sm text-gray-700">
-                                    <li className="flex items-start">
-                                        <CheckIcon />
-                                        <span className="ml-2">Masuk ke sesi tes 30 menit sebelum jadwal yang ditentukan</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <CheckIcon />
-                                        <span className="ml-2">Siapkan perangkat dengan kamera dan mikrofon yang berfungsi dengan baik</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <CheckIcon />
-                                        <span className="ml-2">Pastikan koneksi internet dalam kondisi stabil</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <CheckIcon />
-                                        <span className="ml-2">Pilih ruangan yang tenang dan bebas dari gangguan</span>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm text-green-800">
-                                <span className="font-medium">- Tim Rekrutmen</span>
-                            </p>
-                            <p className="text-sm text-green-700 mt-2">
-                                "Ingatlah bahwa tes ini adalah kesempatan untuk menunjukkan potensi terbaik Anda. Kami mencari kandidat yang tidak hanya memiliki keterampilan teknis yang tepat, tetapi juga kesesuaian dengan nilai-nilai dan budaya perusahaan. Relaks dan jawablah dengan jujur. Kami sangat menantikan untuk melihat lebih banyak tentang Anda!"
-                            </p>
-                        </div>
-
-                        <div className="mt-6 text-center">
-                            <button className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
-                                Mulai Mengerjakan
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

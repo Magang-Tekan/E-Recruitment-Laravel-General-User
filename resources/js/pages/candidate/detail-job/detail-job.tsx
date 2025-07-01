@@ -6,7 +6,7 @@ import Swal from 'sweetalert2';
 import Footer from '../../../components/Footer';
 import Header from '../../../components/Header';
 
-interface JobDetailProps {
+interface JobDetailProps extends Record<string, unknown> {
     job: {
         id: number;
         title: string;

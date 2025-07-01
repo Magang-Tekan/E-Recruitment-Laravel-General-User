@@ -1,9 +1,8 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use Barryvdh\DomPDF\Facade\Pdf;
-
+use App\Models\ApplicationHistory;
 use App\Models\Candidate;
 use App\Models\CandidatesProfiles;
 use App\Models\CandidatesEducations;
@@ -18,7 +17,7 @@ use App\Models\CandidatesCourses;
 use App\Models\CandidatesCertifications;
 use App\Models\CandidatesLanguages;
 use App\Models\CandidateCV;
-use Illuminate\Http\Request;
+// Removed duplicate import of Illuminate\Http\Request
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +25,8 @@ use Inertia\Inertia;
 use Illuminate\Validation\ValidationException;
 use App\Models\Applications; 
 use App\Models\Job;
+use App\Models\Statuses;
+use App\Enums\CandidatesStage; // Tambahkan import ini
 use App\Models\Assessment;
 use App\Models\Question;
 use App\Models\UserAnswer;
@@ -2028,86 +2029,126 @@ public function showConfirmData($job_id = null)
 public function showPsychotest($application_id = null)
 {
     try {
+        // Aktifkan debugging untuk melihat error yang mungkin terjadi
+        \Log::info('ShowPsychotest called with application_id: ' . $application_id);
+        
         // Mendapatkan user yang sedang login
         $user = Auth::user();
 
         // Jika tidak ada application_id, cari aplikasi user yang sedang dalam tahap psikotes
         if (!$application_id) {
             // Cari aplikasi user yang sedang dalam tahap psikotes
-            $application = Applications::where('user_id', $user->id)
+            $application = \App\Models\Applications::where('user_id', $user->id)
                 ->whereHas('applicationHistories', function ($query) {
                     $query->where('is_active', true)
-                          ->whereHas('status', function ($q) {
-                              $q->where('stage', CandidatesStage::PSYCHOTEST->value)
+                        ->whereHas('status', function ($q) {
+                            $q->where('stage', \App\Enums\CandidatesStage::PSYCHOTEST->value)
                                 ->orWhere('name', 'like', '%Psiko%')
                                 ->orWhere('name', 'like', '%Psychological%');
-                          });
+                        });
                 })
                 ->first();
 
             if ($application) {
                 $application_id = $application->id;
             } else {
+                \Log::warning('No active psychotest found for user: ' . $user->id);
                 return redirect()->route('candidate.application-history')
                     ->with('error', 'Anda tidak memiliki tes psikotes yang aktif saat ini.');
             }
         }
 
-        // Validasi application_id (apakah ini milik user yg login & dalam tahap psikotes)
-        $application = Applications::where('id', $application_id)
+        // Validasi application_id (apakah ini milik user yang login & dalam tahap psikotes)
+        $application = \App\Models\Applications::where('id', $application_id)
             ->where('user_id', $user->id)
             ->first();
 
         if (!$application) {
+            \Log::warning('Application not found or not owned by user: ' . $user->id . ', application_id: ' . $application_id);
             return redirect()->route('candidate.application-history')
                 ->with('error', 'Data aplikasi tidak ditemukan atau bukan milik Anda.');
         }
 
         // Cek apakah aplikasi ini sedang dalam tahap psikotes
-        $activePsychoTest = ApplicationHistory::where('application_id', $application->id) // Pastikan ini adalah application_id yang benar
+        $activePsychoTest = \App\Models\ApplicationHistory::where('application_id', $application->id)
             ->where('is_active', true)
             ->whereHas('status', function ($query) {
-                $query->where('stage', CandidatesStage::PSYCHOTEST->value)
-                      ->orWhere('name', 'like', '%Psiko%')
-                      ->orWhere('name', 'like', '%Psychological%');
+                $query->where('stage', \App\Enums\CandidatesStage::PSYCHOTEST->value)
+                    ->orWhere('name', 'like', '%Psiko%')
+                    ->orWhere('name', 'like', '%Psychological%');
             })
             ->first();
 
         if (!$activePsychoTest) {
+            \Log::warning('No active psychotest stage for application_id: ' . $application_id);
             return redirect()->route('candidate.application-history')
                 ->with('error', 'Aplikasi ini tidak sedang dalam tahap psikotes.');
         }
-        
-        // Debug info untuk membantu troubleshooting
-        \Log::info('Active psychotest record found', [
-            'application_id' => $application->id,
-            'completed_at' => $activePsychoTest->completed_at,
-            'is_active' => $activePsychoTest->is_active,
-            'status_id' => $activePsychoTest->status_id
-        ]);
 
         // Cek apakah psikotes sudah dikerjakan
         if ($activePsychoTest->completed_at) {
-            \Log::info('Psychotest already completed, redirecting');
+            \Log::info('Psychotest already completed for application_id: ' . $application_id);
             return redirect()->route('candidate.application-status', ['id' => $application->id])
                 ->with('warning', 'Anda sudah mengerjakan tes psikotes untuk aplikasi ini.');
         }
 
-        // Load contoh soal psikotes
-        $questions = $this->getPsychotestQuestions();
+        // Ambil QuestionPack untuk psikotes
+        $questionPack = \App\Models\QuestionPack::where('test_type', 'psychotest')
+            ->where('status', 'active')
+            ->first();
 
-        // Setup data tes dari application history
-        $assessment = [
-            'id' => $application->id,
-            'title' => 'Tes Psikotes Kepribadian dan Logika',
-            'description' => 'Pilih jawaban yang paling sesuai dengan diri Anda. Tidak ada jawaban benar atau salah. Jawablah dengan jujur dan spontan.',
-            'duration' => 60, // 60 menit
-        ];
+        if (!$questionPack) {
+            // Jika tidak ada question pack, gunakan data dummy
+            \Log::warning('No active question pack found, using dummy data');
+            $questions = $this->getDummyPsychotestQuestions();
+            
+            $assessment = [
+                'id' => $application->id,
+                'question_pack_id' => 0, // Dummy ID
+                'title' => 'Tes Psikotes Kepribadian dan Logika',
+                'description' => 'Pilih jawaban yang paling sesuai dengan diri Anda. Tidak ada jawaban benar atau salah. Jawablah dengan jujur dan spontan.',
+                'duration' => 60 // 60 menit
+            ];
+        } else {
+            // Ambil Question dari QuestionPack
+            $questions = $questionPack->questions()
+                ->with('choices')
+                ->get()
+                ->map(function($question) {
+                    return [
+                        'id' => $question->id,
+                        'question' => $question->question_text,
+                        'question_type' => $question->question_type,
+                        'options' => $question->choices->map(function($choice) {
+                            return [
+                                'id' => $choice->id,
+                                'text' => $choice->choice_text,
+                                'is_correct' => $choice->is_correct
+                            ];
+                        })
+                    ];
+                });
+                
+            $assessment = [
+                'id' => $application->id,
+                'question_pack_id' => $questionPack->id,
+                'title' => $questionPack->pack_name,
+                'description' => $questionPack->description,
+                'duration' => $questionPack->duration ?? 60
+            ];
+        }
 
+        // Cek apakah user sudah pernah menjawab pertanyaan sebelumnya
+        $userAnswers = \App\Models\UserAnswer::where('user_id', $user->id)
+            ->where('assessment_id', $application->id)
+            ->pluck('answer', 'question_id')
+            ->toArray();
+
+        \Log::info('Rendering candidate-psychotest view');
         return Inertia::render('candidate/tests/candidate-psychotest', [
             'assessment' => $assessment,
             'questions' => $questions,
-            'userAnswers' => [], // Kosong karena belum pernah dikerjakan
+            'userAnswers' => $userAnswers
         ]);
 
     } catch (\Exception $e) {
@@ -2120,140 +2161,61 @@ public function showPsychotest($application_id = null)
     }
 }
 
-public function submitPsychotest(Request $request)
+// Method untuk mendapatkan soal dummy jika tidak ada di database
+private function getDummyPsychotestQuestions()
 {
-    try {
-        $application_id = $request->input('application_id'); // Pastikan nama parameter konsisten
-        $answers = $request->input('answers');
-        
-        // Validasi data
-        if (!$application_id || !$answers || empty($answers)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data tidak lengkap. Mohon isi semua data yang diperlukan.'
-            ], 422);
-        }
-        
-        // Cari aplikasi
-        $application = Applications::where('id', $application_id)
-            ->where('user_id', Auth::id())
-            ->first();
-        
-        if (!$application) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Aplikasi tidak ditemukan.'
-            ], 404);
-        }
-        
-        // Cari history psikotes yang aktif
-        $psychotestHistory = ApplicationHistory::where('application_id', $application_id)
-            ->where('is_active', true)
-            ->whereHas('status', function ($query) {
-                $query->where('stage', CandidatesStage::PSYCHOTEST->value)
-                    ->orWhere('name', 'like', '%Psiko%')
-                    ->orWhere('name', 'like', '%Psychological%');
-            })
-            ->first();
-        
-        if (!$psychotestHistory) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak ada tes psikotes aktif untuk aplikasi ini.'
-            ], 404);
-        }
-        
-        // Hitung skor berdasarkan jawaban
-        $score = $this->calculatePsychotestScore($answers);
-        
-        // Update history psikotes
-        $psychotestHistory->update([
-            'completed_at' => now(),
-            'processed_at' => now(),
-            'score' => $score,
-            'notes' => 'Tes psikotes telah diselesaikan oleh kandidat pada ' . now()->format('d M Y H:i') . '. Menunggu evaluasi lanjutan dari tim HR.'
-        ]);
-        
-        // Simpan jawaban jika perlu (opsional)
-        // $this->storePsychotestAnswers($application_id, $answers);
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Tes psikotes berhasil diselesaikan',
-            'redirect_url' => route('candidate.application-status', ['id' => $application_id])
-        ]);
-        
-    } catch (\Exception $e) {
-        \Log::error('Error in submitPsychotest: ' . $e->getMessage());
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Terjadi kesalahan saat menyimpan hasil tes.'
-        ], 500);
-    }
-}
-
-// Method tambahan untuk menghitung skor psikotes
-private function calculatePsychotestScore($answers)
-{
-    // Basic scoring: 0-100 berdasarkan jumlah jawaban
-    $answerCount = count($answers);
-    $baseScore = $answerCount * 20; // Misal: 5 jawaban = 100 poin
-    
-    // Cap score at 100
-    return min($baseScore, 100);
-}
-
-private function getPsychotestQuestions()
-{
-    // Contoh soal psikotes
     return [
         [
             'id' => 1,
             'question' => 'Saya lebih suka menghabiskan waktu:',
+            'question_type' => 'multiple_choice',
             'options' => [
-                'Bersama orang banyak dalam situasi sosial',
-                'Sendiri atau dengan sedikit teman dekat',
-                'Kombinasi keduanya, tergantung suasana hati',
+                ['id' => 1, 'text' => 'Bersama orang banyak dalam situasi sosial'],
+                ['id' => 2, 'text' => 'Sendiri atau dengan sedikit teman dekat'],
+                ['id' => 3, 'text' => 'Kombinasi keduanya, tergantung suasana hati']
             ]
         ],
         [
             'id' => 2,
             'question' => 'Ketika menghadapi masalah, saya cenderung:',
+            'question_type' => 'multiple_choice',
             'options' => [
-                'Mengandalkan fakta dan data',
-                'Mempertimbangkan perasaan dan nilai-nilai',
-                'Kombinasi analisis dan intuisi'
+                ['id' => 4, 'text' => 'Mengandalkan fakta dan data'],
+                ['id' => 5, 'text' => 'Mempertimbangkan perasaan dan nilai-nilai'],
+                ['id' => 6, 'text' => 'Kombinasi analisis dan intuisi']
             ]
         ],
+        // Tambahkan 3 pertanyaan lagi
         [
             'id' => 3,
             'question' => 'Dalam pekerjaan, saya lebih menikmati:',
+            'question_type' => 'multiple_choice',
             'options' => [
-                'Menciptakan ide dan konsep baru',
-                'Menerapkan solusi praktis untuk masalah nyata',
-                'Menganalisis situasi dan menemukan pola'
+                ['id' => 7, 'text' => 'Menciptakan ide dan konsep baru'],
+                ['id' => 8, 'text' => 'Menerapkan solusi praktis untuk masalah nyata'],
+                ['id' => 9, 'text' => 'Menganalisis situasi dan menemukan pola']
             ]
         ],
         [
             'id' => 4,
             'question' => 'Saya lebih suka lingkungan kerja yang:',
+            'question_type' => 'multiple_choice',
             'options' => [
-                'Terstruktur dengan aturan dan prosedur jelas',
-                'Fleksibel dengan ruang untuk improvisasi',
-                'Seimbang antara keteraturan dan fleksibilitas'
+                ['id' => 10, 'text' => 'Terstruktur dengan aturan dan prosedur jelas'],
+                ['id' => 11, 'text' => 'Fleksibel dengan ruang untuk improvisasi'],
+                ['id' => 12, 'text' => 'Seimbang antara keteraturan dan fleksibilitas']
             ]
         ],
         [
             'id' => 5,
             'question' => 'Ketika bekerja dalam tim, saya biasanya:',
+            'question_type' => 'multiple_choice',
             'options' => [
-                'Mengambil peran kepemimpinan',
-                'Memberikan ide dan mendukung tim',
-                'Fokus menyelesaikan tugas individual'
+                ['id' => 13, 'text' => 'Mengambil peran kepemimpinan'],
+                ['id' => 14, 'text' => 'Memberikan ide dan mendukung tim'],
+                ['id' => 15, 'text' => 'Fokus menyelesaikan tugas individual']
             ]
         ],
-        // Tambahkan lebih banyak pertanyaan sesuai kebutuhan
     ];
 }
 }
