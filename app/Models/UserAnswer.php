@@ -18,13 +18,7 @@ class UserAnswer extends Model
     protected $fillable = [
         'user_id',
         'question_id',
-        'assessment_id',
-        'answer',
-        'answered_at'
-    ];
-
-    protected $casts = [
-        'answered_at' => 'datetime'
+        'choice_id'
     ];
 
     /**
@@ -44,10 +38,10 @@ class UserAnswer extends Model
     }
 
     /**
-     * Get the assessment that owns the answer.
+     * Get the choice selected for this answer.
      */
-    public function assessment(): BelongsTo
+    public function choice(): BelongsTo
     {
-        return $this->belongsTo(Assessment::class);
+        return $this->belongsTo(Choice::class);
     }
 }

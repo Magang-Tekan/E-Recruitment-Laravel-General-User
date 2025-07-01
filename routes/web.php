@@ -257,7 +257,7 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
 
 
     // Routes untuk Psychotest
-    Route::get('/tests/psychotest/{application_id}', [CandidateController::class, 'showPsychotest'])
+    Route::get('/tests/psychotest/{application_id?}', [CandidateController::class, 'showPsychotest'])
         ->name('candidate.tests.psychotest');
 
     // Route untuk submit psychotest

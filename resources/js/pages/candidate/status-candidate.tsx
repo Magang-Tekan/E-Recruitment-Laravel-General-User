@@ -358,10 +358,15 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
 
                                                             {isActive && (
                                                                 <div className="mt-4 text-right">
-                                                                    {/* Perbaiki URL dengan prefix candidate/tests/psychotest */}
                                                                     <a 
                                                                         href={`/candidate/tests/psychotest/${application.id}`}
                                                                         className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                                                                        onClick={(e) => {
+                                                                            console.log('Navigating to psychotest page', {
+                                                                                application_id: application.id,
+                                                                                url: `/candidate/tests/psychotest/${application.id}`
+                                                                            });
+                                                                        }}
                                                                     >
                                                                         Lanjut ke Persiapan Tes
                                                                     </a>

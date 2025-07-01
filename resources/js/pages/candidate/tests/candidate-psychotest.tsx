@@ -52,6 +52,8 @@ export default function CandidatePsychotest() {
     const [testCompleted, setTestCompleted] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Pindahkan countdown state ke level atas
+    const [countdown, setCountdown] = useState(3);
 
     // Create test info from assessment
     const testInfo: TestInfo = {
@@ -71,6 +73,23 @@ export default function CandidatePsychotest() {
             handleCompleteTest();
         }
     }, [timeLeft, testStarted, currentPhase]);
+
+    // Countdown effect - pindahkan ke luar conditional render
+    useEffect(() => {
+        if (currentPhase === 'complete') {
+            const timer = setInterval(() => {
+                setCountdown(prev => {
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            
+            return () => clearInterval(timer);
+        }
+    }, [currentPhase]);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -134,39 +153,61 @@ export default function CandidatePsychotest() {
             setIsSubmitting(true);
             setCurrentPhase('complete');
             setTestCompleted(true);
+            setCountdown(3);
             
-            // Submit semua jawaban sekaligus ke backend
-            const response = await axios.post('/candidate/tests/psychotest/submit', {
+            console.log("Submitting data:", {
                 application_id: assessment?.id,
                 answers: userAnswers
             });
+            
+            try {
+                const response = await axios.post('/candidate/tests/psychotest/submit', {
+                    application_id: assessment?.id,
+                    answers: userAnswers
+                });
+                
+                console.log("Server response:", response.data);
 
-            if (response.data.success) {
-                // Tampilkan pesan sukses sebentar
-                setTimeout(() => {
-                    // Redirect ke halaman status aplikasi
-                    if (response.data.redirect_url) {
-                        window.location.href = response.data.redirect_url;
-                    } else {
-                        // Fallback redirect
-                        router.visit('/candidate/application-history');
-                    }
-                }, 3000); // 3 detik delay untuk menampilkan pesan completion
-            } else {
-                console.error('Failed to submit psychotest:', response.data.message);
-                alert('Gagal menyimpan hasil tes. Silakan coba lagi.');
-                // Kembalikan ke fase test jika gagal
+                if (response.data.success) {
+                    // Tampilkan pesan sukses sebentar
+                    setTimeout(() => {
+                        // Redirect ke halaman status aplikasi
+                        if (response.data.redirect_url) {
+                            window.location.href = response.data.redirect_url;
+                        } else {
+                            // Fallback redirect
+                            router.visit('/candidate/application-history');
+                        }
+                    }, 3000); // 3 detik delay untuk menampilkan pesan completion
+                } else {
+                    console.error('Failed to submit psychotest:', response.data.message);
+                    alert('Gagal menyimpan hasil tes: ' + response.data.message);
+                    setCurrentPhase('test');
+                    setTestCompleted(false);
+                    setIsSubmitting(false);
+                }
+            } catch (error) {
+                // Tampilkan lebih detail error
+                console.error('Error submitting psychotest:', error);
+                
+                // Check if it's an Axios error with response data
+                if (axios.isAxiosError(error) && error.response && error.response.data) {
+                    console.error('Server error details:', error.response.data);
+                    alert('Terjadi kesalahan: ' + (error.response.data.message || 'Unknown error'));
+                } else {
+                    alert('Terjadi kesalahan saat mengirim data. Silakan coba lagi.');
+                }
+                
                 setCurrentPhase('test');
                 setTestCompleted(false);
                 setIsSubmitting(false);
             }
         } catch (error) {
-            console.error('Error submitting psychotest:', error);
-            alert('Terjadi kesalahan. Silakan coba lagi.');
-            // Kembalikan ke fase test jika gagal
-            setCurrentPhase('test');
-            setTestCompleted(false);
-            setIsSubmitting(false);
+        console.error('Error in handleCompleteTest:', error);
+        alert('Terjadi kesalahan. Silakan coba lagi.');
+        setCurrentPhase('test');
+        setTestCompleted(false);
+        setIsSubmitting(false);
         }
     };
 
@@ -422,24 +463,11 @@ export default function CandidatePsychotest() {
 
     // Phase 3: Completion Screen
     if (currentPhase === 'complete' || testCompleted) {
-        const [countdown, setCountdown] = useState(3);
+        // HAPUS useState di sini dan gunakan state yang sudah didefinisikan di atas
+        // const [countdown, setCountdown] = useState(3); <-- INI YANG MENYEBABKAN ERROR
         
-        useEffect(() => {
-            if (currentPhase === 'complete') {
-                const timer = setInterval(() => {
-                    setCountdown(prev => {
-                        if (prev <= 1) {
-                            clearInterval(timer);
-                            return 0;
-                        }
-                        return prev - 1;
-                    });
-                }, 1000);
-                
-                return () => clearInterval(timer);
-            }
-        }, [currentPhase]);
-
+        // Hapus juga useEffect karena sudah dipindahkan ke level atas
+        
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
                 <div className="text-center max-w-2xl px-6">
