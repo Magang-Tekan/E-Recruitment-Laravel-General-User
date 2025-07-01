@@ -92,6 +92,66 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         return new Date(dateString).toLocaleDateString('id-ID', options);
     };
 
+    const renderPsychotestButton = (histories: any[]) => {
+        // Cari status psychotest yang aktif MILIK APLIKASI INI
+        const psychotestHistory = histories.find(history => 
+            (history.is_active && 
+             (history.status_name.toLowerCase().includes('psiko') || 
+              history.status_name.toLowerCase().includes('psychological')))
+        );
+        
+        // Log untuk debugging yang lebih detail
+        console.log('Debug psychotest history data:', {
+            history_id: psychotestHistory?.id,
+            application_id: application.id,
+            status_name: psychotestHistory?.status_name,
+            is_active: psychotestHistory?.is_active,
+            completed_at: psychotestHistory?.completed_at,
+            completed_at_type: psychotestHistory?.completed_at === null ? 'null' : 
+                              psychotestHistory?.completed_at === undefined ? 'undefined' : 
+                              typeof psychotestHistory?.completed_at,
+            scheduled_at: psychotestHistory?.scheduled_at
+        });
+        
+        // Jika tidak ada status psikotes yang aktif, tidak perlu tombol
+        if (!psychotestHistory) {
+            return null;
+        }
+        
+        // Pemeriksaan yang lebih ketat terhadap completed_at
+        // Gunakan kondisi SANGAT SPESIFIK untuk menentukan apakah sudah dikerjakan atau belum
+        const isCompleted = psychotestHistory.completed_at !== null && 
+                           psychotestHistory.completed_at !== undefined && 
+                           psychotestHistory.completed_at !== '';
+        
+        // Jika psikotes aktif dan belum dikerjakan
+        if (psychotestHistory.is_active && !isCompleted) {
+            return (
+                <a 
+                    href={`/candidate/tests/psychotest/${application.id}`}
+                    className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 inline-block"
+                >
+                    Mulai Mengerjakan
+                </a>
+            );
+        }
+        
+        // Jika psikotes aktif dan sudah dikerjakan
+        if (psychotestHistory.is_active && isCompleted) {
+            return (
+                <button 
+                    disabled
+                    className="px-6 py-3 bg-green-500 text-white font-medium rounded-lg opacity-80 cursor-default inline-block"
+                >
+                    Sudah Dikerjakan
+                </button>
+            );
+        }
+        
+        // Default - tidak digunakan karena kita hanya menampilkan tombol jika ada tahap psikotes aktif
+        return null;
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Head title="Status Aplikasi" />
@@ -367,9 +427,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                     </div>
 
                     <div className="mt-6 text-center">
-                        <button className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
-                            Mulai Mengerjakan
-                        </button>
+                        {renderPsychotestButton(sortedHistories)}
                     </div>
                 </div>
             </div>

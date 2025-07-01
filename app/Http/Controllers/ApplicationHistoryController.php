@@ -113,7 +113,7 @@ class ApplicationHistoryController extends Controller
                         'updated_at' => $application->updated_at ? $application->updated_at->format('Y-m-d') : date('Y-m-d'),
                         // Tambahkan informasi dari application history (SINKRON dengan status-candidate)
                         'current_score' => $currentScore,
-                        'last_processed' => $latestHistory ? $latestHistory->processed_at->format('Y-m-d') : null,
+                        'last_processed' => $this->formatDateSafely($latestHistory->processed_at ?? null, 'Y-m-d'),
                         'reviewer' => $latestHistory && $latestHistory->reviewer ? $latestHistory->reviewer->name : null,
                         // Flag untuk frontend
                         'is_qualified' => $latestHistory && $latestHistory->status &&
@@ -290,11 +290,11 @@ class ApplicationHistoryController extends Controller
                     'stage' => $status ? $status->stage : null,
                     'score' => $history->score,
                     'notes' => $history->notes,
-                    'scheduled_at' => $history->scheduled_at ? $history->scheduled_at->format('Y-m-d H:i:s') : null,
-                    'completed_at' => $history->completed_at ? $history->completed_at->format('Y-m-d H:i:s') : null,
+                    'scheduled_at' => $this->formatDateSafely($history->scheduled_at ?? null, 'Y-m-d H:i:s'),
+                    'completed_at' => $this->formatDateSafely($history->completed_at ?? null, 'Y-m-d H:i:s'),
                     'processed_at' => $history->processed_at ? $history->processed_at->format('Y-m-d H:i:s') : $history->created_at->format('Y-m-d H:i:s'),
                     'reviewed_by' => $history->reviewer ? $history->reviewer->name : null,
-                    'reviewed_at' => $history->reviewed_at ? $history->reviewed_at->format('Y-m-d H:i:s') : null,
+                    'reviewed_at' => $this->formatDateSafely($history->reviewed_at ?? null, 'Y-m-d H:i:s'),
                     'is_active' => $history->is_active,
                     'created_at' => $history->created_at->format('Y-m-d H:i:s'),
                     // Add helper flags for frontend - SINKRON dengan index
@@ -407,6 +407,26 @@ class ApplicationHistoryController extends Controller
         } catch (\Exception $e) {
             \Log::warning('JSON decode failed: ' . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Format date safely with a fallback to current date
+     * @param mixed $date The date to format
+     * @param string $format The format string
+     * @return string The formatted date or current date if null
+     */
+    private function formatDateSafely($date, $format)
+    {
+        if (empty($date)) {
+            return now()->format($format);
+        }
+
+        try {
+            return \Carbon\Carbon::parse($date)->format($format);
+        } catch (\Exception $e) {
+            \Log::warning('Date formatting failed: ' . $e->getMessage());
+            return now()->format($format);
         }
     }
 }

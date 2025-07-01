@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePage, router } from '@inertiajs/react';
 import type { PageProps as InertiaPageProps } from '@inertiajs/core';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 
 interface Question {
     id: number;
@@ -41,6 +42,8 @@ export default function CandidatePsychotest() {
     const [testStarted, setTestStarted] = useState(false);
     const [markedQuestions, setMarkedQuestions] = useState(Array(questions.length).fill(false));
     const [testCompleted, setTestCompleted] = useState(false);
+    const [submitError, setSubmitError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Create test info from assessment
     const testInfo: TestInfo = {

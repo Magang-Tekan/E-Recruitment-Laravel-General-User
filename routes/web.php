@@ -257,11 +257,11 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
 
 
     // Routes untuk Psychotest
-    Route::get('/tests/psychotest/{assessment_id?}', [CandidateController::class, 'showPsychotest'])
+    Route::get('/tests/psychotest/{application_id}', [CandidateController::class, 'showPsychotest'])
         ->name('candidate.tests.psychotest');
 
     // Route untuk submit psychotest
-    Route::post('/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
+    Route::post('/tests/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
         ->name('candidate.psychotest.submit');
 });
 
@@ -288,6 +288,102 @@ Route::middleware(['auth'])->group(function () {
 
     // Route yang sudah ada...
 });
+
+// Route untuk debugging - tambahkan dalam grup middleware auth
+Route::get('/debug/psychotest/{application_id}', function($application_id) {
+    $user = Auth::user();
+    $application = Applications::findOrFail($application_id);
+    
+    // Keamanan: pastikan hanya pemilik aplikasi yang bisa melihat
+    if ($application->user_id != $user->id && !$user->hasRole(['super_admin', 'hr'])) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+    
+    // Cari history psikotes
+    $psychotest = ApplicationHistory::where('application_id', $application_id)
+        ->whereHas('status', function ($query) {
+            $query->where('stage', CandidatesStage::PSYCHOTEST->value)
+                ->orWhere('name', 'like', '%Psiko%')
+                ->orWhere('name', 'like', '%Psychological%');
+        })
+        ->with('status')
+        ->first();
+        
+    return response()->json([
+        'application' => $application,
+        'psychotest_history' => $psychotest,
+        'psychotest_status' => $psychotest ? [
+            'name' => $psychotest->status->name,
+            'stage' => $psychotest->status->stage,
+            'is_active' => $psychotest->is_active,
+            'completed_at' => $psychotest->completed_at,
+            'processed_at' => $psychotest->processed_at
+        ] : null
+    ]);
+})->name('debug.psychotest');
+
+// Tambahkan di web.php
+Route::get('/debug/application/{id}/histories', function($id) {
+    $application = \App\Models\Applications::findOrFail($id);
+    $histories = \App\Models\ApplicationHistory::where('application_id', $id)
+        ->with('status')
+        ->get()
+        ->map(function($h) {
+            return [
+                'id' => $h->id,
+                'application_id' => $h->application_id,
+                'status_id' => $h->status_id,
+                'status_name' => $h->status->name,
+                'is_active' => (bool)$h->is_active,
+                'completed_at' => $h->completed_at,
+                'processed_at' => $h->processed_at,
+                'scheduled_at' => $h->scheduled_at,
+            ];
+        });
+        
+    return response()->json([
+        'application' => [
+            'id' => $application->id,
+            'user_id' => $application->user_id,
+            'status_id' => $application->status_id
+        ],
+        'histories' => $histories
+    ]);
+})->middleware('auth');
+
+// Tambahkan di web.php di dalam grup middleware auth
+Route::get('/debug/application-data', function() {
+    $user = Auth::user();
+    $applications = \App\Models\Applications::with(['applicationHistories.status'])
+        ->where('user_id', $user->id)
+        ->get()
+        ->map(function($application) {
+            $histories = $application->applicationHistories->map(function($history) {
+                return [
+                    'id' => $history->id,
+                    'application_id' => $history->application_id,
+                    'status_id' => $history->status_id,
+                    'status_name' => $history->status->name,
+                    'is_active' => (bool)$history->is_active,
+                    'completed_at' => $history->completed_at,
+                    'processed_at' => $history->processed_at,
+                    'scheduled_at' => $history->scheduled_at,
+                ];
+            });
+            
+            return [
+                'application_id' => $application->id,
+                'user_id' => $application->user_id,
+                'status_id' => $application->status_id,
+                'histories' => $histories
+            ];
+        });
+    
+    return response()->json([
+        'user_id' => $user->id,
+        'applications' => $applications
+    ]);
+})->middleware('auth');
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

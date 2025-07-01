@@ -66,91 +66,128 @@ class ApplicationHistorySeeder extends Seeder
             $this->command->info('Ditemukan ' . $specialApplications->count() . ' aplikasi untuk user 1 dan 2.');
         }
 
-        // Proses khusus untuk user 1 dan 2 (lengkap semua tahap)
+        // Proses khusus untuk user 1 dan 2
         foreach ($specialApplications as $application) {
-            $startDate = Carbon::now()->subDays(90); // 3 bulan yang lalu
+            $startDate = Carbon::now()->subDays(7); // 1 minggu yang lalu
             $admin = $admins->first(); // Gunakan admin pertama untuk konsistensi
 
-            // User 1 diterima, User 2 ditolak di tahap terakhir
-            $isAccepted = $application->user_id === 1;
-
-            $this->command->info('Membuat riwayat lengkap untuk aplikasi #' . $application->id . ' (User ID: ' . $application->user_id . ')');
-
-            // 1. Tahap Administrasi
-            $adminDate = $startDate->copy();
-            $this->createStageHistory(
-                $application,
-                $adminStatus,
-                $admin,
-                $adminDate,
-                rand(80, 95),
-                $this->getAdminNotes(85),
-                false // Not active
-            );
-
-            // 2. Tahap Psikotes
-            $psychoDate = $adminDate->copy()->addDays(7);
-            $this->createStageHistory(
-                $application,
-                $psychoTestStatus,
-                $admin,
-                $psychoDate,
-                rand(80, 95),
-                $this->getTestNotes(85),
-                false // Not active
-            );
-
-            // 3. Tahap Interview (keduanya - HR dan User)
-            $interviewDate = $psychoDate->copy()->addDays(7);
-            $this->createStageHistory(
-                $application,
-                $interviewStatus,
-                $admin,
-                $interviewDate,
-                rand(80, 95),
-                $this->getInterviewNotes(85),
-                false // Not active
-            );
-
-            // 4. Tahap Final: Accepted/Rejected (This is the active stage)
-            $finalDate = $interviewDate->copy()->addDays(7);
-            if ($isAccepted) {
-                // User 1: Accepted
+            if ($application->user_id === 1) {
+                // USER 1: Baru sampai tahap psikotes yang belum dikerjakan
+                
+                // 1. Tahap Administrasi (selesai, tidak aktif)
+                $adminDate = $startDate->copy();
                 $this->createStageHistory(
                     $application,
-                    $acceptedStatus,
+                    $adminStatus,
                     $admin,
-                    $finalDate,
-                    95,
-                    "Kandidat telah menerima penawaran dan akan mulai bekerja pada " . $finalDate->copy()->addDays(14)->format('d M Y'),
-                    true // This is active
+                    $adminDate,
+                    85, // Score baik
+                    'Dokumen lengkap dan sesuai persyaratan. Kandidat lolos tahap administrasi.',
+                    false // Sudah tidak aktif karena sudah lanjut ke tahap berikutnya
                 );
+                
+                // 2. Tahap Psikotes (aktif, belum dikerjakan)
+                $psychoDate = Carbon::now(); // Jadwal untuk hari ini
+                $this->createStageHistory(
+                    $application,
+                    $psychoTestStatus,
+                    $admin,
+                    null, // processed_at null karena belum dikerjakan
+                    null, // Score masih null
+                    'Kandidat diundang untuk mengikuti tes psikologi.',
+                    true, // Aktif karena ini tahap saat ini
+                    $psychoDate, // Scheduled untuk hari ini
+                    null // Belum completed
+                );
+                
+                // Update status aplikasi user 1 ke psychotest
+                $application->status_id = $psychoTestStatus->id;
+                $application->save();
+                
+                $this->command->info('User 1 sekarang berada di tahap psikotes yang belum dikerjakan.');
             } else {
-                // User 2: Rejected
-                $this->createStageHistory(
-                    $application,
-                    $rejectedStatus,
-                    $admin,
-                    $finalDate,
-                    60,
-                    "Setelah pertimbangan menyeluruh, perusahaan memilih kandidat lain yang lebih sesuai.",
-                    true // This is active
-                );
+                // USER 2: Sampai tahap rejected
+                $this->processUser2Application($application, $admin, $adminStatus, $psychoTestStatus, $interviewStatus, $rejectedStatus);
             }
         }
 
         // Proses aplikasi lainnya secara acak
         $otherApplications = $applications->whereNotIn('id', $specialApplications->pluck('id'));
+        $this->processOtherApplications($otherApplications, $admins, $adminStatus, $psychoTestStatus, $interviewStatus, $acceptedStatus, $rejectedStatus);
 
-        $this->command->info('Memproses ' . $otherApplications->count() . ' aplikasi lainnya secara acak.');
+        $this->command->info('Application history seeded successfully!');
+    }
 
-        foreach ($otherApplications as $application) {
-            $appliedAt = Carbon::now()->subDays(rand(60, 90));
+    private function processUser2Application($application, $admin, $adminStatus, $psychoTestStatus, $interviewStatus, $rejectedStatus)
+    {
+        $startDate = Carbon::now()->subDays(30); // 1 bulan yang lalu
+        
+        // 1. Tahap Administrasi
+        $adminDate = $startDate->copy();
+        $this->createStageHistory(
+            $application,
+            $adminStatus,
+            $admin,
+            $adminDate,
+            80,
+            $this->getAdminNotes(80),
+            false
+        );
+        
+        // 2. Tahap Psikotes
+        $psychoDate = $adminDate->copy()->addDays(7);
+        $this->createStageHistory(
+            $application,
+            $psychoTestStatus,
+            $admin,
+            $psychoDate,
+            75,
+            $this->getTestNotes(75),
+            false
+        );
+        
+        // 3. Tahap Interview
+        $interviewDate = $psychoDate->copy()->addDays(7);
+        $this->createStageHistory(
+            $application,
+            $interviewStatus,
+            $admin,
+            $interviewDate,
+            60,
+            $this->getInterviewNotes(60),
+            false
+        );
+        
+        // 4. Tahap Rejected
+        $rejectDate = $interviewDate->copy()->addDays(3);
+        $this->createStageHistory(
+            $application,
+            $rejectedStatus,
+            $admin,
+            $rejectDate,
+            60,
+            "Setelah pertimbangan menyeluruh, perusahaan memilih kandidat lain yang lebih sesuai dengan kebutuhan posisi.",
+            true
+        );
+        
+        // Update status aplikasi user 2 ke rejected
+        $application->status_id = $rejectedStatus->id;
+        $application->save();
+        
+        $this->command->info('User 2 telah menyelesaikan proses rekrutmen dan statusnya Rejected.');
+    }
+    
+    private function processOtherApplications($applications, $admins, $adminStatus, $psychoTestStatus, $interviewStatus, $acceptedStatus, $rejectedStatus)
+    {
+        $this->command->info('Memproses ' . $applications->count() . ' aplikasi lainnya secara acak.');
+
+        foreach ($applications as $application) {
+            $appliedAt = Carbon::now()->subDays(rand(30, 60));
             $admin = $admins->random();
-
+            
             // Distribute stages realistically
             $stageDistribution = rand(1, 100);
-
+            
             if ($stageDistribution <= 35) {
                 // 35% - Still in administrative review
                 $currentStatus = $adminStatus;
@@ -169,73 +206,117 @@ class ApplicationHistorySeeder extends Seeder
                 $score = $currentStatus->id == $rejectedStatus->id ? rand(30, 65) : rand(80, 95);
             }
 
-            // Create Administrative Selection History
-            $this->createStageHistory(
+            // Create histories for each stage up to current status
+            $this->createRandomApplicationHistory(
                 $application,
-                $adminStatus,
                 $admin,
                 $appliedAt,
-                rand(60, 85),
-                $this->getAdminNotes(rand(60, 85))
+                $currentStatus,
+                $adminStatus,
+                $psychoTestStatus,
+                $interviewStatus,
+                $acceptedStatus,
+                $rejectedStatus
             );
-
-            // Create Psychological Test History if applicable
-            if ($currentStatus->id >= $psychoTestStatus->id) {
-                $this->createStageHistory(
-                    $application,
-                    $psychoTestStatus,
-                    $admin,
-                    $appliedAt->copy()->addDays(rand(5, 10)),
-                    rand(65, 90),
-                    $this->getTestNotes(rand(65, 90))
-                );
-            }
-
-            // Create Interview History if applicable
-            if ($currentStatus->id >= $interviewStatus->id) {
-                $this->createStageHistory(
-                    $application,
-                    $interviewStatus,
-                    $admin,
-                    $appliedAt->copy()->addDays(rand(12, 18)),
-                    rand(70, 90),
-                    $this->getInterviewNotes(rand(70, 90))
-                );
-            }
-
-            // If rejected, add rejection history
-            if ($currentStatus->id == $rejectedStatus->id) {
-                $this->createStageHistory(
-                    $application,
-                    $rejectedStatus,
-                    $admin,
-                    $appliedAt->copy()->addDays(rand(20, 30)),
-                    rand(30, 65),
-                    "Kandidat tidak memenuhi kriteria yang dibutuhkan",
-                    false,
-                    $this->getRejectionReason()
-                );
-            }
-
-            // If accepted, add acceptance history
-            if ($currentStatus->id == $acceptedStatus->id) {
-                $this->createStageHistory(
-                    $application,
-                    $acceptedStatus,
-                    $admin,
-                    $appliedAt->copy()->addDays(rand(20, 30)),
-                    rand(80, 95),
-                    "Kandidat diterima untuk bergabung dengan perusahaan",
-                    true
-                );
-            }
+            
+            // Update application status
+            $application->status_id = $currentStatus->id;
+            $application->save();
         }
-
-        $this->command->info('Application history seeded successfully with user 1 and 2 having complete stages.');
     }
 
-    private function createStageHistory($application, $status, $admin, $date, $score, $notes, $isActive = true, $rejectionReason = null)
-    {
+    private function createRandomApplicationHistory(
+        $application,
+        $admin,
+        $startDate,
+        $currentStatus,
+        $adminStatus,
+        $psychoTestStatus,
+        $interviewStatus,
+        $acceptedStatus,
+        $rejectedStatus
+    ) {
+        // 1. Admin stage for all applications
+        $adminDate = $startDate->copy();
+        $this->createStageHistory(
+            $application,
+            $adminStatus,
+            $admin,
+            $adminDate,
+            rand(60, 90),
+            $this->getAdminNotes(rand(60, 90)),
+            $currentStatus->id === $adminStatus->id // Only active if this is the current stage
+        );
+
+        // Stop if current status is admin
+        if ($currentStatus->id === $adminStatus->id) return;
+
+        // 2. Psychotest stage
+        $psychoDate = $adminDate->copy()->addDays(rand(5, 10));
+        $this->createStageHistory(
+            $application,
+            $psychoTestStatus,
+            $admin,
+            $psychoDate,
+            rand(60, 90),
+            $this->getTestNotes(rand(60, 90)),
+            $currentStatus->id === $psychoTestStatus->id // Only active if this is the current stage
+        );
+
+        // Stop if current status is psychotest
+        if ($currentStatus->id === $psychoTestStatus->id) return;
+
+        // 3. Interview stage
+        $interviewDate = $psychoDate->copy()->addDays(rand(5, 10));
+        $this->createStageHistory(
+            $application,
+            $interviewStatus,
+            $admin,
+            $interviewDate,
+            rand(60, 90),
+            $this->getInterviewNotes(rand(60, 90)),
+            $currentStatus->id === $interviewStatus->id // Only active if this is the current stage
+        );
+
+        // Stop if current status is interview
+        if ($currentStatus->id === $interviewStatus->id) return;
+
+        // 4. Final stage (accepted/rejected)
+        $finalDate = $interviewDate->copy()->addDays(rand(3, 7));
+        if ($currentStatus->id === $acceptedStatus->id) {
+            $this->createStageHistory(
+                $application,
+                $acceptedStatus,
+                $admin,
+                $finalDate,
+                rand(80, 95),
+                "Kandidat diterima untuk bergabung dengan perusahaan",
+                true // This is active
+            );
+        } else if ($currentStatus->id === $rejectedStatus->id) {
+            $this->createStageHistory(
+                $application,
+                $rejectedStatus,
+                $admin,
+                $finalDate,
+                rand(30, 65),
+                "Kandidat tidak memenuhi kriteria yang dibutuhkan: " . $this->getRejectionReason(),
+                true // This is active
+            );
+        }
+    }
+
+    private function createStageHistory(
+        $application, 
+        $status, 
+        $admin, 
+        $processedAt, 
+        $score, 
+        $notes, 
+        $isActive = true,
+        $scheduledAt = null,
+        $completedAt = null
+    ) {
         // Validasi parameter untuk menghindari null reference
         if (!$application || !$status || !$admin) {
             $this->command->error('Invalid parameters for createStageHistory:');
@@ -251,24 +332,32 @@ class ApplicationHistorySeeder extends Seeder
                 ApplicationHistory::where('application_id', $application->id)
                     ->update(['is_active' => false]);
             }
+            
+            // Setup scheduled_at dan completed_at dengan pengecekan null
+            if ($scheduledAt === null && $processedAt !== null) {
+                $scheduledAt = $processedAt->copy()->subDays(rand(1, 3));
+            }
+            
+            if ($completedAt === null && $processedAt !== null) {
+                $completedAt = $processedAt;
+            }
 
-            // Use rejection reason in notes if provided, otherwise use the notes parameter
-            $finalNotes = $rejectionReason !== null ? $rejectionReason : $notes;
-
+            // Create the history record dengan pengecekan null yang lebih lengkap
             ApplicationHistory::create([
                 'application_id' => $application->id,
                 'status_id' => $status->id,
-                'processed_at' => $date,
+                'processed_at' => $processedAt,
                 'score' => $score,
-                'notes' => $finalNotes,
-                'scheduled_at' => $date->copy()->subDays(rand(1, 3)),
-                'completed_at' => $date,
+                'notes' => $notes,
+                'scheduled_at' => $scheduledAt,
+                'completed_at' => $completedAt,
                 'reviewed_by' => $admin->id,
-                'reviewed_at' => $date->copy()->addHours(rand(1, 24)),
+                'reviewed_at' => $processedAt ? $processedAt->copy()->addHours(rand(1, 24)) : null,
                 'is_active' => $isActive
             ]);
         } catch (\Exception $e) {
             $this->command->error('Error creating history: ' . $e->getMessage());
+            $this->command->error('Error trace: ' . $e->getTraceAsString());
         }
     }
 
