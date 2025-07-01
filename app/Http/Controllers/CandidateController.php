@@ -2236,19 +2236,52 @@ public function submitPsychotest(Request $request)
             ], 404);
         }
         
-        // Update history bahwa psikotes sudah diselesaikan - SIMPAN TANPA MENYIMPAN JAWABAN DETAIL
+        // PERBAIKAN: Hanya update completed_at untuk menandakan kandidat sudah selesai test
+        // JANGAN set reviewed_by di sini - ini harus diisi oleh admin saat mengevaluasi
         $psychotestHistory->completed_at = now();
-        $psychotestHistory->processed_at = now();
-        $psychotestHistory->score = 80; // Set default skor
-        $psychotestHistory->notes = 'Tes psikotes diselesaikan oleh kandidat pada ' . now()->format('Y-m-d H:i');
-        // Simpan jawaban sebagai JSON di kolom notes untuk menghindari error di tabel user_answers
-        $psychotestHistory->notes .= "\n\nJawaban: " . json_encode($answers);
+        $psychotestHistory->notes = 'Tes psikotes telah dikerjakan oleh kandidat pada ' . now()->format('Y-m-d H:i') . '. Menunggu evaluasi dari tim rekrutmen.';
+        
+        // Pastikan field ini TIDAK diisi saat kandidat submit
+        // $psychotestHistory->processed_at = now();  // HAPUS - ini untuk admin saat proses evaluasi
+        // $psychotestHistory->score = 80;           // HAPUS - ini untuk admin saat proses evaluasi 
+        // $psychotestHistory->reviewed_by = "SuperAdmin"; // HAPUS - ini untuk admin saat proses evaluasi
+        // $psychotestHistory->reviewed_at = now();       // HAPUS - ini untuk admin saat proses evaluasi
+        
         $psychotestHistory->save();
+        
+        // Simpan jawaban ke tabel terpisah untuk evaluasi admin
+        try {
+            DB::beginTransaction();
+            
+            // Simpan jawaban ke tabel user_answers
+            foreach ($answers as $questionId => $choiceId) {
+                \App\Models\UserAnswer::create([
+                    'user_id' => auth()->id(),
+                    'question_id' => $questionId,
+                    'choice_id' => $choiceId
+                ]);
+            }
+            
+            // Simpan backup jawaban dalam JSON juga untuk keamanan data
+            $backupAnswersFile = 'psychotest_answers/user_' . auth()->id() . '_app_' . $application_id . '_' . date('Ymd_His') . '.json';
+            \Storage::disk('local')->put($backupAnswersFile, json_encode([
+                'user_id' => auth()->id(),
+                'application_id' => $application_id,
+                'answers' => $answers,
+                'submitted_at' => now()->format('Y-m-d H:i:s')
+            ]));
+            
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::warning('Gagal menyimpan jawaban psikotes: ' . $e->getMessage());
+            // Tidak mengganggu proses submit - aplikasi tetap dianggap selesai
+        }
         
         return response()->json([
             'success' => true,
-            'message' => 'Tes psikotes berhasil diselesaikan',
-            'redirect_url' => route('candidate.application-status', ['id' => $application_id])
+            'message' => 'Tes psikotes berhasil diselesaikan. Tim rekrutmen akan segera mengevaluasi hasil tes Anda.',
+            'redirect_url' => route('candidate.application.status', ['id' => $application_id])
         ]);
         
     } catch (\Exception $e) {
@@ -2262,6 +2295,28 @@ public function submitPsychotest(Request $request)
             'success' => false,
             'message' => 'Terjadi kesalahan pada server: ' . $e->getMessage()
         ], 500);
+    }
+}
+
+public function applicationStatus($id)
+{
+    try {
+        $application = Applications::with([
+            'applicationHistories' => function($query) {
+                $query->with('status');
+                // Pastikan completed_at terbawa
+            }
+        ])
+        ->where('id', $id)
+        ->where('user_id', Auth::id())
+        ->firstOrFail();
+
+        return Inertia::render('candidate/status-candidate', [
+            'application' => $application
+        ]);
+    } catch (\Exception $e) {
+        return redirect()->route('candidate.application-history')
+            ->with('error', 'Aplikasi tidak ditemukan');
     }
 }
 }
