@@ -24,7 +24,7 @@ class ApplicationHistoryController extends Controller
                     'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id',
                     'vacancyPeriod.vacancy.company:id,name',
                     'vacancyPeriod.vacancy.vacancyType:id,name',
-                    'status:id,name,description,stage'
+                    'status:id,name,description,stage' // PRIMARY: Status dari tabel applications
                 ])
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -41,33 +41,46 @@ class ApplicationHistoryController extends Controller
                 ]);
             }
 
-            // Format data untuk frontend dengan data dari application_history
+            // Format data untuk frontend - PRIMARY data dari applications, SECONDARY dari application_history
             $formattedApplications = $applications->map(function ($application) {
                 try {
                     Log::info('Processing application', ['id' => $application->id]);
 
                     $vacancy = $application->vacancyPeriod ? $application->vacancyPeriod->vacancy : null;
 
-                    // Ambil application history terbaru untuk aplikasi ini (yang aktif)
-                    $latestHistory = ApplicationHistory::where('application_id', $application->id)
-                        ->with(['status:id,name,stage', 'reviewer:id,name'])
-                        ->where('is_active', true)
-                        ->orderBy('processed_at', 'desc')
+                    // PRIMARY: Gunakan status dari applications table sebagai current status
+                    $currentStatus = $application->status;
+                    $currentStage = $currentStatus ? $currentStatus->name : 'Status tidak diketahui';
+                    $statusColor = $currentStatus ? $this->getStageColor($currentStatus->stage, null) : '#6c757d';
+                    $stageInfo = $currentStatus ? $this->getStageInfo($currentStatus) : 'Dalam proses';
+
+                    // SECONDARY: Cari application history yang match dengan current status untuk data tambahan
+                    $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                        ->where('status_id', $application->status_id) // Match dengan current status
+                        ->with(['reviewer:id,name'])
                         ->first();
 
-                    // Jika tidak ada yang aktif, ambil yang terbaru
-                    if (!$latestHistory) {
-                        $latestHistory = ApplicationHistory::where('application_id', $application->id)
-                            ->with(['status:id,name,stage', 'reviewer:id,name'])
-                            ->orderBy('processed_at', 'desc')
+                    // Jika tidak ada yang match, ambil active history atau yang terbaru
+                    if (!$matchingHistory) {
+                        $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                            ->where('is_active', true)
+                            ->with(['reviewer:id,name'])
                             ->first();
+
+                        if (!$matchingHistory) {
+                            $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                                ->with(['reviewer:id,name'])
+                                ->orderBy('created_at', 'desc')
+                                ->first();
+                        }
                     }
 
                     Log::info('Application data processed', [
                         'id' => $application->id,
+                        'current_status_id' => $application->status_id,
+                        'current_status_name' => $currentStage,
                         'has_vacancy' => isset($vacancy),
-                        'has_history' => isset($latestHistory),
-                        'history_stage' => $latestHistory && $latestHistory->status ? $latestHistory->status->stage : null
+                        'has_matching_history' => isset($matchingHistory),
                     ]);
 
                     // Fallback jika tidak ada data vacancy
@@ -81,26 +94,12 @@ class ApplicationHistoryController extends Controller
                         }
                     }
 
-                    // Menentukan status dan warna berdasarkan application history (SAMA dengan status-candidate)
-                    $currentStage = 'Administrative Selection';
-                    $statusColor = '#1a73e8'; // Default blue
-                    $stageInfo = '';
-                    $currentScore = null;
-
-                    if ($latestHistory && $latestHistory->status) {
-                        $historyStatus = $latestHistory->status;
-                        $currentStage = $historyStatus->name; // Gunakan nama asli status
-                        $statusColor = $this->getStageColor($historyStatus->stage, null);
-                        $stageInfo = $this->getStageInfo($historyStatus);
-                        $currentScore = $latestHistory->score;
-                    }
-
-                    // Format sama dengan applicationStatus method
+                    // Format sesuai dengan frontend application-history.tsx
                     return [
                         'id' => $application->id,
-                        'status_id' => $latestHistory ? $latestHistory->status_id : $application->status_id,
-                        'status_name' => $currentStage,
-                        'status_color' => $statusColor,
+                        'status_id' => $application->status_id, // Dari applications table
+                        'status_name' => $currentStage, // Dari applications.status
+                        'status_color' => $statusColor, // Berdasarkan applications.status
                         'stage_info' => $stageInfo,
                         'job' => [
                             'id' => $vacancy ? $vacancy->id : null,
@@ -111,18 +110,28 @@ class ApplicationHistoryController extends Controller
                         ],
                         'applied_at' => $application->created_at ? $application->created_at->format('Y-m-d') : date('Y-m-d'),
                         'updated_at' => $application->updated_at ? $application->updated_at->format('Y-m-d') : date('Y-m-d'),
-                        // Tambahkan informasi dari application history (SINKRON dengan status-candidate)
-                        'current_score' => $currentScore,
-                        'last_processed' => $this->formatDateSafely($latestHistory->processed_at ?? null, 'Y-m-d'),
-                        'reviewer' => $latestHistory && $latestHistory->reviewer ? $latestHistory->reviewer->name : null,
+
+                        // Data tambahan dari application_history (jika ada)
+                        'current_score' => $matchingHistory ? $matchingHistory->score : null,
+                        'last_processed' => $matchingHistory && $matchingHistory->processed_at ?
+                                          $matchingHistory->processed_at->format('Y-m-d') :
+                                          $application->updated_at->format('Y-m-d'),
+                        'reviewer' => $matchingHistory && $matchingHistory->reviewer ?
+                                    $matchingHistory->reviewer->name : null,
+                        'notes' => $matchingHistory ? $matchingHistory->notes : null,
+
                         // Flag untuk frontend
-                        'is_qualified' => $latestHistory && $latestHistory->status &&
-                                        ($latestHistory->status->stage === 'accepted' ||
-                                         ($latestHistory->score && $latestHistory->score >= 70)),
+                        'is_qualified' => $currentStatus &&
+                                        ($currentStatus->stage === 'accepted' ||
+                                         ($matchingHistory && $matchingHistory->score && $matchingHistory->score >= 70)),
+
+                        // History info untuk kompatibilitas dengan frontend lama
                         'history' => [
-                            'id' => $latestHistory ? $latestHistory->id : null,
-                            'is_qualified' => $latestHistory ? $latestHistory->is_qualified : null,
-                            'created_at' => $latestHistory ? $latestHistory->created_at->format('Y-m-d H:i:s') : null,
+                            'id' => $matchingHistory ? $matchingHistory->id : null,
+                            'is_qualified' => $matchingHistory ?
+                                            ($currentStatus->stage === 'accepted' ||
+                                             ($matchingHistory->score && $matchingHistory->score >= 70)) : null,
+                            'created_at' => $matchingHistory ? $matchingHistory->created_at->format('Y-m-d H:i:s') : null,
                         ]
                     ];
                 } catch (\Exception $e) {
@@ -236,9 +245,18 @@ class ApplicationHistoryController extends Controller
     public function applicationStatus($id)
     {
         try {
+            Log::info('ApplicationStatus accessed', [
+                'application_id' => $id,
+                'user_id' => Auth::id(),
+                'is_authenticated' => Auth::check()
+            ]);
+
             $user = Auth::user();
 
             if (!$user) {
+                Log::warning('User not authenticated for application status', [
+                    'application_id' => $id
+                ]);
                 return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
             }
 
@@ -254,9 +272,19 @@ class ApplicationHistoryController extends Controller
                 ->first();
 
             if (!$application) {
+                Log::warning('Application not found or not owned by user', [
+                    'application_id' => $id,
+                    'user_id' => Auth::id()
+                ]);
                 return redirect('/candidate/application-history')
                     ->with('error', 'Data aplikasi tidak ditemukan');
             }
+
+            Log::info('Application found', [
+                'application_id' => $application->id,
+                'user_id' => $application->user_id,
+                'status_id' => $application->status_id
+            ]);
 
             // Ambil data lowongan dari relasi
             $vacancy = $application->vacancyPeriod ? $application->vacancyPeriod->vacancy : null;
@@ -272,6 +300,32 @@ class ApplicationHistoryController extends Controller
                 ->orderBy('processed_at', 'asc') // Ubah ke ASC untuk timeline yang benar
                 ->get();
 
+            // PRIMARY: Gunakan status dari applications table seperti di index method
+            $currentStatus = $application->status;
+            $currentStage = $currentStatus ? $currentStatus->name : 'Status tidak diketahui';
+            $statusColor = $currentStatus ? $this->getStageColor($currentStatus->stage, null) : '#6c757d';
+
+            // SECONDARY: Cari application history yang match dengan current status untuk data tambahan
+            $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                ->where('status_id', $application->status_id) // Match dengan current status
+                ->with(['reviewer:id,name'])
+                ->first();
+
+            // Jika tidak ada yang match, ambil active history atau yang terbaru
+            if (!$matchingHistory) {
+                $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                    ->where('is_active', true)
+                    ->with(['reviewer:id,name'])
+                    ->first();
+
+                if (!$matchingHistory) {
+                    $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                        ->with(['reviewer:id,name'])
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+                }
+            }
+
             Log::info('Application histories found', [
                 'application_id' => $id,
                 'count' => $applicationHistories->count(),
@@ -279,8 +333,11 @@ class ApplicationHistoryController extends Controller
             ]);
 
             // Format histories dengan semua detail - SINKRON dengan logika index
-            $formattedHistories = $applicationHistories->map(function ($history) {
+            $formattedHistories = $applicationHistories->map(function ($history) use ($application) {
                 $status = $history->status;
+
+                // Tentukan apakah ini adalah current active status berdasarkan applications.status_id
+                $isCurrentActive = ($history->status_id == $application->status_id);
 
                 return [
                     'id' => $history->id,
@@ -294,18 +351,48 @@ class ApplicationHistoryController extends Controller
                     'completed_at' => $this->formatDateSafely($history->completed_at ?? null, 'Y-m-d H:i:s'),
                     'processed_at' => $history->processed_at ? $history->processed_at->format('Y-m-d H:i:s') : $history->created_at->format('Y-m-d H:i:s'),
                     'reviewed_by' => $history->reviewer ? $history->reviewer->name : null,
-                    'reviewed_at' => $this->formatDateSafely($history->reviewed_at ?? null, 'Y-m-d H:i:s'),
-                    'is_active' => $history->is_active,
+                    'reviewed_at' => $history->reviewed_at ? $history->reviewed_at->format('Y-m-d H:i:s') : null,
+                    'is_active' => $isCurrentActive, // Berdasarkan applications.status_id, bukan history.is_active
                     'created_at' => $history->created_at->format('Y-m-d H:i:s'),
                     // Add helper flags for frontend - SINKRON dengan index
                     'is_qualified' => $status && ($status->stage === 'accepted' || ($history->score && $history->score >= 70)),
                 ];
             })->toArray();
 
+            // PRIMARY: Gunakan status dari applications table seperti di index method
+            $currentStatus = $application->status;
+            $currentStage = $currentStatus ? $currentStatus->name : 'Status tidak diketahui';
+            $statusColor = $currentStatus ? $this->getStageColor($currentStatus->stage, null) : '#6c757d';
+
+            // SECONDARY: Cari application history yang match dengan current status untuk data tambahan
+            $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                ->where('status_id', $application->status_id) // Match dengan current status
+                ->with(['reviewer:id,name'])
+                ->first();
+
+            // Jika tidak ada yang match, ambil active history atau yang terbaru
+            if (!$matchingHistory) {
+                $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                    ->where('is_active', true)
+                    ->with(['reviewer:id,name'])
+                    ->first();
+
+                if (!$matchingHistory) {
+                    $matchingHistory = ApplicationHistory::where('application_id', $application->id)
+                        ->with(['reviewer:id,name'])
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+                }
+            }
+
             // Format data aplikasi untuk tampilan - SINKRON dengan index
             $formattedApplication = [
                 'id' => $application->id,
-                'status_id' => $application->status_id,
+                'status_id' => $application->status_id, // PRIMARY: dari applications table
+                'status_name' => $currentStage, // PRIMARY: dari applications.status
+                'status_color' => $statusColor, // PRIMARY: berdasarkan applications.status
+                'current_score' => $matchingHistory ? $matchingHistory->score : null, // SECONDARY: dari application_history
+                'current_reviewer' => $matchingHistory && $matchingHistory->reviewer ? $matchingHistory->reviewer->name : null, // SECONDARY
                 'job' => [
                     'id' => $vacancy->id,
                     'title' => $vacancy->title,
@@ -326,10 +413,10 @@ class ApplicationHistoryController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error in application status: ' . $e->getMessage(), [
-                'application_id' => $id,
-                'trace' => $e->getTraceAsString()
-            ]);
+            // Log::error('Error in application status: ' . $e->getMessage(), [
+            //     'application_id' => $id,
+            //     'trace' => $e->getTraceAsString()
+            // ]);
 
             return redirect('/candidate/application-history')
                 ->with('error', 'Terjadi kesalahan saat memuat data status aplikasi.');

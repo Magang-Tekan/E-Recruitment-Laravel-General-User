@@ -1,4 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
+import Header from '../../components/Header';
 
 // === Icons SVG ===
 const BriefcaseIcon = () => (
@@ -59,6 +60,10 @@ interface ApplicationHistoryItem {
 interface Application {
     id: number;
     status_id: number;
+    status_name: string;
+    status_color: string;
+    current_score: number | null;
+    current_reviewer: string | null;
     job: {
         id: number;
         title: string;
@@ -86,10 +91,11 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         return dateA.getTime() - dateB.getTime(); // Ascending order (oldest first)
     });
 
-    // Get current status from active history
-    const activeHistory = application.histories.find(h => h.is_active);
-    const currentStatus = activeHistory ? activeHistory.status_name : 'Status tidak diketahui';
-    const currentScore = activeHistory ? activeHistory.score : null;
+    // Get current status from APPLICATION TABLE (PRIMARY) - SINKRON dengan application-history.tsx
+    const currentStatus = application.status_name; // Dari applications.status
+    const currentScore = application.current_score; // Dari application_history yang matching
+    const currentReviewer = application.current_reviewer; // Dari application_history yang matching
+    const statusColor = application.status_color; // Warna berdasarkan applications.status
 
     const formatDateOnly = (dateString: string | null | undefined) => {
         if (!dateString) return '';
@@ -165,29 +171,9 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         <div className="min-h-screen bg-gray-50">
             <Head title="Status Aplikasi" />
 
-            {/* Header */}
-            <div className="bg-white shadow-sm border-b">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-4">
-                        <div className="flex items-center">
-                            <h1 className="text-xl font-bold text-gray-900">MITRA KARYA GROUP</h1>
-                        </div>
-                        <div className="flex items-center space-x-6 text-sm text-gray-600">
-                            <a href="#" className="hover:text-gray-900">Dashboard</a>
-                            <a href="#" className="hover:text-gray-900">Profil</a>
-                            <a href="#" className="hover:text-gray-900">Lowongan Pekerjaan</a>
-                            <a href="#" className="hover:text-gray-900">Lamaran</a>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <Header />
 
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ marginTop: '80px' }}>
                 {/* Candidate Profile Section */}
                 <div className="bg-white rounded-xl shadow-sm border p-6 mb-8">
                     <div className="flex items-center">
@@ -201,13 +187,21 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                             <p className="text-gray-600 mt-1">Posisi yang dilamar: <span className="font-semibold">{application.job.title}</span></p>
                             <p className="text-gray-800 font-semibold">{application.job.company}</p>
                             <div className="flex items-center mt-2 space-x-4">
-                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                <span
+                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white"
+                                    style={{ backgroundColor: statusColor }}
+                                >
                                     <CalendarIcon />
                                     <span className="ml-1">Status: {currentStatus}</span>
                                 </span>
                                 {currentScore && (
                                     <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
                                         Skor: {currentScore}/100
+                                    </span>
+                                )}
+                                {currentReviewer && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                        Reviewer: {currentReviewer}
                                     </span>
                                 )}
                             </div>
