@@ -59,6 +59,10 @@ interface ApplicationHistoryItem {
 interface Application {
     id: number;
     status_id: number;
+    status_name: string;
+    status_color: string;
+    current_score: number | null;
+    current_reviewer: string | null;
     job: {
         id: number;
         title: string;
@@ -86,10 +90,11 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         return dateA.getTime() - dateB.getTime(); // Ascending order (oldest first)
     });
 
-    // Get current status from active history
-    const activeHistory = application.histories.find(h => h.is_active);
-    const currentStatus = activeHistory ? activeHistory.status_name : 'Status tidak diketahui';
-    const currentScore = activeHistory ? activeHistory.score : null;
+    // Get current status from APPLICATION TABLE (PRIMARY) - SINKRON dengan application-history.tsx
+    const currentStatus = application.status_name; // Dari applications.status
+    const currentScore = application.current_score; // Dari application_history yang matching
+    const currentReviewer = application.current_reviewer; // Dari application_history yang matching
+    const statusColor = application.status_color; // Warna berdasarkan applications.status
 
     const formatDateOnly = (dateString: string | null | undefined) => {
         if (!dateString) return '';
@@ -141,13 +146,21 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                             <p className="text-gray-600 mt-1">Posisi yang dilamar: <span className="font-semibold">{application.job.title}</span></p>
                             <p className="text-gray-800 font-semibold">{application.job.company}</p>
                             <div className="flex items-center mt-2 space-x-4">
-                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                <span
+                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white"
+                                    style={{ backgroundColor: statusColor }}
+                                >
                                     <CalendarIcon />
                                     <span className="ml-1">Status: {currentStatus}</span>
                                 </span>
                                 {currentScore && (
                                     <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
                                         Skor: {currentScore}/100
+                                    </span>
+                                )}
+                                {currentReviewer && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                        Reviewer: {currentReviewer}
                                     </span>
                                 )}
                             </div>
