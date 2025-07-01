@@ -1,4 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
+import Header from '../../components/Header';
 
 // === Icons SVG ===
 const BriefcaseIcon = () => (
@@ -110,29 +111,9 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         <div className="min-h-screen bg-gray-50">
             <Head title="Status Aplikasi" />
 
-            {/* Header */}
-            <div className="bg-white shadow-sm border-b">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-4">
-                        <div className="flex items-center">
-                            <h1 className="text-xl font-bold text-gray-900">MITRA KARYA GROUP</h1>
-                        </div>
-                        <div className="flex items-center space-x-6 text-sm text-gray-600">
-                            <a href="#" className="hover:text-gray-900">Dashboard</a>
-                            <a href="#" className="hover:text-gray-900">Profil</a>
-                            <a href="#" className="hover:text-gray-900">Lowongan Pekerjaan</a>
-                            <a href="#" className="hover:text-gray-900">Lamaran</a>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <Header />
 
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ marginTop: '80px' }}>
                 {/* Candidate Profile Section */}
                 <div className="bg-white rounded-xl shadow-sm border p-6 mb-8">
                     <div className="flex items-center">

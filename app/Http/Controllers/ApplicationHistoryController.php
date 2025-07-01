@@ -413,10 +413,10 @@ class ApplicationHistoryController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error in application status: ' . $e->getMessage(), [
-                'application_id' => $id,
-                'trace' => $e->getTraceAsString()
-            ]);
+            // Log::error('Error in application status: ' . $e->getMessage(), [
+            //     'application_id' => $id,
+            //     'trace' => $e->getTraceAsString()
+            // ]);
 
             return redirect('/candidate/application-history')
                 ->with('error', 'Terjadi kesalahan saat memuat data status aplikasi.');
