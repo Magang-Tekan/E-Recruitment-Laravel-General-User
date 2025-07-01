@@ -37,37 +37,41 @@ const MapPinIcon = () => (
     </svg>
 );
 
-// Define the props interface for the component
-interface ApplicationStatusPageProps {
-    application: {
+// Define the props interface for the component matching backend data structure
+interface ApplicationHistoryItem {
+    id: number;
+    status_id: number;
+    status_name: string;
+    status_color: string;
+    stage: string;
+    score: number | null;
+    notes: string | null;
+    scheduled_at: string | null;
+    completed_at: string | null;
+    processed_at: string;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    is_active: boolean;
+    is_qualified: boolean;
+    created_at: string;
+}
+
+interface Application {
+    id: number;
+    status_id: number;
+    job: {
         id: number;
-        status_id: number;
-        job: {
-            id: number;
-            title: string;
-            company: string;
-            location: string;
-            type: string;
-        };
-        applied_at: string;
-        histories: Array<{
-            id: number;
-            status_id: number;
-            status_name: string;
-            status_color: string;
-            stage: string;
-            score: number | null;
-            notes: string | null;
-            scheduled_at: string | null;
-            completed_at: string | null;
-            processed_at: string;
-            reviewed_by: string | null;
-            reviewed_at: string | null;
-            is_active: boolean;
-            is_qualified: boolean;
-            created_at: string;
-        }>;
+        title: string;
+        company: string;
+        location: string;
+        type: string;
     };
+    applied_at: string;
+    histories: ApplicationHistoryItem[];
+}
+
+interface ApplicationStatusPageProps {
+    application: Application;
 }
 
 export default function StatusCandidatePage({ application }: ApplicationStatusPageProps) {
@@ -75,12 +79,17 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
     const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
     const user = auth?.user;
 
-    // Get all histories sorted by processed_at/created_at
+    // Get all histories sorted by created_at (ascending order - oldest first)
     const sortedHistories = [...application.histories].sort((a, b) => {
-        const dateA = new Date(a.processed_at || a.created_at);
-        const dateB = new Date(b.processed_at || b.created_at);
+        const dateA = new Date(a.created_at);
+        const dateB = new Date(b.created_at);
         return dateA.getTime() - dateB.getTime(); // Ascending order (oldest first)
     });
+
+    // Get current status from active history
+    const activeHistory = application.histories.find(h => h.is_active);
+    const currentStatus = activeHistory ? activeHistory.status_name : 'Status tidak diketahui';
+    const currentScore = activeHistory ? activeHistory.score : null;
 
     const formatDateOnly = (dateString: string | null | undefined) => {
         if (!dateString) return '';
@@ -194,11 +203,13 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                             <div className="flex items-center mt-2 space-x-4">
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
                                     <CalendarIcon />
-                                    <span className="ml-1">Lamaran: {formatDateOnly(application.applied_at)}</span>
+                                    <span className="ml-1">Status: {currentStatus}</span>
                                 </span>
-                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                                    Lolos Seleksi Administrasi
-                                </span>
+                                {currentScore && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                                        Skor: {currentScore}/100
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -214,10 +225,9 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                     {/* Timeline */}
                     <div className="relative">
                         {sortedHistories.map((history, index) => {
-                            const isCompleted = history.completed_at !== null || history.stage === 'accepted';
                             const isActive = history.is_active;
+                            const isCompleted = history.completed_at !== null || history.stage === 'accepted';
                             const isRejected = history.stage === 'rejected';
-                            const isAccepted = history.stage === 'accepted';
 
                             return (
                                 <div key={history.id} className="relative flex items-start mb-6">
@@ -228,12 +238,12 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
 
                                     {/* Circle marker */}
                                     <div className={`relative z-10 flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                                        isCompleted || isAccepted ? 'bg-green-500 border-green-500' :
+                                        isCompleted ? 'bg-green-500 border-green-500' :
                                         isActive ? 'bg-blue-500 border-blue-500' :
                                         isRejected ? 'bg-red-500 border-red-500' :
                                         'bg-gray-300 border-gray-300'
                                     }`}>
-                                        {isCompleted || isAccepted ? (
+                                        {isCompleted ? (
                                             <CheckIcon />
                                         ) : (
                                             <span className="text-xs font-bold text-white">{index + 1}</span>
@@ -244,7 +254,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                     <div className="ml-6 flex-1">
                                         <div className={`bg-white rounded-lg border p-4 ${
                                             isActive ? 'border-blue-200 shadow-md' :
-                                            isCompleted || isAccepted ? 'border-green-200' :
+                                            isCompleted ? 'border-green-200' :
                                             isRejected ? 'border-red-200' :
                                             'border-gray-200'
                                         }`}>
@@ -252,26 +262,27 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                 <div>
                                                     <h4 className="font-semibold text-gray-900">{history.status_name}</h4>
                                                     <p className="text-sm text-gray-500">
-                                                        {isActive ? `Dijadwalkan pada ${formatDateOnly(history.scheduled_at || history.processed_at)}` :
-                                                         isCompleted ? `Telah selesai pada ${formatDateOnly(history.completed_at || history.processed_at)}` :
-                                                         `Menunggu penyelesaian tahap sebelumnya`}
+                                                        {isActive ? `Tahap saat ini` :
+                                                         isCompleted ? `Selesai pada ${formatDateOnly(history.completed_at || history.processed_at)}` :
+                                                         `Menunggu tahap sebelumnya`}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500 mt-1">
+                                                        {formatDateOnly(history.created_at)}
                                                     </p>
                                                 </div>
-                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                    isCompleted || isAccepted ? 'bg-green-100 text-green-800' :
-                                                    isActive ? 'bg-blue-100 text-blue-800' :
-                                                    isRejected ? 'bg-red-100 text-red-800' :
-                                                    'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {isCompleted || isAccepted ? 'Selesai' :
-                                                     isActive ? 'Terjadwal' :
+                                                <span
+                                                    className={`px-2 py-1 rounded text-xs font-medium text-white`}
+                                                    style={{ backgroundColor: history.status_color }}
+                                                >
+                                                    {isCompleted ? 'Selesai' :
+                                                     isActive ? 'Aktif' :
                                                      isRejected ? 'Ditolak' :
                                                      'Menunggu'}
                                                 </span>
                                             </div>
 
                                             {/* Stage Details - Show for active and completed stages */}
-                                            {(isActive || isCompleted || isAccepted) && (
+                                            {(isActive || isCompleted) && (
                                                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                                                     <h5 className="font-medium text-gray-900 mb-3">Detail:</h5>
 
@@ -279,8 +290,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                         <div className="flex items-center">
                                                             <CalendarIcon />
                                                             <div className="ml-2">
-                                                                <p className="text-gray-500">Tanggal & Waktu</p>
-                                                                <p className="font-medium">{formatDateOnly(history.scheduled_at || history.processed_at)}</p>
+                                                                <p className="text-gray-500">Tanggal</p>
+                                                                <p className="font-medium">{formatDateOnly(history.created_at)}</p>
                                                             </div>
                                                         </div>
 
@@ -289,7 +300,9 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Lokasi</p>
                                                                 <p className="font-medium">
-                                                                    {history.status_name.toLowerCase().includes('psikotes') || history.status_name.toLowerCase().includes('psikologi') ?
+                                                                    {history.status_name.toLowerCase().includes('psikotes') ||
+                                                                     history.status_name.toLowerCase().includes('test') ||
+                                                                     history.status_name.toLowerCase().includes('psychological') ?
                                                                      'Online via Web' : 'Kantor Pusat'}
                                                                 </p>
                                                             </div>
@@ -300,7 +313,9 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Durasi</p>
                                                                 <p className="font-medium">
-                                                                    {history.status_name.toLowerCase().includes('psikotes') || history.status_name.toLowerCase().includes('psikologi') ?
+                                                                    {history.status_name.toLowerCase().includes('psikotes') ||
+                                                                     history.status_name.toLowerCase().includes('test') ||
+                                                                     history.status_name.toLowerCase().includes('psychological') ?
                                                                      '120 Menit' : '60 Menit'}
                                                                 </p>
                                                             </div>
@@ -314,8 +329,17 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                         )}
                                                     </div>
 
-                                                    {/* Stage-specific content */}
-                                                    {history.status_name.toLowerCase().includes('psikotes') || history.status_name.toLowerCase().includes('psikologi') ? (
+                                                    {/* Reviewer info */}
+                                                    {history.reviewed_by && (
+                                                        <div className="mt-3">
+                                                            <p className="text-gray-500 text-sm">Reviewer: <span className="font-medium">{history.reviewed_by}</span></p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Stage-specific content for tests */}
+                                                    {(history.status_name.toLowerCase().includes('psikotes') ||
+                                                      history.status_name.toLowerCase().includes('test') ||
+                                                      history.status_name.toLowerCase().includes('psychological')) && (
                                                         <div className="mt-4">
                                                             <h6 className="font-medium text-gray-900 mb-2">Jenis Tes:</h6>
                                                             <ul className="text-sm text-gray-600 space-y-1">
@@ -325,18 +349,11 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                                                                 <h6 className="font-medium text-blue-900 mb-2">Tips Mengikuti Tes:</h6>
                                                                 <ul className="text-sm text-blue-800 space-y-1">
-                                                                    <li>• Pastikan Anda memilih jawaban yang cukup sebelum mengikuti tes</li>
+                                                                    <li>• Pastikan Anda memiliki koneksi internet yang stabil</li>
                                                                     <li>• Konsumsi sarapan untuk menjaga stamina dan konsentrasi</li>
                                                                     <li>• Jawablah pertanyaan dengan jujur sesuai dengan kepribadian Anda</li>
                                                                     <li>• Baca setiap soal dengan teliti, cermat, dan pahami isi dalam menjawab</li>
                                                                 </ul>
-                                                            </div>
-
-                                                            <div className="mt-4 p-3 bg-blue-100 rounded-lg">
-                                                                <p className="font-medium text-blue-900">Pesan dari Tim Rekrutmen:</p>
-                                                                <p className="text-sm text-blue-800 mt-1">
-                                                                    "Kami senang Anda telah mencapai tahap ini dalam proses rekrutmen. Percayalah pada kemampuan Anda dan tunjukkan potensi terbaik Anda. Semoga sukses!"
-                                                                </p>
                                                             </div>
 
                                                             {isActive && (
@@ -347,7 +364,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    ) : null}
+                                                    )}
 
                                                     {/* Recruiter notes */}
                                                     {history.notes && (
@@ -366,70 +383,74 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                     </div>
                 </div>
 
-                {/* Test Preparation Section */}
-                <div className="mt-12 bg-white rounded-lg border p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Persiapan Tes Psikotes</h3>
-                    <p className="text-gray-600 mb-6">Beberapa hal yang perlu dipersiapkan sebelum tes</p>
+                {/* Test Preparation Section - Only show if there's an active test stage */}
+                {sortedHistories.some(h => h.is_active && (h.status_name.toLowerCase().includes('test') || h.status_name.toLowerCase().includes('psikotes') || h.status_name.toLowerCase().includes('psychological'))) && (
+                    <div className="mt-12 bg-white rounded-lg border p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Persiapan Tes Psikotes</h3>
+                        <p className="text-gray-600 mb-6">Beberapa hal yang perlu dipersiapkan sebelum tes</p>
 
-                    <p className="text-sm text-gray-700 mb-6">
-                        Tes psikotes akan menilai kemampuan kognitif dan kepribadian Anda untuk memastikan kesesuaian dengan posisi dan budaya perusahaan. Kami menyarankan agar Anda:
-                    </p>
+                        <p className="text-sm text-gray-700 mb-6">
+                            Tes psikotes akan menilai kemampuan kognitif dan kepribadian Anda untuk memastikan kesesuaian dengan posisi dan budaya perusahaan. Kami menyarankan agar Anda:
+                        </p>
 
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <div>
-                            <h4 className="font-semibold text-gray-900 mb-3">Sebelum Hari Tes</h4>
-                            <ul className="space-y-2 text-sm text-gray-700">
-                                <li className="flex items-start">
-                                    <CheckIcon />
-                                    <span className="ml-2">Lakukan penelitian mendalam mengenai perusahaan serta posisi yang dituju</span>
-                                </li>
-                                <li className="flex items-start">
-                                    <CheckIcon />
-                                    <span className="ml-2">Persiapkan seluruh dokumen yang diperlukan, seperti KTP, CV, dan lainnya</span>
-                                </li>
-                                <li className="flex items-start">
-                                    <CheckIcon />
-                                    <span className="ml-2">Latih diri dengan mengerjakan contoh soal psikotes umum</span>
-                                </li>
-                            </ul>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 className="font-semibold text-gray-900 mb-3">Sebelum Hari Tes</h4>
+                                <ul className="space-y-2 text-sm text-gray-700">
+                                    <li className="flex items-start">
+                                        <CheckIcon />
+                                        <span className="ml-2">Lakukan penelitian mendalam mengenai perusahaan serta posisi yang dituju</span>
+                                    </li>
+                                    <li className="flex items-start">
+                                        <CheckIcon />
+                                        <span className="ml-2">Persiapkan seluruh dokumen yang diperlukan, seperti KTP, CV, dan lainnya</span>
+                                    </li>
+                                    <li className="flex items-start">
+                                        <CheckIcon />
+                                        <span className="ml-2">Latih diri dengan mengerjakan contoh soal psikotes umum</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-gray-900 mb-3">Saat Hari Tes</h4>
+                                <ul className="space-y-2 text-sm text-gray-700">
+                                    <li className="flex items-start">
+                                        <CheckIcon />
+                                        <span className="ml-2">Masuk ke sesi tes 30 menit sebelum jadwal yang ditentukan</span>
+                                    </li>
+                                    <li className="flex items-start">
+                                        <CheckIcon />
+                                        <span className="ml-2">Siapkan perangkat dengan kamera dan mikrofon yang berfungsi dengan baik</span>
+                                    </li>
+                                    <li className="flex items-start">
+                                        <CheckIcon />
+                                        <span className="ml-2">Pastikan koneksi internet dalam kondisi stabil</span>
+                                    </li>
+                                    <li className="flex items-start">
+                                        <CheckIcon />
+                                        <span className="ml-2">Pilih ruangan yang tenang dan bebas dari gangguan</span>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
 
-                        <div>
-                            <h4 className="font-semibold text-gray-900 mb-3">Saat Hari Tes</h4>
-                            <ul className="space-y-2 text-sm text-gray-700">
-                                <li className="flex items-start">
-                                    <CheckIcon />
-                                    <span className="ml-2">Masuk ke sesi wawancara 30 menit sebelum jadwal yang ditentukan</span>
-                                </li>
-                                <li className="flex items-start">
-                                    <CheckIcon />
-                                    <span className="ml-2">Siapkan perangkat dengan kamera dan mikrofon yang berfungsi dengan baik</span>
-                                </li>
-                                <li className="flex items-start">
-                                    <CheckIcon />
-                                    <span className="ml-2">Pastikan koneksi internet dalam kondisi stabil</span>
-                                </li>
-                                <li className="flex items-start">
-                                    <CheckIcon />
-                                    <span className="ml-2">Pilih ruangan yang tenang dan bebas dari gangguan</span>
-                                </li>
-                            </ul>
+                        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="text-sm text-green-800">
+                                <span className="font-medium">- Tim Rekrutmen</span>
+                            </p>
+                            <p className="text-sm text-green-700 mt-2">
+                                "Ingatlah bahwa tes ini adalah kesempatan untuk menunjukkan potensi terbaik Anda. Kami mencari kandidat yang tidak hanya memiliki keterampilan teknis yang tepat, tetapi juga kesesuaian dengan nilai-nilai dan budaya perusahaan. Relaks dan jawablah dengan jujur. Kami sangat menantikan untuk melihat lebih banyak tentang Anda!"
+                            </p>
+                        </div>
+
+                        <div className="mt-6 text-center">
+                            <button className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
+                                Mulai Mengerjakan
+                            </button>
                         </div>
                     </div>
-
-                    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-800">
-                            <span className="font-medium">- Tim Rekrutmen</span>
-                        </p>
-                        <p className="text-sm text-green-700 mt-2">
-                            "Ingatlah bahwa tes ini adalah kesempatan untuk menunjukkan potensi terbaik Anda. Kami mencari kandidat yang tidak hanya memiliki keterampilan teknis yang tepat, tetapi juga kesesuaian dengan nilai-nilai dan budaya perusahaan. Jatuhkan diri Anda secara dan jawablah dengan jujur. Kami sangat menantikan untuk melihat lebih banyak tentang Anda!"
-                        </p>
-                    </div>
-
-                    <div className="mt-6 text-center">
-                        {renderPsychotestButton(sortedHistories)}
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
