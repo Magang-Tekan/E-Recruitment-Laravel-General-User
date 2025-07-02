@@ -18,9 +18,16 @@ interface Major {
     name: string;
 }
 
+// Tambahkan interface untuk EducationLevel
+interface EducationLevel {
+    id: number;
+    name: string;
+}
+
 interface Education {
     id?: number;
-    education_level: string;
+    education_level_id: string; // Ubah dari education_level
+    education_level?: string;
     faculty: string;
     major_id: string;
     major?: string;
@@ -47,14 +54,16 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [majors, setMajors] = useState<Major[]>([]);
+    const [educationLevels, setEducationLevels] = useState<EducationLevel[]>([]);
     const [isLoadingMajors, setIsLoadingMajors] = useState(false);
+    const [isLoadingEducationLevels, setIsLoadingEducationLevels] = useState(false);
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         // Ensure all values are strings, not null
         setLocalFormData({
             id: formData.id,
-            education_level: formData.education_level || '',
+            education_level_id: formData.education_level_id || '', // Ubah dari education_level
             faculty: formData.faculty || '',
             major_id: formData.major_id || '',
             institution_name: formData.institution_name || '',
@@ -86,11 +95,33 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
         fetchMajors();
     }, []);
 
+    // Tambahkan useEffect untuk fetch education levels
+    useEffect(() => {
+        const fetchEducationLevels = async () => {
+            setIsLoadingEducationLevels(true);
+            try {
+                const response = await axios.get('/api/education-levels');
+                console.log('Education levels loaded:', response.data);
+                setEducationLevels(response.data);
+            } catch (error) {
+                console.error('Error fetching education levels:', error);
+                setMessage({
+                    type: 'error',
+                    text: 'Gagal memuat data jenjang pendidikan'
+                });
+            } finally {
+                setIsLoadingEducationLevels(false);
+            }
+        };
+
+        fetchEducationLevels();
+    }, []);
+
     const validateForm = () => {
         const errors: Record<string, string> = {};
 
-        if (!localFormData.education_level) {
-            errors.education_level = 'Jenjang pendidikan harus dipilih';
+        if (!localFormData.education_level_id) { // Ubah dari education_level
+            errors.education_level_id = 'Jenjang pendidikan harus dipilih';
         }
 
         if (!localFormData.faculty?.trim()) {
@@ -234,21 +265,24 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
                     <div>
                         <SelectField
                             label="Jenjang Pendidikan"
-                            name="education_level"
-                            value={localFormData.education_level}
+                            name="education_level_id" // Ubah dari education_level
+                            value={localFormData.education_level_id}
                             onChange={handleChange}
                             required
+                            disabled={isLoadingEducationLevels}
                             options={[
-                                { value: '', label: 'Pilih Jenjang Pendidikan' },
-                                 { value: 'SMA/SMK', label: 'SMA/SMK' },
-                                { value: 'D3', label: 'Diploma 3 (D3)' },
-                                { value: 'S1', label: 'Sarjana (S1)' },
-                                { value: 'S2', label: 'Magister (S2)' },
-                                { value: 'S3', label: 'Doktor (S3)' }
+                                { 
+                                    value: '', 
+                                    label: isLoadingEducationLevels ? 'Memuat...' : 'Pilih Jenjang Pendidikan' 
+                                },
+                                ...educationLevels.map(level => ({
+                                    value: level.id.toString(),
+                                    label: level.name
+                                }))
                             ]}
                         />
-                        {validationErrors.education_level && (
-                            <p className="text-red-500 text-sm mt-1">{validationErrors.education_level}</p>
+                        {validationErrors.education_level_id && ( // Ubah dari education_level
+                            <p className="text-red-500 text-sm mt-1">{validationErrors.education_level_id}</p>
                         )}
                     </div>
 

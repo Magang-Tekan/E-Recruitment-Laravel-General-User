@@ -74,6 +74,19 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/api/candidate/education', [CandidateController::class, 'storeEducation']);
     Route::put('/api/candidate/education/{id}', [CandidateController::class, 'updateEducation']);
     Route::delete('/api/candidate/education/{id}', [CandidateController::class, 'deleteEducation']);
+
+    // Add this new route for education levels
+    Route::get('/api/education-levels', function () {
+        try {
+            $educationLevels = \App\Models\EducationLevel::orderBy('name', 'asc')->get();
+            return response()->json($educationLevels);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching education levels: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Gagal mengambil data tingkat pendidikan'
+            ], 500);
+        }
+    });
 });
 
 
