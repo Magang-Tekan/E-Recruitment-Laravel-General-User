@@ -166,6 +166,51 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         // Default - tidak digunakan karena kita hanya menampilkan tombol jika ada tahap psikotes aktif
         return null;
     };
+
+    // Perbaiki logika pengecekan status tes
+    const renderTestButton = (history: ApplicationHistoryItem) => {
+        // Cek apakah ini tahap tes
+        const isTestStage = history.status_name.toLowerCase().includes('test') ||
+                           history.status_name.toLowerCase().includes('psikotes') ||
+                           history.status_name.toLowerCase().includes('psychological');
+
+        if (!isTestStage) return null;
+
+        // Cek status tes
+        if (!history.is_active) {
+            return null;
+        }
+
+        // Jika tes sudah selesai
+        if (history.completed_at) {
+            return (
+                <button
+                    disabled
+                    className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg opacity-90 cursor-not-allowed"
+                >
+                    Sudah Dikerjakan
+                </button>
+            );
+        }
+
+        // Jika tes aktif dan belum dikerjakan
+        return (
+            <a
+                href={`/candidate/tests/psychotest/${application.id}`}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                onClick={(e) => {
+                    console.log('Navigating to test page', {
+                        application_id: application.id,
+                        history_id: history.id,
+                        status: history.status_name
+                    });
+                }}
+            >
+                Mulai Mengerjakan
+            </a>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Head title="Status Aplikasi" />
@@ -221,7 +266,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                             const isActive = history.is_active;
                             const isCompleted = history.completed_at !== null || history.stage === 'accepted';
                             const isRejected = history.stage === 'rejected';
-
+                            
                             return (
                                 <div key={history.id} className="relative flex items-start mb-6">
                                     {/* Timeline line */}
@@ -378,61 +423,24 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                         </ul>
                                                     </div>
 
-                                                            <div className="mt-4 text-right">
-                                                                {isActive && !history.completed_at ? (
-                                                                    // Tombol untuk test yang belum dikerjakan
-                                                                    <a
-                                                                        href={`/candidate/tests/psychotest/${application.id}`}
-                                                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-                                                                        onClick={(e) => {
-                                                                            console.log('Navigating to psychotest page', {
-                                                                                application_id: application.id,
-                                                                                url: `/candidate/tests/psychotest/${application.id}`
-                                                                            });
-                                                                        }}
-                                                                    >
-                                                                        Lanjut ke Persiapan Tes
-                                                                    </a>
-                                                                ) : isActive && history.completed_at && history.notes && history.notes.includes('Tes psikotes telah dikerjakan') ? (
-                                                                    // Tombol disabled setelah test BENAR-BENAR dikerjakan
-                                                                    <button
-                                                                        disabled
-                                                                        className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg opacity-90 cursor-not-allowed"
-                                                                    >
-                                                                        Sudah Dikerjakan
-                                                                    </button>
-                                                                ) : (
-                                                                    // Tombol default untuk kondisi lainnya
-                                                                    <a
-                                                                        href={`/candidate/tests/psychotest/${application.id}`}
-                                                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-                                                                    >
-                                                                        Lanjut ke Persiapan Tes
-                                                                    </a>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Jika psikotes sudah dikerjakan, tampilkan catatan - HANYA TAMPILKAN DI SINI */}
-                                                            {history.completed_at && history.notes && (
-                                                                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                                                    <h6 className="font-medium text-yellow-800">Catatan Tim Rekrutmen:</h6>
-                                                                    <p className="text-sm text-yellow-700 mt-1">
-                                                                        {history.notes}
-                                                                    </p>
-                                                                </div>
-                                                            )}
+                                                    {/* Update bagian tombol test */}
+                                                    {isActive && (history.status_name.toLowerCase().includes('test') ||
+                                                                history.status_name.toLowerCase().includes('psikotes') ||
+                                                                history.status_name.toLowerCase().includes('psychological')) && (
+                                                        <div className="mt-4 text-right">
+                                                            {renderTestButton(history)}
                                                         </div>
                                                     )}
 
-                                                    {/* Recruiter notes */}
-                                                    {history.notes &&
-                                                      !(history.status_name.toLowerCase().includes('psikotes') ||
-                                                        history.status_name.toLowerCase().includes('test') ||
-                                                        history.status_name.toLowerCase().includes('psychological') &&
-                                                        history.completed_at) && (
+                                                    {/* Notes section */}
+                                                    {history.notes && (
                                                         <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                                            <p className="font-medium text-yellow-900">Catatan Tim Rekrutmen:</p>
-                                                            <p className="text-sm text-yellow-800 mt-1">{history.notes}</p>
+                                                            <h6 className="font-medium text-yellow-800">
+                                                                Catatan Tim Rekrutmen:
+                                                            </h6>
+                                                            <p className="text-sm text-yellow-700 mt-1">
+                                                                {history.notes}
+                                                            </p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -443,24 +451,6 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                             );
                         })}
                     </div>
-
-                    {/* Hanya tampilkan sebagai fallback jika tidak ada tombol dalam detail tahap */}
-                    {sortedHistories.some(h =>
-    h.is_active &&
-    !h.completed_at &&
-    (h.status_name.toLowerCase().includes('test') ||
-     h.status_name.toLowerCase().includes('psikotes') ||
-     h.status_name.toLowerCase().includes('psychological'))
-) && (
-    <div className="mt-6 text-center">
-        <a
-            href={`/candidate/tests/psychotest/${application.id}`}
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 inline-block"
-        >
-            Mulai Mengerjakan
-        </a>
-    </div>
-)}
                 </div>
             </div>
         </div>
