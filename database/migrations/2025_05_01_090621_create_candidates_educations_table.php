@@ -11,7 +11,10 @@ return new class extends Migration
         Schema::create('candidates_educations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->string('education_level');
+            
+            // Ubah dari string education_level menjadi foreign key education_level_id
+            $table->foreignId('education_level_id')->constrained('education_levels');
+            
             $table->string('faculty');
             $table->foreignId('major_id')->constrained('master_majors');
             $table->string('institution_name'); // Langsung gunakan string institution_name, bukan foreign key
