@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Vacancies;
-use App\Models\Companies;
+use App\Models\Company;
+use App\Models\MasterMajor;
 use App\Models\CandidatesProfiles;
 use App\Models\CandidatesEducations;
 use App\Models\CandidatesWorkExperiences;
@@ -31,7 +32,7 @@ class VacanciesController extends Controller
 
                     // Get the first period's end time
                     $endTime = $vacancy->periods->first()?->end_time;
-                    
+
                     // Debug the end time formatting
                     \Log::info('End time:', [
                         'raw' => $endTime,
@@ -47,13 +48,13 @@ class VacanciesController extends Controller
                         'department' => $vacancy->department ? $vacancy->department->name : 'N/A',
                         'type' => $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Full Time',
                         'location' => $vacancy->location,
-                        'requirements' => is_string($vacancy->requirements) 
-                            ? json_decode($vacancy->requirements, true) 
-                            : $vacancy->requirements ?? [],
-                        'endTime' => $endTime 
+                        'requirements' => is_array($vacancy->requirements)
+                            ? $vacancy->requirements
+                            : (is_string($vacancy->requirements) ? json_decode($vacancy->requirements, true) : []) ?? [],
+                        'endTime' => $endTime
                             ? \Carbon\Carbon::parse($endTime)->locale('id')->isoFormat('D MMMM Y')
                             : null,
-                        'isExpired' => $endTime 
+                        'isExpired' => $endTime
                             ? now()->gt(\Carbon\Carbon::parse($endTime))
                             : true
                     ];
@@ -216,8 +217,8 @@ class VacanciesController extends Controller
     public function getVacanciesLandingPage(Request $request)
     {
         try {
-            // Query vacancies with relationships
-            $query = Vacancies::with(['company', 'jobType', 'department'])
+            // Get vacancies with the same relations as JobsController and WelcomeController
+            $query = Vacancies::with(['company', 'department', 'vacancyType', 'major'])
                 ->orderBy('created_at', 'desc');
 
             // Filter by company if provided
@@ -227,33 +228,64 @@ class VacanciesController extends Controller
                 });
             }
 
-            // Map vacancies data
-            $vacancies = $query->get()->map(function ($vacancy) {
+            // Transform job data to match the same format as WelcomeController
+            $jobs = $query->get()->map(function($job) {
+                // Get deadline from periods
+                $period = DB::table('periods')
+                    ->join('vacancy_periods', 'periods.id', '=', 'vacancy_periods.period_id')
+                    ->where('vacancy_periods.vacancy_id', $job->id)
+                    ->orderBy('periods.end_time', 'desc')
+                    ->first();
+
+                // Get major name if exists
+                $majorName = null;
+                if ($job->major_id) {
+                    $major = MasterMajor::find($job->major_id);
+                    $majorName = $major ? $major->name : null;
+                }
+
+                // Format requirements and benefits
+                $requirements = is_array($job->requirements) ? $job->requirements : json_decode($job->requirements ?: '[]');
+                $benefits = is_array($job->benefits) ? $job->benefits : json_decode($job->benefits ?: '[]');
+
+                // Check if expired
+                $isExpired = $period && now()->isAfter($period->end_time);
+
                 return [
-                    'id' => $vacancy->id,
-                    'title' => $vacancy->title,
+                    'id' => $job->id,
+                    'title' => $job->title,
                     'company' => [
-                        'name' => $vacancy->company ? $vacancy->company->name : 'N/A',
+                        'name' => $job->company ? $job->company->name : 'Unknown',
+                        'id' => $job->company ? $job->company->id : null
                     ],
-                    'description' => $vacancy->job_description ?? $vacancy->description,
-                    'location' => $vacancy->location,
-                    'type' => $vacancy->jobType ? $vacancy->jobType->name : 'N/A',
-                    'deadline' => $vacancy->deadline ? $vacancy->deadline->format('d F Y') : 'Open',
-                    'department' => $vacancy->department ? $vacancy->department->name : 'N/A',
+                    'description' => $job->job_description ?: 'No description available',
+                    'location' => $job->location,
+                    'type' => $job->vacancyType ? $job->vacancyType->name : 'Unknown',
+                    'department' => $job->department ? $job->department->name : 'Unknown',
+                    'endTime' => $period ? $period->end_time : null,
+                    'deadline' => $period ? $period->end_time : 'Open',
+                    'isExpired' => $isExpired,
+                    'requirements' => $requirements,
+                    'benefits' => $benefits,
+                    'salary' => $job->salary,
+                    'major_id' => $job->major_id,
+                    'major_name' => $majorName,
+                    'created_at' => $job->created_at ? $job->created_at->format('Y-m-d H:i:s') : null,
+                    'updated_at' => $job->updated_at ? $job->updated_at->format('Y-m-d H:i:s') : null
                 ];
             });
 
             // Get list of companies for filtering
-            $companies = Companies::pluck('name');
+            $companies = Company::pluck('name')->toArray();
 
-            // Render the view with data
+            // Render the view with enhanced data structure
             return Inertia::render('landing-page/job-hiring-landing-page', [
-                'jobs' => $vacancies,
+                'jobs' => $jobs,
                 'companies' => $companies,
             ]);
         } catch (\Exception $e) {
             // Log error and return empty data with error message
-            Log::error('Error in VacanciesController@getVacancies: ' . $e->getMessage());
+            Log::error('Error in VacanciesController@getVacanciesLandingPage: ' . $e->getMessage());
             return Inertia::render('landing-page/job-hiring-landing-page', [
                 'jobs' => [],
                 'companies' => [],

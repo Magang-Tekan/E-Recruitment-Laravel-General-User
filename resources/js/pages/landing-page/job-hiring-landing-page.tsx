@@ -2,7 +2,7 @@ import React from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 
 import { SharedData } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 
 const GlobalStyle = createGlobalStyle`
   body {
@@ -15,12 +15,22 @@ interface Job {
   title: string;
   company: {
     name: string;
+    id: number | null;
   };
   description: string;
   location: string;
   type: string;
-  deadline: string;
   department: string;
+  endTime: string | null;
+  deadline: string;
+  isExpired: boolean;
+  requirements: string[] | string;
+  benefits: string[] | string;
+  salary: string | null;
+  major_id: number | null;
+  major_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 interface Props {
@@ -184,7 +194,7 @@ const DetailButton = styled.button`
   }
 `;
 
-const JobHiring: React.FC<Props> = ({ jobs }) => {
+const JobHiring: React.FC<Props> = ({ jobs, companies }) => {
   const [activeFilter, setActiveFilter] = React.useState<string>('all');
   const [filteredJobs, setFilteredJobs] = React.useState(jobs);
   const { auth } = usePage<SharedData>().props;
@@ -211,6 +221,17 @@ const JobHiring: React.FC<Props> = ({ jobs }) => {
       setFilteredJobs(filtered);
     }
   }, [jobs]);
+
+  // Function to handle job detail navigation with authentication check
+  const handleJobDetailClick = (jobId: number) => {
+    if (!auth?.user) {
+      // If user is not logged in, redirect to register page
+      router.visit(route('register'));
+    } else {
+      // If user is logged in, navigate to job detail page
+      router.visit(`/candidate/job/${jobId}`);
+    }
+  };
 
   // Add effect to handle initial filter from URL
   React.useEffect(() => {
@@ -332,33 +353,92 @@ const JobHiring: React.FC<Props> = ({ jobs }) => {
               >
                 View All
               </FilterButton>
-              <FilterButton
-                active={activeFilter === 'PT MITRA KARYA ANALITIKA'}
-                onClick={() => filterJobs('PT MITRA KARYA ANALITIKA')}
-              >
-                PT MITRA KARYA ANALITIKA
-              </FilterButton>
-              <FilterButton
-                active={activeFilter === 'PT AUTENTIK KARYA ANALITIKA'}
-                onClick={() => filterJobs('PT AUTENTIK KARYA ANALITIKA')}
-              >
-                PT AUTENTIK KARYA ANALITIKA
-              </FilterButton>
+              {companies.map((company) => (
+                <FilterButton
+                  key={company}
+                  active={activeFilter === company}
+                  onClick={() => filterJobs(company)}
+                >
+                  {company}
+                </FilterButton>
+              ))}
             </FilterContainer>
             {filteredJobs.map((job) => (
               <JobCard key={job.id}>
                 <JobInfo>
                   <JobTitle>{job.title}</JobTitle>
                   <Company>{job.company.name}</Company>
-                  <Description>{job.description}</Description>
+                  <Description>
+                    {job.description && job.description.length > 150 
+                      ? `${job.description.substring(0, 150)}...` 
+                      : job.description || 'No description available'}
+                  </Description>
+                  
+                  {/* Requirements Section */}
+                  {job.requirements && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <h6 style={{ fontSize: '14px', fontWeight: '600', color: '#333', marginBottom: '4px' }}>Persyaratan:</h6>
+                      <ul style={{ fontSize: '13px', color: '#666', paddingLeft: '16px', margin: 0 }}>
+                        {(() => {
+                          let reqArray: string[] = [];
+                          
+                          if (Array.isArray(job.requirements)) {
+                            reqArray = job.requirements;
+                          } else if (typeof job.requirements === 'string') {
+                            try {
+                              reqArray = JSON.parse(job.requirements);
+                            } catch {
+                              reqArray = [job.requirements];
+                            }
+                          }
+                          
+                          return reqArray.slice(0, 3).map((req, idx) => (
+                            <li key={idx}>{req}</li>
+                          ));
+                        })()}
+                        {(() => {
+                          let reqArray: string[] = [];
+                          
+                          if (Array.isArray(job.requirements)) {
+                            reqArray = job.requirements;
+                          } else if (typeof job.requirements === 'string') {
+                            try {
+                              reqArray = JSON.parse(job.requirements);
+                            } catch {
+                              reqArray = [job.requirements];
+                            }
+                          }
+                          
+                          return reqArray.length > 3 ? (
+                            <li style={{ color: '#0088FF' }}>dan {reqArray.length - 3} lainnya...</li>
+                          ) : null;
+                        })()}
+                      </ul>
+                    </div>
+                  )}
+
                   <JobDetails>
                     <span>🏢 {job.location}</span>
                     <span>🕒 {job.type}</span>
-                    <span>📅 {job.deadline}</span>
+                    <span>📅 {job.endTime ? (
+                      job.isExpired ? 'Sudah berakhir' : `Berakhir: ${new Date(job.endTime).toLocaleDateString('id-ID')}`
+                    ) : 'Open'}</span>
                     <span>👥 {job.department}</span>
+                    {job.isExpired && (
+                      <span style={{ color: '#ef4444', fontWeight: '600' }}>⚠️ Expired</span>
+                    )}
                   </JobDetails>
                 </JobInfo>
-                <DetailButton>Lihat Detail</DetailButton>
+                <DetailButton 
+                  onClick={() => handleJobDetailClick(job.id)}
+                  disabled={job.isExpired}
+                  style={{
+                    opacity: job.isExpired ? 0.5 : 1,
+                    cursor: job.isExpired ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {job.isExpired ? 'Sudah Berakhir' : 'Lihat Detail'}
+                </DetailButton>
               </JobCard>
             ))}
           </ContentContainer>
