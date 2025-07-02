@@ -506,14 +506,14 @@ class ApplicationHistoryController extends Controller
     private function formatDateSafely($date, $format)
     {
         if (empty($date)) {
-            return now()->format($format);
+            return null;
         }
 
         try {
             return \Carbon\Carbon::parse($date)->format($format);
         } catch (\Exception $e) {
             \Log::warning('Date formatting failed: ' . $e->getMessage());
-            return now()->format($format);
+            return null;
         }
     }
 }
