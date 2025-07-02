@@ -226,7 +226,7 @@
                     <div class="section-title">PENDIDIKAN</div>
                     @foreach($educations->sortByDesc('year_in') as $education)
                     <div class="item">
-                        <div class="item-title">{{ $education->education_level }}</div>
+                        <div class="item-title">{{ $education->educationLevel->name ?? '-' }}</div>
                         <div class="item-subtitle">
                             {{ $education->institution_name }} | {{ $education->year_in ?? '' }} - 
                             {{ $education->year_out ?? 'Sekarang' }}
@@ -295,17 +295,37 @@
                             @if($profile->place_of_birth){{ $profile->place_of_birth }}, @endif
                             {{ date('d M Y', strtotime($profile->date_of_birth)) }}<br><br>
                         @endif
+                        
                         @if($profile->gender)
                             <strong>Jenis Kelamin:</strong><br>
                             {{ $profile->gender == 'male' ? 'Laki-laki' : ($profile->gender == 'female' ? 'Perempuan' : ucfirst($profile->gender)) }}<br><br>
                         @endif
+                        
                         @if($profile->no_ektp)
                             <strong>No. E-KTP:</strong><br>
                             {{ $profile->no_ektp }}<br><br>
                         @endif
+                        
                         @if($profile->npwp)
                             <strong>NPWP:</strong><br>
                             {{ $profile->npwp }}<br><br>
+                        @endif
+
+                        @if($profile->address)
+                            <strong>Alamat:</strong><br>
+                            {{ $profile->address }}
+                            @if($profile->rt), RT {{ $profile->rt }}@endif
+                            @if($profile->rw), RW {{ $profile->rw }}@endif
+                            @if($profile->village), Kel. {{ $profile->village }}@endif
+                            @if($profile->district), Kec. {{ $profile->district }}@endif
+                            @if($profile->city), {{ $profile->city }}@endif
+                            @if($profile->province), {{ $profile->province }}@endif
+                            <br><br>
+                        @endif
+
+                        @if($profile->phone_number)
+                            <strong>No. Telepon:</strong><br>
+                            {{ $profile->phone_number }}<br><br>
                         @endif
                     </div>
                 </div>

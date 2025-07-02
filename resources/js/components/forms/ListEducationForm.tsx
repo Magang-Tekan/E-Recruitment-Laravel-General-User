@@ -12,9 +12,32 @@ if (csrf_token) {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = csrf_token;
 }
 
+// Update interface Education
 interface Education {
     id: number;
+    education_level_id: string;
     education_level: string;
+    educationLevel?: {
+        id: number;
+        name: string;
+    };
+    faculty: string;
+    major_id: string;
+    major: string;
+    institution_name: string;
+    gpa: string;
+    year_in: string;
+    year_out: string;
+}
+
+// Add interface for API response education data
+interface EducationResponse {
+    id: number;
+    education_level_id: string;
+    education_level?: string;
+    educationLevel?: {
+        name: string;
+    };
     faculty: string;
     major_id: string;
     major: string;
@@ -56,29 +79,20 @@ const ListEducationForm: React.FC = () => {
 
     const fetchEducations = async () => {
         try {
-            // Make sure to include the CSRF token in the headers
-            const csrf_token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-            const response = await axios.get('/api/candidate/educations', {
-                headers: {
-                    'X-CSRF-TOKEN': csrf_token,
-                    'Accept': 'application/json'
-                }
-            });
-
+            const response = await axios.get('/api/candidate/educations');
             if (response.data.success && response.data.data) {
-                setEducations(response.data.data);
-            } else {
-                console.warn('Unexpected response format:', response.data);
-                setEducations([]);
+                setEducations(response.data.data.map((education: EducationResponse) => ({
+                    ...education,
+                    education_level: education.educationLevel?.name || education.education_level || '-'
+                })));
             }
+            setLoading(false);
         } catch (error) {
             console.error('Error fetching educations:', error);
             setMessage({
                 type: 'error',
                 text: 'Gagal mengambil data pendidikan'
             });
-        } finally {
             setLoading(false);
         }
     };
@@ -96,32 +110,13 @@ const ListEducationForm: React.FC = () => {
             const data = Object.fromEntries(formData);
 
             if (editingId) {
-                // Convert form data to a proper object
-                const formDataObject: Record<string, string | File> = {};
-                for (const [key, value] of formData.entries()) {
-                    formDataObject[key] = value;
-                }
-
-                // Make sure to include the CSRF token in the headers
-                await axios.put(`/api/candidate/education/${editingId}`, formDataObject, {
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                });
+                await axios.put(`/api/candidate/education/${editingId}`, data);
                 setMessage({
                     type: 'success',
                     text: 'Data pendidikan berhasil diperbarui!'
                 });
             } else {
-                await axios.post('/api/candidate/education', data, {
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                });
+                await axios.post('/api/candidate/education', data);
                 setMessage({
                     type: 'success',
                     text: 'Data pendidikan berhasil ditambahkan!'
@@ -131,11 +126,6 @@ const ListEducationForm: React.FC = () => {
             fetchEducations();
             setIsAdding(false);
             setEditingId(null);
-
-            // Auto hide message after 3 seconds
-            setTimeout(() => {
-                setMessage(null);
-            }, 3000);
 
         } catch (error) {
             console.error('Error saving education:', error);
@@ -191,6 +181,7 @@ const ListEducationForm: React.FC = () => {
             <TambahPendidikanForm
                 formData={editingId
                     ? educations.find(edu => edu.id === editingId) || {
+                        education_level_id: '', // Add this field
                         education_level: '',
                         faculty: '',
                         major_id: '',
@@ -200,6 +191,7 @@ const ListEducationForm: React.FC = () => {
                         year_out: ''
                     }
                     : {
+                        education_level_id: '', // Add this field
                         education_level: '',
                         faculty: '',
                         major_id: '',
@@ -241,7 +233,9 @@ const ListEducationForm: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
             <div>
                 <p className="text-blue-700 font-medium">Tingkat Pendidikan</p>
-                <p className="text-gray-900">{education.education_level}</p>
+                <p className="text-gray-900">
+                    {education.education_level || education.educationLevel?.name || '-'}
+                </p>
             </div>
             <div>
                 <p className="text-blue-700 font-medium">Fakultas</p>
@@ -261,7 +255,9 @@ const ListEducationForm: React.FC = () => {
             </div>
             <div>
                 <p className="text-blue-700 font-medium">Tahun</p>
-                <p className="text-gray-900">{education.year_in} - {education.year_out || 'Sekarang'}</p>
+                <p className="text-gray-900">
+                    {education.year_in} - {education.year_out || 'Sekarang'}
+                </p>
             </div>
         </div>
         <div className="mt-4 flex justify-start space-x-4">

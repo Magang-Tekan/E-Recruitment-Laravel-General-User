@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 
 import { SharedData } from '@/types';
@@ -242,6 +242,19 @@ const JobHiring: React.FC<Props> = ({ jobs, companies }) => {
     }
   }, [filterJobs]);
 
+  // Close dropdown if clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const dropdown = document.getElementById('profile-dropdown');
+      if (dropdown && !dropdown.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <>
       <GlobalStyle />
@@ -268,7 +281,7 @@ const JobHiring: React.FC<Props> = ({ jobs, companies }) => {
                             {auth?.user ? (
                                 <div className="relative">
                                     <button
-                                        onClick={() => setShowDropdown(!showDropdown)} // Add this state
+                                        onClick={() => setShowDropdown(!showDropdown)}
                                         className="w-10 h-10 border-2 border-[#0047FF] rounded-full flex items-center justify-center text-[#0047FF] hover:bg-blue-50"
                                     >
                                         <svg

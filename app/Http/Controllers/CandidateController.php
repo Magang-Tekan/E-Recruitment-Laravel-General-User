@@ -276,7 +276,7 @@ class CandidateController extends Controller
             \Log::info('Storing education data. Request:', $request->all());
 
             $validated = $request->validate([
-                'education_level' => 'required|string',
+                'education_level_id' => 'required|exists:education_levels,id', // Changed from education_level
                 'faculty' => 'required|string',
                 'major_id' => 'required|exists:master_majors,id',
                 'institution_name' => 'required|string',
@@ -287,19 +287,21 @@ class CandidateController extends Controller
 
             \Log::info('Validated data:', $validated);
 
-            // Ubah dari updateOrCreate menjadi create
-            $education = CandidatesEducations::create([
-                'user_id' => Auth::id(),
-                ...$validated
-            ]);
+            // Add user_id to validated data
+            $validated['user_id'] = Auth::id();
 
-            // Get fresh data with major
+            // Create new education record
+            $education = CandidatesEducations::create($validated);
+
+            // Get fresh data with relationships
             $education->refresh();
             $major = \App\Models\MasterMajor::find($education->major_id);
+            $educationLevel = \App\Models\EducationLevel::find($education->education_level_id);
 
             $responseData = [
                 'id' => $education->id,
-                'education_level' => $education->education_level,
+                'education_level_id' => $education->education_level_id,
+                'education_level' => $educationLevel ? $educationLevel->name : null,
                 'faculty' => $education->faculty,
                 'major_id' => (string)$education->major_id,
                 'major' => $major ? $major->name : null,
@@ -313,7 +315,7 @@ class CandidateController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Data pendidikan berhasil disimpan',
+                'message' => 'Data pendidikan berhasil disimpan!',
                 'data' => $responseData
             ]);
 
@@ -331,22 +333,24 @@ class CandidateController extends Controller
         try {
             \Log::info('Getting education data for user: ' . Auth::id());
 
-            $education = CandidatesEducations::where('user_id', Auth::id())->first();
+            $education = CandidatesEducations::with(['major', 'educationLevel'])
+                ->where('user_id', Auth::id())
+                ->first();
 
             if (!$education) {
-                \Log::info('No education data found');
-                return response()->json(null);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data pendidikan tidak ditemukan'
+                ], 404);
             }
-
-            // Get major data
-            $major = \App\Models\MasterMajor::find($education->major_id);
 
             $educationData = [
                 'id' => $education->id,
-                'education_level' => $education->education_level,
+                'education_level_id' => $education->education_level_id,
+                'education_level' => $education->educationLevel ? $education->educationLevel->name : null,
                 'faculty' => $education->faculty,
                 'major_id' => (string)$education->major_id,
-                'major' => $major ? $major->name : null,
+                'major' => $education->major ? $education->major->name : null,
                 'institution_name' => $education->institution_name,
                 'gpa' => $education->gpa,
                 'year_in' => $education->year_in,
@@ -355,13 +359,16 @@ class CandidateController extends Controller
 
             \Log::info('Education data retrieved:', $educationData);
 
-            return response()->json($educationData);
+            return response()->json([
+                'success' => true,
+                'data' => $educationData
+            ]);
 
         } catch (\Exception $e) {
             \Log::error('Error getting education data: ' . $e->getMessage());
             return response()->json([
-                'message' => 'Error getting education data',
-                'error' => $e->getMessage()
+                'success' => false,
+                'message' => 'Error getting education data: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -892,16 +899,10 @@ class CandidateController extends Controller
             // Get all required data
             $profile = CandidatesProfiles::where('user_id', $userId)->firstOrFail();
 
-            $educations = CandidatesEducations::where('user_id', $userId)
-                ->orderBy('year_in', 'desc')
+            $educations = CandidatesEducations::with('educationLevel') // Add this eager loading
+                ->where('user_id', $userId)
+                ->orderByDesc('year_in')
                 ->get();
-
-            // Map educations with majors
-            $educations = $educations->map(function($education) {
-                $major = \App\Models\MasterMajor::find($education->major_id);
-                $education->major = $major ? $major->name : null;
-                return $education;
-            });
 
             $workExperiences = CandidatesWorkExperiences::where('user_id', $userId)
                 ->orderBy('start_year', 'desc')
@@ -931,7 +932,8 @@ class CandidateController extends Controller
                 'skills' => $skills,
                 'courses' => $courses,
                 'certifications' => $certifications,
-                'languages' => $languages
+                'languages' => $languages,
+                'socialMedia' => CandidatesSocialMedia::where('user_id', $userId)->get()
             ];
 
             \Log::info('Generating PDF with data:', ['userId' => $userId]);
@@ -1824,19 +1826,19 @@ public function uploadProfileImage(Request $request)
 public function getAllEducations()
 {
     try {
-        $educations = CandidatesEducations::where('user_id', Auth::id())
+        $educations = CandidatesEducations::with(['major', 'educationLevel'])
+            ->where('user_id', Auth::id())
             ->orderBy('year_in', 'desc')
             ->get();
 
-        // Join dengan master_majors untuk mendapatkan nama jurusan
         $educations = $educations->map(function($education) {
-            $major = \App\Models\MasterMajor::find($education->major_id);
             return [
                 'id' => $education->id,
-                'education_level' => $education->education_level,
+                'education_level_id' => $education->education_level_id,
+                'education_level' => $education->educationLevel ? $education->educationLevel->name : null,
                 'faculty' => $education->faculty,
                 'major_id' => $education->major_id,
-                'major' => $major ? $major->name : null,
+                'major' => $education->major ? $education->major->name : null,
                 'institution_name' => $education->institution_name,
                 'gpa' => $education->gpa,
                 'year_in' => $education->year_in,
@@ -1888,7 +1890,7 @@ public function updateEducation(Request $request, $id)
             ->firstOrFail();
 
         $validated = $request->validate([
-            'education_level' => 'required|string',
+            'education_level_id' => 'required|exists:education_levels,id', // Changed from education_level
             'faculty' => 'required|string',
             'major_id' => 'required|exists:master_majors,id',
             'institution_name' => 'required|string',
@@ -1905,10 +1907,12 @@ public function updateEducation(Request $request, $id)
 
         // Get major data to include in the response
         $major = \App\Models\MasterMajor::find($education->major_id);
+        $educationLevel = \App\Models\EducationLevel::find($education->education_level_id);
 
         $responseData = [
             'id' => $education->id,
-            'education_level' => $education->education_level,
+            'education_level_id' => $education->education_level_id,
+            'education_level' => $educationLevel ? $educationLevel->name : null,
             'faculty' => $education->faculty,
             'major_id' => (string)$education->major_id,
             'major' => $major ? $major->name : null,
@@ -2073,7 +2077,7 @@ public function showPsychotest($application_id = null)
         $activePsychoTest = ApplicationHistory::where('application_id', $application->id)
             ->where('is_active', true)
             ->whereHas('status', function ($query) {
-                $query->where('stage', \App\Enums\CandidatesStage::PSYCHOTEST->value)
+                               $query->where('stage', \App\Enums\CandidatesStage::PSYCHOTEST->value)
                     ->orWhere('name', 'like', '%Psiko%')
                     ->orWhere('name', 'like', '%Psychological%');
             })

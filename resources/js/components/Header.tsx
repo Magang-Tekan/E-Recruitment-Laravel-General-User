@@ -1,140 +1,117 @@
 import { Link, usePage } from '@inertiajs/react';
-import React from 'react';
-import styled from 'styled-components';
+import React, { useEffect, useState } from 'react';
+import { SharedData } from '@/types';
 
-const HeaderWrapper = styled.header`
-  position: fixed;
-  top: 0; right: 0; left: 0;
-  z-index: 50;
-  height: 80px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fff;
-  padding: 0 20px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-`;
+const Header = () => {
+    const { auth } = usePage<SharedData>().props;
+    const [showDropdown, setShowDropdown] = useState(false);
 
-const Container = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  height: 100%;
-  position: relative;
-`;
+    // Add click outside handler to close dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const dropdown = document.getElementById('profile-dropdown');
+            if (dropdown && !dropdown.contains(event.target as Node)) {
+                setShowDropdown(false);
+            }
+        };
 
-const Logo = styled.div`
-  font-size: 20px;
-  font-weight: bold;
-  color: #1f2937;
-  flex: 0 0 auto;
-`;
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
-const CenterMenu = styled.div`
-  position: absolute;
-  left: 50%;
-  top: 0;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  transform: translateX(-50%);
-`;
+    return (
+        <header className="fixed top-0 right-0 left-0 z-50 h-[80px] border-b border-gray-200 bg-white px-[20px] shadow">
+            <div className="container mx-auto flex items-center justify-between px-6 py-4">
+                <div className="text-[20px] font-bold text-gray-800">MITRA KARYA GROUP</div>
 
-const Nav = styled.nav`
-  display: flex;
-  gap: 32px;
-  font-size: 14px;
-  font-weight: 500;
-`;
-
-const NavLink = styled(Link)`
-  color: #222;
-  text-decoration: none;
-  transition: color 0.2s;
-  &:hover {
-    color: #2563eb;
-  }
-`;
-
-const Actions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex: 0 0 auto;
-`;
-
-const Button = styled(Link)<{ primary?: boolean }>`
-  border-radius: 6px;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  border: ${({ primary }) => (primary ? 'none' : '1px solid #2563eb')};
-  background: ${({ primary }) => (primary ? '#2563eb' : 'transparent')};
-  color: ${({ primary }) => (primary ? '#fff' : '#2563eb')};
-  transition: background 0.2s, color 0.2s;
-  &:hover {
-    background: ${({ primary }) => (primary ? '#1d4ed8' : '#eff6ff')};
-    color: ${({ primary }) => (primary ? '#fff' : '#2563eb')};
-    text-decoration: ${({ primary }) => (primary ? 'none' : 'underline')};
-  }
-`;
-
-const ProfileIcon = styled(Link)`
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  border: 2px solid #2563eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  transition: box-shadow 0.2s;
-  &:hover {
-    box-shadow: 0 2px 8px rgba(37,99,235,0.08);
-  }
-`;
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-}
-
-const Header: React.FC = () => {
-  const { auth } = usePage().props as { auth?: { user?: User } };
-
-  return (
-    <HeaderWrapper>
-      <Container>
-        <Logo>MITRA KARYA GROUP</Logo>
-        <CenterMenu>
-          <Nav>
-            <NavLink href="/">Dasbor</NavLink>
-            <NavLink href="/candidate/profile">Profil</NavLink>
-            <NavLink href="/candidate/jobs">Lowongan Pekerjaan</NavLink>
-            <NavLink href="/candidate/application-history">Lamaran</NavLink>
-          </Nav>
-        </CenterMenu>
-        <Actions>
-          {auth?.user ? (
-            <ProfileIcon href={route('user.profile') as string}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                <rect x="2" y="2" width="20" height="20" rx="6" fill="#fff" stroke="#2563eb" strokeWidth="2"/>
-                <circle cx="12" cy="10" r="4" fill="#2563eb"/>
-                <rect x="6" y="16" width="12" height="4" rx="2" fill="#2563eb"/>
-              </svg>
-            </ProfileIcon>
-          ) : (
-            <>
-              <Button href={route('login') as string} style={{ background: 'none', color: '#2563eb', border: 'none', padding: 0 }}>Masuk</Button>
-              <Button href={route('register') as string} primary>Daftar</Button>
-            </>
-          )}
-        </Actions>
-      </Container>
-    </HeaderWrapper>
-  );
+                <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
+                    <Link href="/" className="text-gray-900 hover:text-blue-600">
+                        Beranda
+                    </Link>
+                    <Link href="/job-hiring-landing-page" className="text-gray-900 hover:text-blue-600">
+                        Lowongan Pekerjaan
+                    </Link>
+                    <Link href="/about-us" className="text-gray-900 hover:text-blue-600">
+                        Tentang Kami
+                    </Link>
+                    <Link href="/contact" className="text-gray-900 hover:text-blue-600">
+                        Kontak
+                    </Link>
+                </nav>
+                
+                <div className="flex items-center gap-4">
+                    {auth?.user ? (
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowDropdown(!showDropdown)}
+                                className="w-10 h-10 border-2 border-[#0047FF] rounded-full flex items-center justify-center text-[#0047FF] hover:bg-blue-50"
+                            >
+                                <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                    />
+                                </svg>
+                            </button>
+                            {showDropdown && (
+                                <div
+                                    id="profile-dropdown"
+                                    className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-md py-1 z-50 border border-gray-300"
+                                    onBlur={() => setShowDropdown(false)}
+                                >
+                                    <div className="px-4 py-2">
+                                        <p className="text-sm font-medium text-gray-900">{auth.user.name}</p>
+                                        <p className="text-sm text-gray-500">{auth.user.email}</p>
+                                    </div>
+                                    <Link
+                                        href="/candidate/profile"
+                                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                        Profil Saya
+                                    </Link>
+                                    <form method="POST" action="/logout">
+                                        <input
+                                            type="hidden"
+                                            name="_token"
+                                            value={document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''}
+                                        />
+                                        <button
+                                            type="submit"
+                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        >
+                                            Logout
+                                        </button>
+                                    </form>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            <Link
+                                href={route('login')}
+                                className="text-sm font-medium text-blue-600 hover:underline"
+                            >
+                                Masuk
+                            </Link>
+                            <Link
+                                href={route('register')}
+                                className="rounded-md bg-blue-600 px-[16px] py-[10px] text-[14px] text-white hover:bg-blue-700"
+                            >
+                                Daftar
+                            </Link>
+                        </>
+                    )}
+                </div>
+            </div>
+        </header>
+    );
 };
 
 export default Header;

@@ -12,10 +12,10 @@ class CandidatesEducations extends Model
     protected $fillable = [
         'id',
         'user_id',
-        'education_level',
+        'education_level_id', // Ubah dari education_level menjadi education_level_id
         'faculty',
-        'major_id', // tetap mereferensi ke master_majors
-        'institution_name', // ubah kembali dari institution_id ke institution_name
+        'major_id',
+        'institution_name',
         'gpa',
         'year_in',
         'year_out'
@@ -30,6 +30,10 @@ class CandidatesEducations extends Model
     {
         return $this->belongsTo(MasterMajor::class, 'major_id');
     }
-
-    // Hapus relasi institution karena tidak lagi menggunakan master institution
+    
+    public function educationLevel()
+    {
+        // Ubah relasi menggunakan id
+        return $this->belongsTo(EducationLevel::class, 'education_level_id');
+    }
 }

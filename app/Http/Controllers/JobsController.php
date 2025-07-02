@@ -345,12 +345,15 @@ class JobsController extends Controller
         $requiredEducation = 'S1'; // Default for testing
 
         if (Auth::check()) {
-            $education = CandidatesEducations::where('user_id', Auth::id())->first();
+            $education = CandidatesEducations::with('educationLevel')
+                ->where('user_id', Auth::id())
+                ->first();
+            
             if ($education) {
                 $userMajor = $education->major_id;
-                $userEducation = $education->education_level;
+                $userEducation = $education->educationLevel ? $education->educationLevel->name : null;
 
-                // Cek kesesuaian jurusan
+                // Check major match
                 $isMajorMatched = ($vacancy->major_id == $userMajor);
 
                 // Find minimum education requirement
@@ -388,14 +391,16 @@ class JobsController extends Controller
                     }
                 }
 
-                // Check education match
-                $educationMatched = $this->validateEducationLevel($userEducation, $requiredEducation);
+                // Check education match using the education level name
+                if ($userEducation) {
+                    $educationMatched = $this->validateEducationLevel($userEducation, $requiredEducation);
 
-                \Log::info('Education check in detail page', [
-                    'user_education' => $userEducation,
-                    'required_education' => $requiredEducation,
-                    'is_matched' => $educationMatched
-                ]);
+                    \Log::info('Education check in detail page', [
+                        'user_education' => $userEducation,
+                        'required_education' => $requiredEducation,
+                        'is_matched' => $educationMatched
+                    ]);
+                }
             }
         }
 
@@ -1016,8 +1021,10 @@ class JobsController extends Controller
     private function validateCandidateEducation($user, $vacancy)
     {
         try {
-            // Ambil data pendidikan terakhir candidate
-            $education = CandidatesEducations::where('user_id', $user->id)->first();
+            // Get candidate's education with educationLevel relation
+            $education = CandidatesEducations::with('educationLevel')
+                ->where('user_id', $user->id)
+                ->first();
 
             if (!$education) {
                 return [
@@ -1028,17 +1035,16 @@ class JobsController extends Controller
                 ];
             }
 
-            // Ambil requirements dari vacancy
+            // Get requirements from vacancy
             $requirements = is_string($vacancy->requirements)
                 ? json_decode($vacancy->requirements, true)
                 : $vacancy->requirements;
 
-            // Default minimum education requirement (bisa disesuaikan)
+            // Default minimum education requirement
             $requiredEducation = 'SMA'; // Default requirement
 
-            // Extract minimum education dari requirements
+            // Extract minimum education from requirements
             if (is_array($requirements)) {
-                // Check for structured fields
                 if (isset($requirements['min_education'])) {
                     $requiredEducation = $requirements['min_education'];
                 } elseif (isset($requirements['minimum_education'])) {
@@ -1046,17 +1052,16 @@ class JobsController extends Controller
                 } elseif (isset($requirements['pendidikan_minimal'])) {
                     $requiredEducation = $requirements['pendidikan_minimal'];
                 } else {
-                    // Try to extract from requirements text - IMPROVED LOGIC
+                    // Try to extract from requirements text
                     foreach ($requirements as $req) {
                         if (is_string($req)) {
-                            // Check for various education patterns
                             if (stripos($req, 'S3') !== false || stripos($req, 'Doktor') !== false) {
                                 $requiredEducation = 'S3';
                                 break;
-                            } elseif (stripos($req, 'S2') !== false || stripos($req, 'Magister') !== false || stripos($req, 'Master') !== false) {
+                            } elseif (stripos($req, 'S2') !== false || stripos($req, 'Magister') !== false) {
                                 $requiredEducation = 'S2';
                                 break;
-                            } elseif (stripos($req, 'S1') !== false || stripos($req, 'Sarjana') !== false || stripos($req, 'Lulusan S1') !== false) {
+                            } elseif (stripos($req, 'S1') !== false || stripos($req, 'Sarjana') !== false) {
                                 $requiredEducation = 'S1';
                                 break;
                             } elseif (stripos($req, 'D3') !== false || stripos($req, 'Diploma') !== false) {
@@ -1071,7 +1076,17 @@ class JobsController extends Controller
                 }
             }
 
-            $candidateEducation = $education->education_level;
+            // Get candidate's education level name from relation
+            $candidateEducation = $education->educationLevel ? $education->educationLevel->name : null;
+
+            if (!$candidateEducation) {
+                return [
+                    'is_valid' => false,
+                    'message' => 'Data jenjang pendidikan tidak valid.',
+                    'candidate_education' => null,
+                    'required_education' => $requiredEducation
+                ];
+            }
 
             // Validate using existing method
             $isValid = $this->validateEducationLevel($candidateEducation, $requiredEducation);
