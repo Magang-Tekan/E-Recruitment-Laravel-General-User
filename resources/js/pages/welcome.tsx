@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 interface Contact {
@@ -24,14 +24,22 @@ interface JobOpening {
     title: string;
     company: {
         name: string;
+        id: number | null;
     };
-    department: string;
+    description: string;
     location: string;
     type: string;
-    benefits: string[];
-    requirements: string[];
-    endTime: string | null;  // Added for deadline
-    isExpired: boolean;      // Added for expired status
+    department: string;
+    endTime: string | null;
+    deadline: string;
+    isExpired: boolean;
+    requirements: string[] | string;
+    benefits: string[] | string;
+    salary: string | null;
+    major_id: number | null;
+    major_name: string | null;
+    created_at: string | null;
+    updated_at: string | null;
 }
 
 // Definisi interface untuk Company
@@ -47,8 +55,7 @@ const scrollToSection = (id: string) => {
 };
 
 export default function Welcome(props: WelcomeProps) {
-    // Destructure companies dari props
-    const { vacancies, companies } = props;
+    // Get auth data from Inertia shared props
     const { auth } = usePage<SharedData>().props;
 
     const backgroundImages = [
@@ -103,6 +110,17 @@ export default function Welcome(props: WelcomeProps) {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Function to handle job detail navigation with authentication check
+    const handleJobDetailClick = (jobId: number) => {
+        if (!auth?.user) {
+            // If user is not logged in, redirect to register page
+            router.visit(route('register'));
+        } else {
+            // If user is logged in, navigate to job detail page
+            router.visit(`/candidate/job/${jobId}`);
+        }
+    };
 
     return (
         <>
@@ -169,13 +187,13 @@ export default function Welcome(props: WelcomeProps) {
                                                 Profil Saya
                                             </Link>
                                             <form method="POST" action="/logout">
-                                                <input 
-                                                    type="hidden" 
-                                                    name="_token" 
-                                                    value={document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''} 
+                                                <input
+                                                    type="hidden"
+                                                    name="_token"
+                                                    value={document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''}
                                                 />
-                                                <button 
-                                                    type="submit" 
+                                                <button
+                                                    type="submit"
                                                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                                 >
                                                     Logout
@@ -186,8 +204,8 @@ export default function Welcome(props: WelcomeProps) {
                                 </div>
                             ) : (
                                 <>
-                                    <Link 
-                                        href={route('login')} 
+                                    <Link
+                                        href={route('login')}
                                         className="text-sm font-medium text-blue-600 hover:underline"
                                     >
                                         Masuk
@@ -258,11 +276,11 @@ export default function Welcome(props: WelcomeProps) {
                                         <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4">
                                             <img src={card.icon} alt="" className="w-full h-full" />
                                         </div>
-                                        
+
                                         <h3 className="text-lg font-semibold mb-3 text-center">
                                             {card.title}
                                         </h3>
-                                        
+
                                         <p className="text-sm text-gray-600 text-center w-full overflow-hidden">
                                             {card.description}
                                         </p>
@@ -281,14 +299,14 @@ export default function Welcome(props: WelcomeProps) {
                                 props.companies
                                     .filter(company => [2, 3].includes(company.id)) // Filter only ID 2 and 3
                                     .map((company) => (
-                                        <div 
-                                            key={company.id} 
+                                        <div
+                                            key={company.id}
                                             className="mx-auto flex w-[528px] items-start gap-4 text-left hover:shadow-lg transition-all duration-300 rounded-lg p-4"
                                         >
-                                            <img 
+                                            <img
                                                 src={company.logo}
                                                 alt={company.name}
-                                                className="mt-1 h-[60px] w-[60px] object-contain" 
+                                                className="mt-1 h-[60px] w-[60px] object-contain"
                                                 onError={(e) => {
                                                     const target = e.target as HTMLImageElement;
                                                     target.src = '/images/default-company-logo.png';
@@ -321,7 +339,7 @@ export default function Welcome(props: WelcomeProps) {
                     <div className="container mx-auto px-6">
                         <h2 className="mb-[16px] text-[24px] font-bold md:text-[32px]">LOWONGAN PEKERJAAN TERSEDIA</h2>
                         <p className="mx-auto mb-[40px] max-w-[672px] text-[16px] text-gray-600">
-                            Temukan posisi yang sesuai dengan minat dan keahlian Anda di PT Mitra Karya Analitika. 
+                            Temukan posisi yang sesuai dengan minat dan keahlian Anda di PT Mitra Karya Analitika.
                             Kami membuka peluang karier di berbagai bidang.
                         </p>
                         <div className="mb-[40px] grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -342,32 +360,65 @@ export default function Welcome(props: WelcomeProps) {
                                                 <span>{job.company.name}</span>
                                                 <span>•</span>
                                                 <span>{job.location}</span>
+                                                <span>•</span>
+                                                <span>{job.type}</span>
                                                 {job.endTime && (
                                                     <>
                                                         <span>•</span>
                                                         <span className={job.isExpired ? 'text-red-600' : 'text-green-600'}>
-                                                            Lamar sebelum: {job.endTime}
+                                                            {job.isExpired ? 'Sudah berakhir' : `Berakhir: ${new Date(job.endTime).toLocaleDateString('id-ID')}`}
                                                         </span>
                                                     </>
                                                 )}
                                             </div>
+                                            {job.description && (
+                                                <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                                                    {job.description.length > 120
+                                                        ? `${job.description.substring(0, 120)}...`
+                                                        : job.description}
+                                                </p>
+                                            )}
                                         </div>
-                                        
+
                                         <div className="mb-4">
                                             {job.requirements && (
                                                 <div>
                                                     <h4 className="text-sm font-semibold mb-1">Persyaratan:</h4>
                                                     <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                                                        {Array.isArray(job.requirements) 
-                                                            ? job.requirements.slice(0, 3).map((req, idx) => (
+                                                        {(() => {
+                                                            let reqArray: string[] = [];
+
+                                                            if (Array.isArray(job.requirements)) {
+                                                                reqArray = job.requirements;
+                                                            } else if (typeof job.requirements === 'string') {
+                                                                try {
+                                                                    reqArray = JSON.parse(job.requirements);
+                                                                } catch {
+                                                                    reqArray = [job.requirements];
+                                                                }
+                                                            }
+
+                                                            return reqArray.slice(0, 3).map((req, idx) => (
                                                                 <li key={idx}>{req}</li>
-                                                            ))
-                                                            : typeof job.requirements === 'string'
-                                                                ? JSON.parse(job.requirements).slice(0, 3).map((req: string, idx: number) => (
-                                                                    <li key={idx}>{req}</li>
-                                                                ))
-                                                                : <li>No requirements specified</li>
-                                                        }
+                                                            ));
+                                                        })()}
+                                                        {(() => {
+                                                            let reqArray: string[] = [];
+
+                                                            if (Array.isArray(job.requirements)) {
+                                                                reqArray = job.requirements;
+                                                            } else if (typeof job.requirements === 'string') {
+                                                                try {
+                                                                    reqArray = JSON.parse(job.requirements);
+                                                                } catch {
+                                                                    reqArray = [job.requirements];
+                                                                }
+                                                            }
+
+                                                            return reqArray.length > 3 ? (
+                                                                <li className="text-blue-600">dan {reqArray.length - 3} lainnya...</li>
+                                                            ) : null;
+                                                        })()}
                                                     </ul>
                                                 </div>
                                             )}
@@ -379,12 +430,13 @@ export default function Welcome(props: WelcomeProps) {
                                                     {job.type}
                                                 </span>
                                             </div>
-                                            
-                                            <Link href={`/jobs/${job.id}`}>
-                                                <Button className="w-full rounded bg-blue-600 py-2 text-sm text-white hover:bg-blue-700">
-                                                    Lihat Detail
-                                                </Button>
-                                            </Link>
+
+                                            <Button
+                                                className="w-full rounded bg-blue-600 py-2 text-sm text-white hover:bg-blue-700"
+                                                onClick={() => handleJobDetailClick(job.id)}
+                                            >
+                                                Lihat Detail
+                                            </Button>
                                         </div>
                                     </div>
                                 ))
@@ -501,17 +553,17 @@ export default function Welcome(props: WelcomeProps) {
                                         <i className="fab fa-instagram"></i>
                                     </a>
                                     <div className="absolute bottom-full left-0 mb-1 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-40">
-                                        <a 
-                                            href="https://www.instagram.com/mikacares.id" 
-                                            target="_blank" 
+                                        <a
+                                            href="https://www.instagram.com/mikacares.id"
+                                            target="_blank"
                                             rel="noopener noreferrer"
                                             className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
                                         >
                                             @mikacares.id
                                         </a>
-                                        <a 
-                                            href="https://www.instagram.com/autentik.co.id" 
-                                            target="_blank" 
+                                        <a
+                                            href="https://www.instagram.com/autentik.co.id"
+                                            target="_blank"
                                             rel="noopener noreferrer"
                                             className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
                                         >
@@ -527,9 +579,9 @@ export default function Welcome(props: WelcomeProps) {
                                     </a>
                                     <div className="absolute bottom-8 left-0 mb-1 bg-white shadow-lg rounded-lg p-3 hidden group-hover:block z-50 w-72">
                                         <div className="flex flex-col gap-3">
-                                            <a 
-                                                href="https://www.linkedin.com/company/pt-mitra-karya-analitika" 
-                                                target="_blank" 
+                                            <a
+                                                href="https://www.linkedin.com/company/pt-mitra-karya-analitika"
+                                                target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
                                             >
@@ -540,9 +592,9 @@ export default function Welcome(props: WelcomeProps) {
                                                 </div>
                                             </a>
                                             <div className="border-t border-gray-100"></div>
-                                            <a 
-                                                href="https://www.linkedin.com/company/pt-autentik-karya-analitika" 
-                                                target="_blank" 
+                                            <a
+                                                href="https://www.linkedin.com/company/pt-autentik-karya-analitika"
+                                                target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
                                             >
@@ -598,8 +650,8 @@ export default function Welcome(props: WelcomeProps) {
                                         </li>
                                         <li className="flex items-start gap-2">
                                             <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
-                                            <span dangerouslySetInnerHTML={{ 
-                                                __html: props.contacts.address.replace(/\n/g, '<br />') 
+                                            <span dangerouslySetInnerHTML={{
+                                                __html: props.contacts.address.replace(/\n/g, '<br />')
                                             }} />
                                         </li>
                                     </>
