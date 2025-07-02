@@ -353,7 +353,7 @@ const JobHiring: React.FC<Props> = ({ jobs = [], recommendations: initialRecomme
           </ContentContainer>
         </JobHiringContainer>
       </PageWrapper>
-      <Footer companies={[]} footerCompanies={[]} contacts={null} />
+      <Footer />
     </>
   );
 };
