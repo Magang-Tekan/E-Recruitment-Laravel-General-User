@@ -12,9 +12,10 @@ class CreateApplicationHistoryTable extends Migration
             $table->id();
             $table->foreignId('application_id')->constrained('applications')->onDelete('cascade');
             
-            // Mengubah referensi dari 'selection' ke 'statuses'
+            
             $table->foreignId('status_id')->constrained('statuses')->onDelete('cascade');
             $table->timestamp('processed_at')->nullable();
+            $table->text('resource_url')->nullable();
             
             // Kolom score dan notes yang disederhanakan (tidak lagi dibagi per tahap)
             $table->decimal('score', 5, 2)->nullable();

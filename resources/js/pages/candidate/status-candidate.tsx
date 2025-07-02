@@ -107,6 +107,65 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         return new Date(dateString).toLocaleDateString('id-ID', options);
     };
 
+    const renderPsychotestButton = (histories: any[]) => {
+        // Cari status psychotest yang aktif MILIK APLIKASI INI
+        const psychotestHistory = histories.find(history =>
+            (history.is_active &&
+             (history.status_name.toLowerCase().includes('psiko') ||
+              history.status_name.toLowerCase().includes('psychological')))
+        );
+
+        // Log untuk debugging yang lebih detail
+        console.log('Debug psychotest history data:', {
+            history_id: psychotestHistory?.id,
+            application_id: application.id,
+            status_name: psychotestHistory?.status_name,
+            is_active: psychotestHistory?.is_active,
+            completed_at: psychotestHistory?.completed_at,
+            completed_at_type: psychotestHistory?.completed_at === null ? 'null' :
+                              psychotestHistory?.completed_at === undefined ? 'undefined' :
+                              typeof psychotestHistory?.completed_at,
+            scheduled_at: psychotestHistory?.scheduled_at
+        });
+
+        // Jika tidak ada status psikotes yang aktif, tidak perlu tombol
+        if (!psychotestHistory) {
+            return null;
+        }
+
+        // Pemeriksaan yang lebih ketat terhadap completed_at
+        // Gunakan kondisi SANGAT SPESIFIK untuk menentukan apakah sudah dikerjakan atau belum
+        const isCompleted = psychotestHistory.completed_at !== null &&
+                           psychotestHistory.completed_at !== undefined &&
+                           psychotestHistory.completed_at !== '';
+
+        // Jika psikotes aktif dan belum dikerjakan
+        if (psychotestHistory.is_active && !isCompleted) {
+            return (
+                <a
+                    href={`/candidate/tests/psychotest/${application.id}`}
+                    className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 inline-block"
+                >
+                    Mulai Mengerjakan
+                </a>
+            );
+        }
+
+        // Jika psikotes aktif dan sudah dikerjakan
+        if (psychotestHistory.is_active && isCompleted) {
+            return (
+                <button
+                    disabled
+                    className="px-6 py-3 bg-green-500 text-white font-medium rounded-lg opacity-80 cursor-default inline-block"
+                >
+                    Sudah Dikerjakan
+                </button>
+            );
+        }
+
+        // Default - tidak digunakan karena kita hanya menampilkan tombol jika ada tahap psikotes aktif
+        return null;
+    };
     return (
         <div className="min-h-screen bg-gray-50">
             <Head title="Status Aplikasi" />
@@ -246,12 +305,14 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                                                     <h5 className="font-medium text-gray-900 mb-3">Detail:</h5>
 
+                                                    {/* Bagian detail tahapan rekrutmen (tanggal, lokasi, durasi) */}
                                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                                         <div className="flex items-center">
                                                             <CalendarIcon />
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Tanggal</p>
-                                                                <p className="font-medium">{formatDateOnly(history.created_at)}</p>
+                                                                {/* Ubah warna teks menjadi hitam */}
+                                                                <p className="font-medium text-gray-900">{formatDateOnly(history.created_at)}</p>
                                                             </div>
                                                         </div>
 
@@ -259,7 +320,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <MapPinIcon />
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Lokasi</p>
-                                                                <p className="font-medium">
+                                                                {/* Ubah warna teks menjadi hitam */}
+                                                                <p className="font-medium text-gray-900">
                                                                     {history.status_name.toLowerCase().includes('psikotes') ||
                                                                      history.status_name.toLowerCase().includes('test') ||
                                                                      history.status_name.toLowerCase().includes('psychological') ?
@@ -272,7 +334,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <ClockIcon />
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Durasi</p>
-                                                                <p className="font-medium">
+                                                                {/* Ubah warna teks menjadi hitam */}
+                                                                <p className="font-medium text-gray-900">
                                                                     {history.status_name.toLowerCase().includes('psikotes') ||
                                                                      history.status_name.toLowerCase().includes('test') ||
                                                                      history.status_name.toLowerCase().includes('psychological') ?
@@ -284,7 +347,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                         {history.score && (
                                                             <div>
                                                                 <p className="text-gray-500">Skor</p>
-                                                                <p className="font-medium">{history.score}/100</p>
+                                                                {/* Ubah warna teks menjadi hitam */}
+                                                                <p className="font-medium text-gray-900">{history.score}/100</p>
                                                             </div>
                                                         )}
                                                     </div>
@@ -292,73 +356,60 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                     {/* Reviewer info */}
                                                     {history.reviewed_by && (
                                                         <div className="mt-3">
-                                                            <p className="text-gray-500 text-sm">Reviewer: <span className="font-medium">{history.reviewed_by}</span></p>
+                                                            {/* Ubah warna teks reviewer menjadi hitam */}
+                                                            <p className="text-gray-500 text-sm">Reviewer: <span className="font-medium text-gray-900">{history.reviewed_by}</span></p>
                                                         </div>
                                                     )}
 
-                                                    {/* Stage-specific content for tests */}
-                                                    {(history.status_name.toLowerCase().includes('psikotes') ||
-                                                      history.status_name.toLowerCase().includes('test') ||
-                                                      history.status_name.toLowerCase().includes('psychological')) && (
-                                                        <div className="mt-4">
-                                                            <h6 className="font-medium text-gray-900 mb-2">Jenis Tes:</h6>
-                                                            <ul className="text-sm text-gray-600 space-y-1">
-                                                                <li>• Tes Kepribadian MBTI & Kecerdasan Logika</li>
-                                                            </ul>
+                                                    {/* Jenis Tes heading dan content */}
+                                                    <h6 className="font-medium text-gray-900 mb-2">Jenis Tes:</h6>
+                                                    {/* Ubah warna teks jenis tes menjadi hitam */}
+                                                    <ul className="text-sm text-gray-900 space-y-1">
+                                                        <li>• Tes Kepribadian MBTI & Kecerdasan Logika</li>
+                                                    </ul>
 
-                                                            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                                                                <h6 className="font-medium text-blue-900 mb-2">Tips Mengikuti Tes:</h6>
-                                                                <ul className="text-sm text-blue-800 space-y-1">
-                                                                    <li>• Pastikan Anda memiliki koneksi internet yang stabil</li>
-                                                                    <li>• Konsumsi sarapan untuk menjaga stamina dan konsentrasi</li>
-                                                                    <li>• Jawablah pertanyaan dengan jujur sesuai dengan kepribadian Anda</li>
-                                                                    <li>• Baca setiap soal dengan teliti, cermat, dan pahami isi dalam menjawab</li>
-                                                                </ul>
-                                                            </div>
+                                                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                                        <h6 className="font-medium text-blue-900 mb-2">Tips Mengikuti Tes:</h6>
+                                                        <ul className="text-sm text-blue-800 space-y-1">
+                                                            <li>• Pastikan Anda memiliki koneksi internet yang stabil</li>
+                                                            <li>• Konsumsi sarapan untuk menjaga stamina dan konsentrasi</li>
+                                                            <li>• Jawablah pertanyaan dengan jujur sesuai dengan kepribadian Anda</li>
+                                                            <li>• Baca setiap soal dengan teliti, cermat, dan pahami isi dalam menjawab</li>
+                                                        </ul>
+                                                    </div>
 
                                                             <div className="mt-4 text-right">
-                                                                {/* Button logic moved here without console.log in JSX */}
-                                                                {(() => {
-                                                                    // Debug info for troubleshooting
-                                                                    console.log('Psychotest button debug:', {
-                                                                        history_id: history.id,
-                                                                        status_name: history.status_name,
-                                                                        is_active: isActive,
-                                                                        completed_at: history.completed_at,
-                                                                        completed_at_type: typeof history.completed_at,
-                                                                        completed_at_is_null: history.completed_at === null,
-                                                                        notes: history.notes
-                                                                    });
-
-                                                                    return null; // Return null to not render anything for the debug
-                                                                })()}
-
-                                                                {/* Kondisi yang lebih sederhana dan jelas */}
-                                                                {isActive ? (
-                                                                    // Jika tahap aktif dan completed_at null atau empty string
-                                                                    (!history.completed_at || history.completed_at === null || history.completed_at === '') ? (
-                                                                        <a
-                                                                            href={`/candidate/tests/psychotest/${application.id}`}
-                                                                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-                                                                            onClick={() => {
-                                                                                console.log('Navigating to psychotest page', {
-                                                                                    application_id: application.id,
-                                                                                    url: `/candidate/tests/psychotest/${application.id}`
-                                                                                });
-                                                                            }}
-                                                                        >
-                                                                            Lanjut ke Persiapan Tes
-                                                                        </a>
-                                                                    ) : (
-                                                                        // Jika sudah ada completed_at, berarti sudah dikerjakan
-                                                                        <button
-                                                                            disabled
-                                                                            className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg opacity-90 cursor-not-allowed"
-                                                                        >
-                                                                            Sudah Dikerjakan
-                                                                        </button>
-                                                                    )
-                                                                ) : null}
+                                                                {isActive && !history.completed_at ? (
+                                                                    // Tombol untuk test yang belum dikerjakan
+                                                                    <a
+                                                                        href={`/candidate/tests/psychotest/${application.id}`}
+                                                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                                                                        onClick={(e) => {
+                                                                            console.log('Navigating to psychotest page', {
+                                                                                application_id: application.id,
+                                                                                url: `/candidate/tests/psychotest/${application.id}`
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        Lanjut ke Persiapan Tes
+                                                                    </a>
+                                                                ) : isActive && history.completed_at && history.notes && history.notes.includes('Tes psikotes telah dikerjakan') ? (
+                                                                    // Tombol disabled setelah test BENAR-BENAR dikerjakan
+                                                                    <button
+                                                                        disabled
+                                                                        className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg opacity-90 cursor-not-allowed"
+                                                                    >
+                                                                        Sudah Dikerjakan
+                                                                    </button>
+                                                                ) : (
+                                                                    // Tombol default untuk kondisi lainnya
+                                                                    <a
+                                                                        href={`/candidate/tests/psychotest/${application.id}`}
+                                                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                                                                    >
+                                                                        Lanjut ke Persiapan Tes
+                                                                    </a>
+                                                                )}
                                                             </div>
 
                                                             {/* Jika psikotes sudah dikerjakan, tampilkan catatan - HANYA TAMPILKAN DI SINI */}
