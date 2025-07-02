@@ -23,6 +23,7 @@ class ApplicationHistory extends Model
         'completed_at',
         'reviewed_by',
         'reviewed_at',
+        'resource_url', 
         'is_active',
     ];
 
