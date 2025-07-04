@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vacancies extends Model
 {
@@ -24,7 +27,8 @@ class Vacancies extends Model
         'salary',
         'requirements',
         'benefits',
-        'question_pack_id'
+        'question_pack_id',
+        'education_level_id' // Tambahan sesuai migrasi
     ];
 
     protected $casts = [
@@ -33,65 +37,33 @@ class Vacancies extends Model
     ];
 
     /**
-     * Get the periods associated with this vacancy.
-     */
-    public function periods()
-    {
-        return $this->belongsToMany(Periods::class, 'vacancy_periods', 'vacancy_id', 'period_id')
-                    ->withTimestamps();
-    }
-
-    /**
-     * Get the company associated with this vacancy.
-     */
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
-    }
-
-    /**
-     * Get the question pack associated with this vacancy.
-     */
-    public function questionPack()
-    {
-        return $this->belongsTo(QuestionPack::class);
-    }
-
-    /**
-     * Get the applicants associated with this vacancy through the vacancy_period table.
-     */
-    public function applicants()
-    {
-        return $this->hasManyThrough(
-            Applicant::class,
-            VacancyPeriods::class,
-            'vacancy_id', // Foreign key on vacancy_periods table
-            'vacancy_period_id', // Foreign key on applicants table
-            'id', // Local key on vacancies table
-            'id' // Local key on vacancy_periods table
-        );
-    }
-
-    /**
      * Get the user who created this vacancy.
      */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
     /**
+     * Get the company associated with this vacancy.
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    /**
      * Get the department associated with this vacancy.
      */
-    public function department()
+    public function department(): BelongsTo
     {
-        return $this->belongsTo(Department::class, 'department_id');
+        return $this->belongsTo(Department::class, 'department_id'); // Sesuai dengan migrasi
     }
 
     /**
      * Get the major associated with this vacancy.
      */
-    public function major()
+    public function major(): BelongsTo
     {
         return $this->belongsTo(MasterMajor::class, 'major_id');
     }
@@ -99,29 +71,41 @@ class Vacancies extends Model
     /**
      * Get the vacancy type associated with this vacancy.
      */
-    public function vacancyType()
+    public function vacancyType(): BelongsTo
     {
         return $this->belongsTo(VacancyType::class, 'vacancy_type_id');
     }
 
     /**
-     * Get the active end time from periods
+     * Get the question pack associated with this vacancy.
      */
-    public function getActiveEndTimeAttribute()
+    public function questionPack(): BelongsTo
     {
-        $periodWithEndTime = $this->periods()
-            ->orderBy('end_time', 'desc')  // Changed to match migration column name
-            ->first();
-
-        return $periodWithEndTime ? $periodWithEndTime->end_time : null;  // Changed to match migration column name
+        return $this->belongsTo(QuestionPack::class, 'question_pack_id');
     }
 
     /**
-     * Check if the vacancy is expired
+     * Get the education level associated with this vacancy.
      */
-    public function isExpired()
+    public function educationLevel(): BelongsTo
     {
-        $endTime = $this->getActiveEndTimeAttribute();
-        return $endTime ? now()->gt($endTime) : true;
+        return $this->belongsTo(EducationLevel::class, 'education_level_id');
+    }
+
+    /**
+     * Get the applications for this vacancy.
+     */
+    public function applications(): HasMany
+    {
+        return $this->hasMany(Applications::class, 'vacancy_id');
+    }
+
+    /**
+     * The periods that belong to the vacancy.
+     */
+    public function periods(): BelongsToMany
+    {
+        return $this->belongsToMany(Periods::class, 'vacancy_periods', 'vacancy_id', 'period_id')
+                    ->withTimestamps();
     }
 }

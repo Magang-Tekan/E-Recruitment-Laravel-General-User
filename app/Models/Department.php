@@ -4,16 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Department extends Model  // Changed from Departement to Department
+class Department extends Model
 {
     use HasFactory;
 
+    protected $table = 'departments';
+
     protected $fillable = [
         'name',
+        'description' // Tambahkan jika ada di migrasi
     ];
 
-    public function vacancies()
+    public function vacancies(): HasMany
     {
         return $this->hasMany(Vacancies::class, 'department_id');
     }
