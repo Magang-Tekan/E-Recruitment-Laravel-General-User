@@ -1,5 +1,4 @@
 import { Head, usePage } from '@inertiajs/react';
-import Header from '../../components/Header';
 
 // === Icons SVG ===
 const BriefcaseIcon = () => (
@@ -111,7 +110,30 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         <div className="min-h-screen bg-gray-50">
             <Head title="Status Aplikasi" />
 
-            <Header />
+            {/* Custom Header for Candidate Pages */}
+            <header className="fixed top-0 right-0 left-0 z-50 h-[80px] border-b border-gray-200 bg-white px-[20px] shadow">
+                <div className="container mx-auto flex items-center justify-between px-6 py-4">
+                    <div className="text-[20px] font-bold text-gray-800">MITRA KARYA GROUP</div>
+
+                    <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
+                        <a href="/candidate/dashboard" className="text-gray-900 hover:text-blue-800">
+                            Dasbor
+                        </a>
+                        <a href="/candidate/profile" className="text-gray-900 hover:text-blue-600">
+                            Profil
+                        </a>
+                        <a href="/candidate/jobs" className="text-gray-900 hover:text-blue-600">
+                            Lowongan Pekerjaan
+                        </a>
+                        <a href="/candidate/application-history" className="text-gray-900 hover:text-blue-600">
+                            Lamaran
+                        </a>
+                    </nav>
+                    <div className="flex items-center gap-4">
+                        {/* User menu can be added here */}
+                    </div>
+                </div>
+            </header>
 
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ marginTop: '80px' }}>
                 {/* Candidate Profile Section */}

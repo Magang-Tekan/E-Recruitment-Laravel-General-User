@@ -282,9 +282,10 @@ const ConfirmData = () => {
         <div className="container mx-auto flex h-full items-center justify-between px-6">
           <div className="text-[20px] font-bold text-black">MITRA KARYA GROUP</div>
           <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
-            <Link href="/profile" className="text-black hover:text-blue-600">Profil</Link>
-            <Link href="/candidate/jobs" className="text-black hover:text-blue-600">Lowongan Pekerjaan</Link>
-            <Link href="/candidate/application-history" className="text-black hover:text-blue-600">Lamaran</Link>
+            <a href="/candidate/dashboard" className="text-gray-900 hover:text-blue-600">Dasbor</a>
+            <a href="/candidate/profile" className="text-gray-900 hover:text-blue-600">Profil</a>
+            <a href="/candidate/jobs" className="text-gray-900 hover:text-blue-600">Lowongan Pekerjaan</a>
+            <a href="/candidate/application-history" className="text-gray-900 hover:text-blue-600">Lamaran</a>
           </nav>
           <div className="flex items-center">
             <a href="#" className="block w-[40px] h-[40px]">

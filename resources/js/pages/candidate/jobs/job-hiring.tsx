@@ -2,7 +2,6 @@ import { router } from '@inertiajs/react';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
-import Header from '../../../components/Header';
 
 const GlobalStyle = createGlobalStyle`
   body {
@@ -247,7 +246,30 @@ const JobHiring: React.FC<Props> = ({ jobs = [], recommendations: initialRecomme
   return (
     <>
       <GlobalStyle />
-      <Header />
+      {/* Custom Header for Candidate Pages */}
+      <header className="fixed top-0 right-0 left-0 z-50 h-[80px] border-b border-gray-200 bg-white px-[20px] shadow">
+        <div className="container mx-auto flex items-center justify-between px-6 py-4">
+          <div className="text-[20px] font-bold text-gray-800">MITRA KARYA GROUP</div>
+
+          <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
+            <a href="/candidate/dashboard" className="text-gray-900 hover:text-blue-600">
+              Dasbor
+            </a>
+            <a href="/candidate/profile" className="text-gray-900 hover:text-blue-600">
+              Profil
+            </a>
+            <a href="/candidate/jobs" className="text-gray-900 hover:text-blue-600">
+              Lowongan Pekerjaan
+            </a>
+            <a href="/candidate/application-history" className="text-gray-900 hover:text-blue-600">
+              Lamaran
+            </a>
+          </nav>
+          <div className="flex items-center gap-4">
+            {/* User menu can be added here */}
+          </div>
+        </div>
+      </header>
       <PageWrapper>
         <JobHiringContainer>
           <HeroSection>
