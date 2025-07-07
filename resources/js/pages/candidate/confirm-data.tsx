@@ -1,6 +1,3 @@
-import { faInstagram, faLinkedin, faWhatsapp, faXTwitter, faYoutube } from '@fortawesome/free-brands-svg-icons';
-import { faEnvelope, faMapMarkerAlt, faPhone } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Head, Link, usePage } from "@inertiajs/react";
 import axios from 'axios';
 import { AlertCircle, CheckCircle } from "lucide-react";
@@ -404,51 +401,109 @@ const ConfirmData = () => {
         <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
           {/* Kolom 1 */}
           <div>
-            <h4 className="mb-2 text-[16px] font-bold text-black">PT MITRA KARYA ANALITIKA</h4>
+            <h4 className="mb-2 text-[16px] font-bold">MITRA KARYA GROUP</h4>
             <p className="mb-6 text-sm text-gray-700">
               Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
             </p>
-            <div className="flex space-x-4 text-xl text-blue-600">
-              <a href="#"><FontAwesomeIcon icon={faInstagram} /></a>
-              <a href="#"><FontAwesomeIcon icon={faXTwitter} /></a>
-              <a href="#"><FontAwesomeIcon icon={faLinkedin} /></a>
-              <a href="#"><FontAwesomeIcon icon={faYoutube} /></a>
-              <a href="#"><FontAwesomeIcon icon={faWhatsapp} /></a>
+            {/* Social Media Icons */}
+            <div className="flex space-x-6 text-xl text-blue-600">
+              {/* Instagram - Dropup untuk dua akun */}
+              <div className="relative group">
+                <a href="#" className="group-hover:text-blue-800">
+                  <i className="fab fa-instagram"></i>
+                </a>
+                <div className="absolute bottom-full left-0 mb-1 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-40">
+                  <a
+                    href="https://www.instagram.com/mikacares.id"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                  >
+                    @mikacares.id
+                  </a>
+                  <a
+                    href="https://www.instagram.com/autentik.co.id"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                  >
+                    @autentik.co.id
+                  </a>
+                </div>
+              </div>
+
+              {/* LinkedIn - Dropup untuk dua perusahaan */}
+              <div className="relative group">
+                <a href="#" className="group-hover:text-blue-800">
+                  <i className="fab fa-linkedin-in"></i>
+                </a>
+                <div className="absolute bottom-8 left-0 mb-1 bg-white shadow-lg rounded-lg p-3 hidden group-hover:block z-50 w-72">
+                  <div className="flex flex-col gap-3">
+                    <a
+                      href="https://www.linkedin.com/company/pt-mitra-karya-analitika"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                    >
+                      <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">PT Mitra Karya Analitika</span>
+                        <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
+                      </div>
+                    </a>
+                    <div className="border-t border-gray-100"></div>
+                    <a
+                      href="https://www.linkedin.com/company/pt-autentik-karya-analitika"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                    >
+                      <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">PT Autentik Karya Analitika</span>
+                        <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* YouTube */}
+              <a href="https://www.youtube.com/@mikacares" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
+                <i className="fab fa-youtube"></i>
+              </a>
+
+              {/* WhatsApp */}
+              <a href="https://wa.me/6281770555554" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
+                <i className="fab fa-whatsapp"></i>
+              </a>
             </div>
           </div>
 
           {/* Kolom 2 */}
           <div>
-            <h4 className="mb-2 text-[16px] font-bold text-black">Perusahaan Kami</h4>
+            <h4 className="mb-2 text-[16px] font-bold">Perusahaan Kami</h4>
             <ul className="space-y-1 text-sm text-gray-700">
-              <li>PT MITRA KARYA ANALITIKA</li>
-              <li>PT AUTENTIK KARYA ANALITIKA</li>
+              <li>PT Mitra Karya Analitika</li>
+              <li>PT Autentik Karya Analitika</li>
             </ul>
           </div>
 
           {/* Kolom 3 */}
           <div>
-            <h4 className="mb-4 text-[16px] font-bold text-black">Contact</h4>
+            <h4 className="mb-4 text-[16px] font-bold">Contact</h4>
             <ul className="space-y-2 text-sm text-gray-700">
               <li className="flex items-start gap-2">
-                <FontAwesomeIcon icon={faPhone} className="mt-1 text-blue-600" />
-                <div>
-                  Rudy Alfiansyah: 082137384029
-                  <br />
-                  Deden Dermawan: 081807700111
-                </div>
+                <i className="fas fa-phone mt-1 text-blue-600" />
+                <div>+62 817 7055 5554</div>
               </li>
               <li className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faEnvelope} className="text-blue-600" />
-                <span>autentik.info@gmail.com</span>
+                <i className="fas fa-envelope text-blue-600" />
+                <span>info@mitrakarya.com</span>
               </li>
               <li className="flex items-start gap-2">
-                <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-blue-600" />
-                <span>
-                  Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo,
-                  <br />
-                  Kec. Tembalang, Kota Semarang, Jawa Tengah 50272
-                </span>
+                <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
+                <span>Jakarta, Indonesia</span>
               </li>
             </ul>
           </div>
