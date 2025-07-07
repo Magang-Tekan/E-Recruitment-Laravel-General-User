@@ -7,10 +7,9 @@ use App\Models\Company;
 use App\Models\User;
 use App\Models\Vacancies;
 use App\Models\QuestionPack;
-use App\Models\Department; // Import model yang benar
+use App\Models\Department;
 use App\Models\MasterMajor;
 use App\Models\VacancyType;
-use App\Models\EducationLevel;
 use Illuminate\Database\Seeder;
 
 class VacanciesSeeder extends Seeder
@@ -24,10 +23,9 @@ class VacanciesSeeder extends Seeder
         $user = User::where('role', UserRole::HR->value)->first() ?? User::factory()->create(['role' => UserRole::HR->value]);
         $companies = Company::all();
         $questionPacks = QuestionPack::all();
-        $departments = Department::all(); // Ubah dari Departments ke Department
+        $departments = Department::all(); // Changed from Departement to Department
         $majors = MasterMajor::all();
         $vacancyTypes = VacancyType::all();
-        $educationLevels = EducationLevel::all();
 
         // Check if dependencies exist
         if ($companies->isEmpty()) {
@@ -43,9 +41,9 @@ class VacanciesSeeder extends Seeder
         }
 
         if ($departments->isEmpty()) {
-            $this->command->info('No departments found. Running DepartmentSeeder first.');
-            $this->call(DepartmentSeeder::class); // Ubah nama seeder
-            $departments = Department::all(); // Ubah model
+            $this->command->info('No departments found. Running DepartementSeeder first.');
+            $this->call(DepartmentsSeeder::class);
+            $departments = Department::all();
         }
 
         if ($majors->isEmpty()) {
@@ -60,13 +58,7 @@ class VacanciesSeeder extends Seeder
             $vacancyTypes = VacancyType::all();
         }
 
-        if ($educationLevels->isEmpty()) {
-            $this->command->info('No education levels found. Running EducationLevelSeeder first.');
-            $this->call(EducationLevelSeeder::class);
-            $educationLevels = EducationLevel::all();
-        }
-
-        // Indonesian job vacancies data dengan education level mapping
+        // Indonesian job vacancies data
         $vacanciesData = [
             [
                 'title' => 'Software Engineer',
@@ -74,7 +66,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Teknologi Informasi',
                 'major' => 'Teknik Informatika',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'D4/S1', // Tambahan
                 'location' => 'Jakarta',
                 'salary' => 'Rp. 8.000.000 - 15.000.000',
                 'requirements' => [
@@ -100,7 +91,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Pemasaran',
                 'major' => 'Ilmu Komunikasi',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'D4/S1', // Tambahan
                 'location' => 'Bandung',
                 'salary' => 'Rp. 5.000.000 - 9.000.000',
                 'requirements' => [
@@ -126,7 +116,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Keuangan dan Akuntansi',
                 'major' => 'Akuntansi',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'D4/S1', // Tambahan
                 'location' => 'Surabaya',
                 'salary' => 'Rp. 6.000.000 - 10.000.000',
                 'requirements' => [
@@ -152,7 +141,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Sumber Daya Manusia',
                 'major' => 'Psikologi',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'D4/S1', // Tambahan
                 'location' => 'Yogyakarta',
                 'salary' => 'Rp. 4.500.000 - 7.500.000',
                 'requirements' => [
@@ -178,7 +166,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Data Analytics',
                 'major' => 'Statistika',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'D4/S1', // Tambahan
                 'location' => 'Jakarta',
                 'salary' => 'Rp. 7.000.000 - 12.000.000',
                 'requirements' => [
@@ -204,7 +191,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Project Management',
                 'major' => 'Teknik Industri',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'S2', // Tambahan - level lebih tinggi untuk manager
                 'location' => 'Medan',
                 'salary' => 'Rp. 9.000.000 - 16.000.000',
                 'requirements' => [
@@ -230,7 +216,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Design',
                 'major' => 'Desain Komunikasi Visual',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'D3', // Tambahan - bisa D3 untuk designer
                 'location' => 'Bali',
                 'salary' => 'Rp. 6.000.000 - 11.000.000',
                 'requirements' => [
@@ -256,7 +241,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Sales',
                 'major' => 'Manajemen',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'D4/S1', // Tambahan
                 'location' => 'Semarang',
                 'salary' => 'Rp. 4.000.000 - 8.000.000',
                 'requirements' => [
@@ -282,7 +266,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Content Management',
                 'major' => 'Ilmu Komunikasi',
                 'vacancy_type' => 'Part Time',
-                'education_level' => 'SMA/SMK', // Tambahan - bisa SMA untuk content creator
                 'location' => 'Remote',
                 'salary' => 'Rp. 3.000.000 - 6.000.000',
                 'requirements' => [
@@ -308,7 +291,6 @@ class VacanciesSeeder extends Seeder
                 'department' => 'Customer Service',
                 'major' => 'Ilmu Komunikasi',
                 'vacancy_type' => 'Full Time',
-                'education_level' => 'D3', // Tambahan
                 'location' => 'Jakarta',
                 'salary' => 'Rp. 3.500.000 - 5.500.000',
                 'requirements' => [
@@ -335,33 +317,30 @@ class VacanciesSeeder extends Seeder
             $department = $departments->where('name', $vacancyData['department'])->first();
             $major = $majors->where('name', $vacancyData['major'])->first();
             $vacancyType = $vacancyTypes->where('name', $vacancyData['vacancy_type'])->first();
-            $educationLevel = $educationLevels->where('name', $vacancyData['education_level'])->first();
-            $company = $companies->random();
+            $company = $companies->random(); // Get a random company
             $questionPack = $questionPacks->random();
 
-            // Fallback if specific data not found
+            // Fallback if specific department/major/type not found
             if (!$department) $department = $departments->random();
             if (!$major) $major = $majors->random();
             if (!$vacancyType) $vacancyType = $vacancyTypes->random();
-            if (!$educationLevel) $educationLevel = $educationLevels->random();
 
             Vacancies::create([
                 'title' => $vacancyData['title'],
-                'job_description' => $vacancyData['job_description'],
+                'job_description' => $vacancyData['job_description'], // Tambahkan job_description
                 'department_id' => $department->id,
                 'major_id' => $major->id,
                 'vacancy_type_id' => $vacancyType->id,
-                'education_level_id' => $educationLevel->id,
                 'location' => $vacancyData['location'],
                 'salary' => $vacancyData['salary'],
-                'requirements' => $vacancyData['requirements'], // Tidak perlu json_encode jika cast sudah array
-                'benefits' => $vacancyData['benefits'], // Tidak perlu json_encode jika cast sudah array
+                'requirements' => json_encode($vacancyData['requirements']),
+                'benefits' => json_encode($vacancyData['benefits']),
                 'user_id' => $user->id,
-                'company_id' => $company->id,
+                'company_id' => $company->id, // Changed from $companies->id to $company->id
                 'question_pack_id' => $questionPack->id,
             ]);
         }
 
-        $this->command->info('Successfully created ' . count($vacanciesData) . ' vacancies with Indonesian data including education levels.');
+        $this->command->info('Successfully created ' . count($vacanciesData) . ' vacancies with Indonesian data.');
     }
 }

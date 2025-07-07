@@ -11,8 +11,7 @@ use App\Models\CandidatesEducations;
 use App\Models\MasterMajor;
 use App\Models\CandidatesProfile;
 use App\Models\CandidatesProfiles;
-use App\Models\EducationLevel; // Tambahkan import ini
-use App\Models\JobApplication;
+use App\Models\JobApplication; // Add this import
 use App\Models\Selections;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,8 +25,8 @@ class JobsController extends Controller
     public function index()
     {
         try {
-            // Ambil semua lowongan aktif dengan relasi termasuk educationLevel
-            $jobs = Vacancies::with(['company', 'department', 'vacancyType', 'major', 'educationLevel'])
+            // Ambil semua lowongan aktif dengan relasi
+            $jobs = Vacancies::with(['company', 'department', 'vacancyType', 'major'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -46,9 +45,6 @@ class JobsController extends Controller
                     $major = MasterMajor::find($job->major_id);
                     $majorName = $major ? $major->name : null;
                 }
-
-                // Get education level name
-                $educationLevelName = $job->educationLevel ? $job->educationLevel->name : 'Tidak ditentukan';
 
                 // Format requirements and benefits
                 $requirements = is_array($job->requirements) ? $job->requirements : json_decode($job->requirements ?: '[]');
@@ -71,8 +67,6 @@ class JobsController extends Controller
                     'salary' => $job->salary,
                     'major_id' => $job->major_id,
                     'major_name' => $majorName,
-                    'education_level_id' => $job->education_level_id,
-                    'education_level_name' => $educationLevelName,
                     'created_at' => $job->created_at ? $job->created_at->format('Y-m-d H:i:s') : null,
                     'updated_at' => $job->updated_at ? $job->updated_at->format('Y-m-d H:i:s') : null
                 ];
@@ -83,16 +77,12 @@ class JobsController extends Controller
             $candidateMajor = null;
             $userEducation = null;
 
-            // Jika user sudah login, tampilkan rekomendasi berdasarkan jurusan dan education level
+            // Jika user sudah login, tampilkan rekomendasi berdasarkan jurusan
             if (Auth::check()) {
-                $education = CandidatesEducations::with('educationLevel')
-                    ->where('user_id', Auth::id())
-                    ->first();
-                    
+                $education = CandidatesEducations::where('user_id', Auth::id())->first();
                 if ($education) {
                     $userMajorId = $education->major_id;
-                    $userEducationLevelId = $education->education_level_id;
-                    $userEducation = $education->educationLevel ? $education->educationLevel->name : null;
+                    $userEducation = $education->education_level;
 
                     // Ambil major name
                     if ($userMajorId) {
@@ -100,20 +90,16 @@ class JobsController extends Controller
                         $candidateMajor = $major ? $major->name : null;
                     }
 
-                    // Filter lowongan yang sesuai dengan jurusan dan education level user
-                    $matchedJobs = $formattedJobs->filter(function($job) use ($userMajorId, $userEducationLevelId) {
-                        $majorMatch = $job['major_id'] == $userMajorId;
-                        $educationMatch = $this->validateEducationLevelById($userEducationLevelId, $job['education_level_id']);
-                        return $majorMatch && $educationMatch;
+                    // Filter lowongan yang sesuai dengan jurusan user
+                    $matchedJobs = $formattedJobs->filter(function($job) use ($userMajorId) {
+                        return $job['major_id'] == $userMajorId;
                     })->values();
 
                     // Buat rekomendasi dengan score
                     foreach ($matchedJobs as $job) {
-                        $score = 100; // Perfect match untuk major dan education
-                        
                         $recommendations[] = [
                             'vacancy' => $job,
-                            'score' => $score
+                            'score' => 100 // Perfect match score
                         ];
                     }
                 }
@@ -148,327 +134,6 @@ class JobsController extends Controller
             ]);
             return back()->with('error', 'Terjadi kesalahan saat memuat lowongan pekerjaan. Silakan coba lagi.');
         }
-    }
-
-    public function detail($id)
-    {
-        $vacancy = Vacancies::with(['company', 'educationLevel'])->findOrFail($id);
-
-        // Mengambil informasi major
-        $majorName = null;
-        if ($vacancy->major_id) {
-            $major = MasterMajor::find($vacancy->major_id);
-            $majorName = $major ? $major->name : null;
-        }
-
-        // Convert requirements & benefits to array if they are JSON strings
-        $requirements = is_string($vacancy->requirements)
-            ? json_decode($vacancy->requirements)
-            : $vacancy->requirements;
-
-        $benefits = is_string($vacancy->benefits)
-            ? json_decode($vacancy->benefits)
-            : $vacancy->benefits;
-
-        // Get user's major and education level if authenticated
-        $userMajor = null;
-        $isMajorMatched = false;
-        $educationMatched = false;
-        $userEducation = null;
-        $requiredEducation = $vacancy->educationLevel ? $vacancy->educationLevel->name : 'Tidak ditentukan';
-
-        if (Auth::check()) {
-            $education = CandidatesEducations::with('educationLevel')
-                ->where('user_id', Auth::id())
-                ->first();
-            
-            if ($education) {
-                $userMajor = $education->major_id;
-                $userEducation = $education->educationLevel ? $education->educationLevel->name : null;
-
-                // Check major match
-                $isMajorMatched = ($vacancy->major_id == $userMajor);
-
-                // Check education level match menggunakan education_level_id
-                if ($education->education_level_id && $vacancy->education_level_id) {
-                    $educationMatched = $this->validateEducationLevelById(
-                        $education->education_level_id, 
-                        $vacancy->education_level_id
-                    );
-                }
-
-                Log::info('Education check in detail page', [
-                    'user_education_id' => $education->education_level_id,
-                    'user_education_name' => $userEducation,
-                    'required_education_id' => $vacancy->education_level_id,
-                    'required_education_name' => $requiredEducation,
-                    'is_matched' => $educationMatched
-                ]);
-            }
-        }
-
-        // Cek status aplikasi user untuk periode ini
-        $applicationStatus = null;
-        $canApply = true;
-        $applicationMessage = '';
-
-        if (Auth::check()) {
-            $applicationStatus = $this->checkApplicationStatus(Auth::id(), $id);
-            $canApply = $applicationStatus['can_apply'];
-            $applicationMessage = $applicationStatus['message'];
-
-            // Jika bisa apply berdasarkan periode, cek juga validasi pendidikan
-            if ($canApply) {
-                $user = Auth::user();
-                $educationValidation = $this->validateCandidateEducation($user, $vacancy);
-                if (!$educationValidation['is_valid']) {
-                    $canApply = false;
-                    $applicationMessage = $educationValidation['message'];
-                }
-            }
-        }
-
-        return Inertia::render('candidate/detail-job/detail-job', [
-            'job' => [
-                'id' => $vacancy->id,
-                'title' => $vacancy->title,
-                'company' => $vacancy->company,
-                'job_description' => $vacancy->job_description,
-                'requirements' => $requirements,
-                'benefits' => $benefits,
-                'major_id' => $vacancy->major_id,
-                'major_name' => $majorName,
-                'education_level_id' => $vacancy->education_level_id,
-                'required_education' => $requiredEducation,
-            ],
-            'userMajor' => $userMajor,
-            'isMajorMatched' => $isMajorMatched,
-            'userEducation' => $userEducation,
-            'educationMatched' => $educationMatched,
-            'canApply' => $canApply,
-            'applicationMessage' => $applicationMessage
-        ]);
-    }
-
-    /**
-     * Validate candidate education level against vacancy requirements using education_level_id
-     */
-    private function validateCandidateEducation($user, $vacancy)
-    {
-        try {
-            // Get candidate's education with educationLevel relation
-            $education = CandidatesEducations::with('educationLevel')
-                ->where('user_id', $user->id)
-                ->first();
-
-            if (!$education) {
-                return [
-                    'is_valid' => false,
-                    'message' => 'Data pendidikan tidak ditemukan. Harap lengkapi data pendidikan Anda terlebih dahulu.',
-                    'candidate_education' => null,
-                    'required_education' => null
-                ];
-            }
-
-            if (!$education->education_level_id) {
-                return [
-                    'is_valid' => false,
-                    'message' => 'Data jenjang pendidikan tidak valid. Harap perbarui data pendidikan Anda.',
-                    'candidate_education' => null,
-                    'required_education' => null
-                ];
-            }
-
-            if (!$vacancy->education_level_id) {
-                // Jika lowongan tidak menetapkan persyaratan pendidikan, anggap valid
-                return [
-                    'is_valid' => true,
-                    'message' => 'Lowongan ini tidak menetapkan persyaratan jenjang pendidikan khusus.',
-                    'candidate_education' => $education->educationLevel ? $education->educationLevel->name : null,
-                    'required_education' => 'Tidak ditentukan'
-                ];
-            }
-
-            // Validate using education_level_id
-            $isValid = $this->validateEducationLevelById($education->education_level_id, $vacancy->education_level_id);
-
-            $candidateEducationName = $education->educationLevel ? $education->educationLevel->name : 'Unknown';
-            $requiredEducationName = $vacancy->educationLevel ? $vacancy->educationLevel->name : 'Unknown';
-
-            $message = $isValid
-                ? 'Jenjang pendidikan memenuhi syarat.'
-                : "Jenjang pendidikan Anda ({$candidateEducationName}) tidak memenuhi persyaratan minimal ({$requiredEducationName}) untuk lowongan ini.";
-
-            Log::info('Education validation result', [
-                'user_id' => $user->id,
-                'candidate_education_id' => $education->education_level_id,
-                'candidate_education_name' => $candidateEducationName,
-                'required_education_id' => $vacancy->education_level_id,
-                'required_education_name' => $requiredEducationName,
-                'is_valid' => $isValid
-            ]);
-
-            return [
-                'is_valid' => $isValid,
-                'message' => $message,
-                'candidate_education' => $candidateEducationName,
-                'required_education' => $requiredEducationName
-            ];
-
-        } catch (\Exception $e) {
-            Log::error('Error validating candidate education: ' . $e->getMessage());
-            return [
-                'is_valid' => false,
-                'message' => 'Terjadi kesalahan saat memvalidasi jenjang pendidikan.',
-                'candidate_education' => null,
-                'required_education' => null
-            ];
-        }
-    }
-
-    /**
-     * Validate education level using education_level_id comparison
-     * 
-     * @param int $candidateEducationId
-     * @param int $requiredEducationId
-     * @return bool
-     */
-    private function validateEducationLevelById($candidateEducationId, $requiredEducationId)
-    {
-        if (!$candidateEducationId || !$requiredEducationId) {
-            return false;
-        }
-
-        // Get education levels
-        $candidateEducation = EducationLevel::find($candidateEducationId);
-        $requiredEducation = EducationLevel::find($requiredEducationId);
-
-        if (!$candidateEducation || !$requiredEducation) {
-            Log::warning('Education level not found', [
-                'candidate_id' => $candidateEducationId,
-                'required_id' => $requiredEducationId
-            ]);
-            return false;
-        }
-
-        // Define education hierarchy mapping
-        $educationHierarchy = [
-            'SMP' => 1,
-            'SMA/SMK' => 2,
-            'D1' => 3,
-            'D2' => 4,
-            'D3' => 5,
-            'D4/S1' => 6,
-            'S2' => 7,
-            'S3' => 8,
-        ];
-
-        $candidateLevel = $educationHierarchy[$candidateEducation->name] ?? 0;
-        $requiredLevel = $educationHierarchy[$requiredEducation->name] ?? 0;
-
-        Log::info('Education level comparison', [
-            'candidate_education' => $candidateEducation->name,
-            'candidate_level' => $candidateLevel,
-            'required_education' => $requiredEducation->name,
-            'required_level' => $requiredLevel,
-            'is_valid' => $candidateLevel >= $requiredLevel
-        ]);
-
-        return $candidateLevel >= $requiredLevel;
-    }
-
-    /**
-     * Metode untuk memvalidasi jenjang pendidikan kandidat dengan persyaratan lowongan
-     * Legacy method - masih digunakan untuk backward compatibility
-     */
-    private function validateEducationLevel($candidateEducation, $requiredEducation)
-    {
-        // Log the input values
-        Log::info('Validating education level (legacy method)', [
-            'candidate_education_raw' => $candidateEducation,
-            'required_education_raw' => $requiredEducation
-        ]);
-
-        // Normalize education input (case and formatting)
-        $candidateEducation = trim(strtoupper($candidateEducation));
-        $requiredEducation = trim(strtoupper($requiredEducation));
-
-        // Define education hierarchy (from lowest to highest)
-        $educationLevels = [
-            'SD' => 1,
-            'SMP' => 2,
-            'SMA' => 3,
-            'SMK' => 3,
-            'SMA/SMK' => 3,
-            'D1' => 4,
-            'D2' => 5,
-            'D3' => 6,
-            'DIPLOMA' => 6,
-            'DIPLOMA 3' => 6,
-            'D4/S1' => 7,
-            'S1' => 7,
-            'SARJANA' => 7,
-            'S2' => 8,
-            'MAGISTER' => 8,
-            'S3' => 9,
-            'DOKTOR' => 9
-        ];
-
-        // Handle special case for 'SMA/SMK'
-        if ($candidateEducation === 'SMA' || $candidateEducation === 'SMK') {
-            $candidateEducation = 'SMA/SMK';
-        }
-
-        // Handle special cases for required education
-        if ($requiredEducation === 'SMA' || $requiredEducation === 'SMK') {
-            $requiredEducation = 'SMA/SMK';
-        }
-
-        // Map similar education names to standardized values
-        $mappedCandidate = $candidateEducation;
-        $mappedRequired = $requiredEducation;
-
-        // Custom mapping logic for non-standard formats
-        if (strpos($candidateEducation, 'DIPLOMA') !== false || strpos($candidateEducation, 'D-3') !== false || $candidateEducation === 'D3') {
-            $mappedCandidate = 'D3';
-        }
-        if (strpos($requiredEducation, 'DIPLOMA') !== false || strpos($requiredEducation, 'D-3') !== false || $requiredEducation === 'D3') {
-            $mappedRequired = 'D3';
-        }
-
-        if (strpos($candidateEducation, 'SARJANA') !== false || strpos($candidateEducation, 'S-1') !== false || $candidateEducation === 'S1') {
-            $mappedCandidate = 'D4/S1';
-        }
-        if (strpos($requiredEducation, 'SARJANA') !== false || strpos($requiredEducation, 'S-1') !== false || $requiredEducation === 'S1') {
-            $mappedRequired = 'D4/S1';
-        }
-
-        // Log the mapped values
-        Log::info('Mapped education values', [
-            'mapped_candidate' => $mappedCandidate,
-            'mapped_required' => $mappedRequired
-        ]);
-
-        // If education level not in our defined levels, reject
-        if (!isset($educationLevels[$mappedCandidate]) || !isset($educationLevels[$mappedRequired])) {
-            Log::warning('Education level not recognized', [
-                'candidate_education' => $mappedCandidate,
-                'required_education' => $mappedRequired,
-                'valid_levels' => array_keys($educationLevels)
-            ]);
-            return false;
-        }
-
-        // Compare education levels
-        $result = $educationLevels[$mappedCandidate] >= $educationLevels[$mappedRequired];
-
-        Log::info('Education comparison result', [
-            'candidate_level' => $educationLevels[$mappedCandidate],
-            'required_level' => $educationLevels[$mappedRequired],
-            'comparison_result' => $result ? 'passed' : 'failed'
-        ]);
-
-        return $result;
     }
 
     /**
@@ -510,6 +175,7 @@ class JobsController extends Controller
             }
 
             // Cek apakah sudah pernah apply dalam periode yang sama
+            // Karena aplikasi disimpan berdasarkan vacancy_period_id, kita perlu cari vacancy_period untuk vacancy ini
             $vacancyPeriod = DB::table('vacancy_periods')
                 ->where('vacancy_id', $id)
                 ->first();
@@ -522,12 +188,14 @@ class JobsController extends Controller
                 ], 422);
             }
 
-            // VALIDASI BARU: Cek apakah candidate sudah pernah apply di periode yang sama
+            // VALIDASI BARU: Cek apakah candidate sudah pernah apply di periode yang sama (untuk lowongan apapun)
+            // Ambil semua vacancy_period_id yang memiliki period_id yang sama dengan lowongan ini
             $samePeriodsVacancyIds = DB::table('vacancy_periods')
                 ->where('period_id', $vacancyPeriod->period_id)
                 ->pluck('id')
                 ->toArray();
 
+            // Cek apakah user sudah pernah apply ke salah satu vacancy di periode yang sama
             $existingApplicationInPeriod = Applications::where('user_id', $user->id)
                 ->whereIn('vacancy_period_id', $samePeriodsVacancyIds)
                 ->with('vacancyPeriod.vacancy:id,title')
@@ -559,7 +227,7 @@ class JobsController extends Controller
                 }
             }
 
-            // VALIDASI JENJANG PENDIDIKAN: Menggunakan education_level_id
+            // VALIDASI JENJANG PENDIDIKAN: Cek apakah jenjang pendidikan candidate memenuhi syarat
             $educationValidation = $this->validateCandidateEducation($user, $vacancy);
             if (!$educationValidation['is_valid']) {
                 Log::warning('Candidate education does not meet requirements', [
@@ -602,7 +270,7 @@ class JobsController extends Controller
                 // Buat entry pertama di application_history untuk tracking
                 ApplicationHistory::create([
                     'application_id' => $application->id,
-                    'status_id' => $status->id,
+                    'status_id' => $status->id, // Use status_id instead of stage
                     'processed_at' => now(),
                 ]);
 
@@ -642,6 +310,375 @@ class JobsController extends Controller
                 'message' => 'Terjadi kesalahan sistem. Silakan coba lagi.'
             ], 500);
         }
+    }
+
+    public function show()
+    {
+        return Inertia::render('candidate/chats/candidate-chat');
+    }
+
+    public function detail($id)
+    {
+        $vacancy = Vacancies::with('company')->findOrFail($id);
+
+        // Mengambil informasi major
+        $majorName = null;
+        if ($vacancy->major_id) {
+            $major = MasterMajor::find($vacancy->major_id);
+            $majorName = $major ? $major->name : null;
+        }
+
+        // Convert requirements & benefits to array if they are JSON strings
+        $requirements = is_string($vacancy->requirements)
+            ? json_decode($vacancy->requirements)
+            : $vacancy->requirements;
+
+        $benefits = is_string($vacancy->benefits)
+            ? json_decode($vacancy->benefits)
+            : $vacancy->benefits;
+
+        // Get user's major if authenticated
+        $userMajor = null;
+        $isMajorMatched = false;
+        $educationMatched = false;
+        $userEducation = null;
+        $requiredEducation = 'S1'; // Default for testing
+
+        if (Auth::check()) {
+            $education = CandidatesEducations::with('educationLevel')
+                ->where('user_id', Auth::id())
+                ->first();
+            
+            if ($education) {
+                $userMajor = $education->major_id;
+                $userEducation = $education->educationLevel ? $education->educationLevel->name : null;
+
+                // Check major match
+                $isMajorMatched = ($vacancy->major_id == $userMajor);
+
+                // Find minimum education requirement
+                if (is_array($requirements)) {
+                    // Check for structured fields
+                    if (isset($requirements['min_education'])) {
+                        $requiredEducation = $requirements['min_education'];
+                    } else if (isset($requirements['minimum_education'])) {
+                        $requiredEducation = $requirements['minimum_education'];
+                    } else if (isset($requirements['pendidikan_minimal'])) {
+                        $requiredEducation = $requirements['pendidikan_minimal'];
+                    } else {
+                        // Try to extract from requirements text - IMPROVED LOGIC (consistent with validateCandidateEducation)
+                        foreach ($requirements as $req) {
+                            if (is_string($req)) {
+                                // Check for various education patterns
+                                if (stripos($req, 'S3') !== false || stripos($req, 'Doktor') !== false) {
+                                    $requiredEducation = 'S3';
+                                    break;
+                                } elseif (stripos($req, 'S2') !== false || stripos($req, 'Magister') !== false || stripos($req, 'Master') !== false) {
+                                    $requiredEducation = 'S2';
+                                    break;
+                                } elseif (stripos($req, 'S1') !== false || stripos($req, 'Sarjana') !== false || stripos($req, 'Lulusan S1') !== false) {
+                                    $requiredEducation = 'S1';
+                                    break;
+                                } elseif (stripos($req, 'D3') !== false || stripos($req, 'Diploma') !== false) {
+                                    $requiredEducation = 'D3';
+                                    break;
+                                } elseif (stripos($req, 'SMA') !== false || stripos($req, 'SMK') !== false) {
+                                    $requiredEducation = 'SMA/SMK';
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Check education match using the education level name
+                if ($userEducation) {
+                    $educationMatched = $this->validateEducationLevel($userEducation, $requiredEducation);
+
+                    \Log::info('Education check in detail page', [
+                        'user_education' => $userEducation,
+                        'required_education' => $requiredEducation,
+                        'is_matched' => $educationMatched
+                    ]);
+                }
+            }
+        }
+
+        // Cek status aplikasi user untuk periode ini
+        $applicationStatus = null;
+        $canApply = true;
+        $applicationMessage = '';
+
+        if (Auth::check()) {
+            $applicationStatus = $this->checkApplicationStatus(Auth::id(), $id);
+            $canApply = $applicationStatus['can_apply'];
+            $applicationMessage = $applicationStatus['message'];
+
+            // Jika bisa apply berdasarkan periode, cek juga validasi pendidikan
+            if ($canApply) {
+                $user = Auth::user();
+                $educationValidation = $this->validateCandidateEducation($user, $vacancy);
+                if (!$educationValidation['is_valid']) {
+                    $canApply = false;
+                    $applicationMessage = $educationValidation['message'];
+                }
+            }
+        }
+
+        return Inertia::render('candidate/detail-job/detail-job', [
+            'job' => [
+                'id' => $vacancy->id,
+                'title' => $vacancy->title,
+                'company' => $vacancy->company,
+                'job_description' => $vacancy->job_description,
+                'requirements' => $requirements,
+                'benefits' => $benefits,
+                'major_id' => $vacancy->major_id,
+                'major_name' => $majorName,
+                'required_education' => $requiredEducation,
+            ],
+            'userMajor' => $userMajor,
+            'isMajorMatched' => $isMajorMatched,
+            'userEducation' => $userEducation,
+            'educationMatched' => $educationMatched,
+            'canApply' => $canApply,
+            'applicationMessage' => $applicationMessage
+        ]);
+    }
+
+    public function jobHiring(Request $request)
+    {
+        try {
+            // Ambil semua lowongan aktif (tanpa join kompleks dulu)
+            $jobs = Vacancies::with(['company', 'department'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Add education requirements to all jobs
+            $jobs = $this->addEducationRequirements($jobs);
+
+            // Tambahkan data tipe pekerjaan dari relasi
+            foreach ($jobs as $job) {
+                // Tambahkan tipe dari relasi yang benar
+                $jobType = DB::table('job_types')->find($job->type_id);
+                $job->type = $jobType ? $jobType->name : 'Unknown';
+
+                // Tambahkan deadline dari periods
+                $period = DB::table('periods')
+                    ->join('vacancies_periods', 'periods.id', '=', 'vacancies_periods.period_id')
+                    ->where('vacancies_periods.vacancy_id', $job->id)
+                    ->first();
+
+                // Tambahkan deadline ke objek job
+                $job->deadline = $period ? $period->end_time : 'Open';
+
+                // Tambahkan deskripsi
+                $job->description = $job->job_description ?: 'No description available';
+            }
+
+            $userMajorId = null;
+            $recommendations = [];
+            $candidateMajor = null;
+
+            // Jika user sudah login, tampilkan rekomendasi berdasarkan jurusan
+            if (Auth::check()) {
+                $education = CandidatesEducations::where('user_id', Auth::id())->first();
+                if ($education) {
+                    $userMajorId = $education->major_id;
+
+                    // Ambil major name
+                    if ($userMajorId) {
+                        $major = MasterMajor::find($userMajorId);
+                        $candidateMajor = $major ? $major->name : null;
+                    }
+
+                    // Filter lowongan yang sesuai dengan jurusan user
+                    $matchedJobs = $jobs->filter(function($job) use ($userMajorId) {
+                        return $job->major_id == $userMajorId;
+                    });
+
+                    // Buat rekomendasi dengan score
+                    foreach ($matchedJobs as $job) {
+                        $score = 100; // Default score untuk perfect match
+
+                        $recommendations[] = [
+                            'vacancy' => $job,
+                            'score' => $score
+                        ];
+                    }
+                }
+            }
+
+            // Data perusahaan untuk filter
+            $companies = DB::table('companies')->pluck('name')->toArray();
+
+            return Inertia::render('candidate/jobs/job-hiring', [
+                'jobs' => $jobs,
+                'recommendations' => $recommendations,
+                'companies' => $companies,
+                'candidateMajor' => $candidateMajor
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in job-hiring: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Terjadi kesalahan. Silakan coba lagi.');
+        }
+    }
+
+    // applicationHistory method has been removed and replaced with a dedicated ApplicationHistoryController
+
+    /**
+     * Metode untuk memvalidasi jenjang pendidikan kandidat dengan persyaratan lowongan
+     *
+     * @param string $candidateEducation Jenjang pendidikan kandidat
+     * @param string $requiredEducation Jenjang pendidikan minimal yang dibutuhkan
+     * @return bool True jika pendidikan kandidat memenuhi syarat, false jika tidak
+     */
+    private function validateEducationLevel($candidateEducation, $requiredEducation)
+    {
+        // Log the input values
+        \Log::info('Validating education level', [
+            'candidate_education_raw' => $candidateEducation,
+            'required_education_raw' => $requiredEducation
+        ]);
+
+        // Normalize education input (case and formatting)
+        $candidateEducation = trim(strtoupper($candidateEducation));
+        $requiredEducation = trim(strtoupper($requiredEducation));
+
+        // Define education hierarchy (from lowest to highest)
+        $educationLevels = [
+            'SD' => 1,
+            'SMP' => 2,
+            'SMA' => 3,
+            'SMK' => 3,
+            'SMA/SMK' => 3,
+            'D3' => 4,
+            'DIPLOMA' => 4,
+            'DIPLOMA 3' => 4,
+            'S1' => 5,
+            'SARJANA' => 5,
+            'S2' => 6,
+            'MAGISTER' => 6,
+            'S3' => 7,
+            'DOKTOR' => 7
+        ];
+
+        // Handle special case for 'SMA/SMK'
+        if ($candidateEducation === 'SMA' || $candidateEducation === 'SMK') {
+            $candidateEducation = 'SMA/SMK';
+        }
+
+        // Handle special cases for required education
+        if ($requiredEducation === 'SMA' || $requiredEducation === 'SMK') {
+            $requiredEducation = 'SMA/SMK';
+        }
+
+        // Map similar education names to standardized values
+        $mappedCandidate = $candidateEducation;
+        $mappedRequired = $requiredEducation;
+
+        // Custom mapping logic for non-standard formats
+        if (strpos($candidateEducation, 'DIPLOMA') !== false || strpos($candidateEducation, 'D-3') !== false || $candidateEducation === 'D3') {
+            $mappedCandidate = 'D3';
+        }
+        if (strpos($requiredEducation, 'DIPLOMA') !== false || strpos($requiredEducation, 'D-3') !== false || $requiredEducation === 'D3') {
+            $mappedRequired = 'D3';
+        }
+
+        if (strpos($candidateEducation, 'SARJANA') !== false || strpos($candidateEducation, 'S-1') !== false || $candidateEducation === 'S1') {
+            $mappedCandidate = 'S1';
+        }
+        if (strpos($requiredEducation, 'SARJANA') !== false || strpos($requiredEducation, 'S-1') !== false || $requiredEducation === 'S1') {
+            $mappedRequired = 'S1';
+        }
+
+        // Log the mapped values
+        \Log::info('Mapped education values', [
+            'mapped_candidate' => $mappedCandidate,
+            'mapped_required' => $mappedRequired
+        ]);
+
+        // If education level not in our defined levels, reject
+        if (!isset($educationLevels[$mappedCandidate]) || !isset($educationLevels[$mappedRequired])) {
+            \Log::warning('Education level not recognized', [
+                'candidate_education' => $mappedCandidate,
+                'required_education' => $mappedRequired,
+                'valid_levels' => array_keys($educationLevels)
+            ]);
+            return false;
+        }
+
+        // Compare education levels
+        $result = $educationLevels[$mappedCandidate] >= $educationLevels[$mappedRequired];
+
+        \Log::info('Education comparison result', [
+            'candidate_level' => $educationLevels[$mappedCandidate],
+            'required_level' => $educationLevels[$mappedRequired],
+            'comparison_result' => $result ? 'passed' : 'failed'
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Helper function to add education requirements to job entries for display in listings
+     *
+     * @param \Illuminate\Database\Eloquent\Collection $jobs Collection of job entries
+     * @return \Illuminate\Database\Eloquent\Collection Modified jobs with education requirements
+     */
+    private function addEducationRequirements($jobs)
+    {
+        foreach ($jobs as $job) {
+            $requirements = $job->requirements;
+
+            // Process requirements to find education level
+            $minEducation = null;
+
+            if (is_string($requirements)) {
+                $requirements = json_decode($requirements, true);
+            }
+
+            if (is_array($requirements)) {
+                // Check for structured fields
+                if (isset($requirements['min_education'])) {
+                    $minEducation = $requirements['min_education'];
+                } else if (isset($requirements['minimum_education'])) {
+                    $minEducation = $requirements['minimum_education'];
+                } else if (isset($requirements['pendidikan_minimal'])) {
+                    $minEducation = $requirements['pendidikan_minimal'];
+                } else {
+                    // Try to extract from requirements text
+                    foreach ($requirements as $req) {
+                        if (is_string($req) &&
+                            (stripos($req, 'pendidikan minimal') !== false ||
+                             stripos($req, 'minimum pendidikan') !== false) &&
+                            (stripos($req, 'S1') !== false ||
+                             stripos($req, 'S2') !== false ||
+                             stripos($req, 'S3') !== false ||
+                             stripos($req, 'D3') !== false ||
+                             stripos($req, 'SMA') !== false ||
+                             stripos($req, 'SMK') !== false)) {
+
+                            if (stripos($req, 'S3') !== false) $minEducation = 'S3';
+                            else if (stripos($req, 'S2') !== false) $minEducation = 'S2';
+                            else if (stripos($req, 'S1') !== false) $minEducation = 'S1';
+                            else if (stripos($req, 'D3') !== false) $minEducation = 'D3';
+                            else if (stripos($req, 'SMA') !== false || stripos($req, 'SMK') !== false) $minEducation = 'SMA/SMK';
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // For demo purposes, assign a default if not found
+            if (!$minEducation) {
+                $minEducation = 'S1';
+            }
+
+            $job->min_education = $minEducation;
+        }
+
+        return $jobs;
     }
 
     // Metode untuk memeriksa kelengkapan profil
@@ -858,7 +895,7 @@ class JobsController extends Controller
             }
 
             // VALIDASI JENJANG PENDIDIKAN: Cek apakah jenjang pendidikan candidate memenuhi syarat
-            $educationValidation = $this->validateCandidateEducationFromRequirements($user, $vacancy);
+            $educationValidation = $this->validateCandidateEducation($user, $vacancy);
             if (!$educationValidation['is_valid']) {
                 \Log::warning('Candidate education does not meet requirements in applyJob', [
                     'user_id' => $user->id,
@@ -912,7 +949,7 @@ class JobsController extends Controller
             $vacancy = Vacancies::findOrFail($id);
 
             // VALIDASI JENJANG PENDIDIKAN: Double check sebelum proses aplikasi final
-            $educationValidation = $this->validateCandidateEducationFromRequirements($user, $vacancy);
+            $educationValidation = $this->validateCandidateEducation($user, $vacancy);
             if (!$educationValidation['is_valid']) {
                 \Log::warning('Candidate education validation failed in processJobApplication', [
                     'user_id' => $user->id,
@@ -979,9 +1016,9 @@ class JobsController extends Controller
     }
 
     /**
-     * Validate candidate education level against vacancy requirements using requirements text
+     * Validate candidate education level against vacancy requirements
      */
-    private function validateCandidateEducationFromRequirements($user, $vacancy)
+    private function validateCandidateEducation($user, $vacancy)
     {
         try {
             // Get candidate's education with educationLevel relation
