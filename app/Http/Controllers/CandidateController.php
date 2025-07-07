@@ -16,7 +16,7 @@ use App\Models\CandidatesSkills;
 use App\Models\CandidatesCourses;
 use App\Models\CandidatesCertifications;
 use App\Models\CandidatesLanguages;
-use App\Models\CandidateCV;
+use App\Models\CandidatesCV;
 use Illuminate\Http\Request; // Tambahkan import ini
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -853,7 +853,7 @@ class CandidateController extends Controller
                 $completeness['skills'];
 
             // Check existing CV
-            $existingCV = CandidateCV::where('user_id', $userId)
+            $existingCV = CandidatesCV::where('user_id', $userId)
                 ->where('is_active', true)
                 ->first();
 
@@ -959,7 +959,7 @@ class CandidateController extends Controller
             \Log::info('PDF file generated and saved', ['path' => $fullPath]);
 
             // Save to database
-            $cvRecord = CandidateCV::create([
+            $cvRecord = CandidatesCV::create([
                 'user_id' => $userId,
                 'cv_filename' => $sanitized_filename,
                 'cv_path' => $fullPath,
@@ -969,7 +969,7 @@ class CandidateController extends Controller
             ]);
 
             // Mark previous CVs as inactive
-            CandidateCV::where('user_id', $userId)
+            CandidatesCV::where('user_id', $userId)
                 ->where('id', '!=', $cvRecord->id)
                 ->update(['is_active' => false]);
 
@@ -1012,12 +1012,12 @@ class CandidateController extends Controller
 
             if ($id) {
                 // Download specific CV by ID
-                $cv = CandidateCV::where('id', $id)
+                $cv = CandidatesCV::where('id', $id)
                                  ->where('user_id', $userId)
                                  ->firstOrFail();
             } else {
                 // Download latest active CV
-                $cv = CandidateCV::where('user_id', $userId)
+                $cv = CandidatesCV::where('user_id', $userId)
                                  ->where('is_active', true)
                                  ->first();
 
@@ -1048,7 +1048,7 @@ class CandidateController extends Controller
     {
         try {
             $userId = Auth::id();
-            $cvs = CandidateCV::where('user_id', $userId)
+            $cvs = CandidatesCV::where('user_id', $userId)
                           ->orderBy('created_at', 'desc')
                           ->get();
 
@@ -1070,7 +1070,7 @@ class CandidateController extends Controller
     {
         try {
             $userId = Auth::id();
-            $cv = CandidateCV::where('id', $id)
+            $cv = CandidatesCV::where('id', $id)
                          ->where('user_id', $userId)
                          ->firstOrFail();
 

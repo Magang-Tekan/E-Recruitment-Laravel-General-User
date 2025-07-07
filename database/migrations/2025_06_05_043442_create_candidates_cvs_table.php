@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('candidate_cvs', function (Blueprint $table) {
+        Schema::create('candidates_cvs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->string('cv_filename'); // Nama file CV yang tersimpan
@@ -31,6 +31,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('candidate_cvs');
+        Schema::dropIfExists('candidates_cvs');
     }
 };
