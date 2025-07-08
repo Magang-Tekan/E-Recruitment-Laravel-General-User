@@ -11,37 +11,27 @@ class CreateApplicationHistoryTable extends Migration
         Schema::create('application_history', function (Blueprint $table) {
             $table->id();
             $table->foreignId('application_id')->constrained('applications')->onDelete('cascade');
-            
-            
             $table->foreignId('status_id')->constrained('statuses')->onDelete('cascade');
-            $table->timestamp('processed_at')->nullable();
+            
+            // Simple timestamp fields without any foreign key constraints
+            $table->timestamp('processed_at')->nullable()->index();
             $table->text('resource_url')->nullable();
             
-            // Kolom score dan notes yang disederhanakan (tidak lagi dibagi per tahap)
             $table->decimal('score', 5, 2)->nullable();
             $table->text('notes')->nullable();
             
-            // Jadwal dan penyelesaian yang disederhanakan
-            $table->timestamp('scheduled_at')->nullable();
+            // Simple timestamp field without foreign key constraint
+            $table->timestamp('scheduled_at')->nullable()->index();
             $table->timestamp('completed_at')->nullable();
             
-            // Review disederhanakan
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamp('reviewed_at')->nullable();
             
-            // Mengubah is_qualified menjadi is_active
             $table->boolean('is_active')->default(true);
-            
-            // Hapus kolom rejection_reason karena redundant dengan notes
-            // $table->text('rejection_reason')->nullable();
-            
-            // Kolom timestamps standar
             $table->timestamps();
             
-            // Indexing untuk performa
+            // Index for foreign keys
             $table->index(['application_id', 'status_id']);
-            $table->index(['scheduled_at']);
-            $table->index(['processed_at']);
         });
     }
 

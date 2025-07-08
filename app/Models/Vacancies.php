@@ -24,7 +24,8 @@ class Vacancies extends Model
         'salary',
         'requirements',
         'benefits',
-        'question_pack_id'
+        'question_pack_id',
+        'education_level_id'  // Add this line
     ];
 
     protected $casts = [
@@ -102,6 +103,14 @@ class Vacancies extends Model
     public function vacancyType()
     {
         return $this->belongsTo(VacancyType::class, 'vacancy_type_id');
+    }
+
+    /**
+     * Get the education level associated with this vacancy.
+     */
+    public function educationLevel()
+    {
+        return $this->belongsTo(EducationLevel::class, 'education_level_id');
     }
 
     /**
