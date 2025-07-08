@@ -93,8 +93,13 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'verified'])->get('/redirect', function () {
     return Auth::user()->role === UserRole::HR
     ? redirect()->route('admin.dashboard')
-    : redirect()->route('user.profile');
+    : redirect()->route('welcome'); // Changed from dashboard to welcome
 })->name('dashboard');
+
+// Add a new beranda route that points to welcome
+Route::get('/beranda', function () {
+    return redirect()->route('welcome');
+})->name('beranda');
 
 Route::get('/confirm-data', function () {
     return Inertia::render('candidate/profile/confirm-data');
@@ -261,10 +266,10 @@ Route::middleware(['auth', 'role:candidate'])->group(function () {
 Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
     // Detail job dan apply
     Route::get('/job/{id}', [JobsController::class, 'detail'])->name('candidate.job.detail');
-    
+
     // API untuk apply job dari frontend
     Route::post('/api/jobs/{id}/apply', [JobsController::class, 'applyJob']);
-    
+
     // Endpoint untuk proses apply setelah confirm data
     Route::post('/candidate/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
 
@@ -282,7 +287,7 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
 Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
     Route::get('/application-history', [ApplicationHistoryController::class, 'index'])
         ->name('candidate.application-history');
-        
+
     Route::get('/application/{id}/status', [ApplicationHistoryController::class, 'applicationStatus'])
         ->name('candidate.application-status');
 });
@@ -306,12 +311,12 @@ Route::middleware(['auth'])->group(function () {
 Route::get('/debug/psychotest/{application_id}', function($application_id) {
     $user = Auth::user();
     $application = Applications::findOrFail($application_id);
-    
+
     // Keamanan: pastikan hanya pemilik aplikasi yang bisa melihat
     if ($application->user_id != $user->id && !$user->hasRole(['super_admin', 'hr'])) {
         return response()->json(['error' => 'Unauthorized'], 403);
     }
-    
+
     // Cari history psikotes
     $psychotest = ApplicationHistory::where('application_id', $application_id)
         ->whereHas('status', function ($query) {
@@ -321,7 +326,7 @@ Route::get('/debug/psychotest/{application_id}', function($application_id) {
         })
         ->with('status')
         ->first();
-        
+
     return response()->json([
         'application' => $application,
         'psychotest_history' => $psychotest,
@@ -353,7 +358,7 @@ Route::get('/debug/application/{id}/histories', function($id) {
                 'scheduled_at' => $h->scheduled_at,
             ];
         });
-        
+
     return response()->json([
         'application' => [
             'id' => $application->id,
@@ -383,7 +388,7 @@ Route::get('/debug/application-data', function() {
                     'scheduled_at' => $history->scheduled_at,
                 ];
             });
-            
+
             return [
                 'application_id' => $application->id,
                 'user_id' => $application->user_id,
@@ -391,7 +396,7 @@ Route::get('/debug/application-data', function() {
                 'histories' => $histories
             ];
         });
-    
+
     return response()->json([
         'user_id' => $user->id,
         'applications' => $applications

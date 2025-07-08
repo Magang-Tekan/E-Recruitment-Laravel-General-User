@@ -117,7 +117,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
 
                     <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
                         <a href="/candidate/dashboard" className="text-gray-900 hover:text-blue-800">
-                            Dasbor
+                            Beranda
                         </a>
                         <a href="/candidate/profile" className="text-gray-900 hover:text-blue-600">
                             Profil
