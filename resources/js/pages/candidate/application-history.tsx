@@ -199,12 +199,37 @@ interface Application {
     current_score?: number; // Add this property to fix the error
 }
 
+interface Contact {
+    email: string;
+    phone: string;
+    address: string;
+}
+
+interface Company {
+    id: number;
+    name: string;
+    description: string;
+}
+
+// Update interface ApplicationHistoryProps
 interface ApplicationHistoryProps {
     applications: Application[];
     error?: string;
+    companies: Company[];
+    footerCompanies: {
+        id: number;
+        name: string;
+    }[];
+    contacts: Contact | null;
 }
 
-const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = [], error = '' }) => {
+const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ 
+    applications = [], 
+    error = '', 
+    companies = [],
+    footerCompanies = [],
+    contacts = null
+}) => {
     const [isLoading, setIsLoading] = useState(false);
     // No need to create a separate state for applicationList, use the props directly
     const applicationList = applications;
@@ -363,10 +388,22 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
                 <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
                     {/* Kolom 1 */}
                     <div>
-                        <h4 className="mb-2 text-[16px] font-bold">MITRA KARYA GROUP</h4>
-                        <p className="mb-6 text-sm text-gray-700">
-                            Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
-                        </p>
+                        {companies && companies.length > 0 ? (
+                            <>
+                                <h4 className="mb-2 text-[16px] font-bold text-gray-900">{companies[0].name}</h4>
+                                <p className="mb-6 text-sm text-gray-700">
+                                    {companies[0].description}
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h4 className="mb-2 text-[16px] font-bold text-gray-900">MITRA KARYA GROUP</h4>
+                                <p className="mb-6 text-sm text-gray-700">
+                                    Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
+                                </p>
+                            </>
+                        )}
+
                         {/* Social Media Icons */}
                         <div className="flex space-x-6 text-xl text-blue-600">
                             {/* Instagram - Dropup untuk dua akun */}
@@ -444,29 +481,40 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
 
                     {/* Kolom 2 */}
                     <div>
-                        <h4 className="mb-2 text-[16px] font-bold">Perusahaan Kami</h4>
+                        <h4 className="mb-2 text-[16px] font-bold text-gray-900">Perusahaan Kami</h4>
                         <ul className="space-y-1 text-sm text-gray-700">
-                            <li>PT Mitra Karya Analitika</li>
-                            <li>PT Autentik Karya Analitika</li>
+                            {footerCompanies && footerCompanies.length > 0 ? (
+                                footerCompanies.map((company) => (
+                                    <li key={company.id}>{company.name}</li>
+                                ))
+                            ) : (
+                                <li>Tidak ada perusahaan untuk ditampilkan</li>
+                            )}
                         </ul>
                     </div>
 
                     {/* Kolom 3 */}
                     <div>
-                        <h4 className="mb-4 text-[16px] font-bold">Contact</h4>
+                        <h4 className="mb-4 text-[16px] font-bold text-gray-900">Contact</h4>
                         <ul className="space-y-2 text-sm text-gray-700">
-                            <li className="flex items-start gap-2">
-                                <i className="fas fa-phone mt-1 text-blue-600" />
-                                <div>+62 817 7055 5554</div>
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <i className="fas fa-envelope text-blue-600" />
-                                <span>info@mitrakarya.com</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
-                                <span>Jakarta, Indonesia</span>
-                            </li>
+                            {contacts && (
+                                <>
+                                    <li className="flex items-start gap-2">
+                                        <i className="fas fa-phone mt-1 text-blue-600" />
+                                        <div dangerouslySetInnerHTML={{ __html: contacts.phone }} />
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <i className="fas fa-envelope text-blue-600" />
+                                        <span>{contacts.email}</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
+                                        <span dangerouslySetInnerHTML={{
+                                            __html: contacts.address.replace(/\n/g, '<br />')
+                                        }} />
+                                    </li>
+                                </>
+                            )}
                         </ul>
                     </div>
                 </div>

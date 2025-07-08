@@ -148,18 +148,32 @@ class ApplicationHistoryController extends Controller
                 'count' => count($formattedApplications)
             ]);
 
+            // Get companies data
+            $companies = \App\Models\Company::select('id', 'name', 'description')->get();
+            
+            // Get footer companies
+            $footerCompanies = \App\Models\Company::select('id', 'name')->get();
+            
+            // Get contact data
+            $contacts = \App\Models\Contacts::first();
+
             return Inertia::render('candidate/application-history', [
                 'applications' => $formattedApplications,
+                'companies' => $companies,
+                'footerCompanies' => $footerCompanies,
+                'contacts' => $contacts,
+                'error' => null
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error in application history: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error('Error in application history: ' . $e->getMessage());
 
             return Inertia::render('candidate/application-history', [
                 'applications' => [],
-                'error' => 'Terjadi kesalahan saat memuat data riwayat lamaran.'
+                'companies' => [],
+                'footerCompanies' => [],
+                'contacts' => null,
+                'error' => 'Terjadi kesalahan saat memuat data.'
             ]);
         }
     }
