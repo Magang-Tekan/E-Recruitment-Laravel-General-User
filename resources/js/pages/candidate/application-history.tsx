@@ -239,7 +239,7 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ applications = 
 
                     <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
                         <a href="/candidate/dashboard" className="text-gray-900 hover:text-blue-600">
-                            Dasbor
+                            Beranda
                         </a>
                         <a href="/candidate/profile" className="text-gray-900 hover:text-blue-600">
                             Profil

@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Validation\ValidationException;
-use App\Models\Applications; 
+use App\Models\Applications;
 use App\Models\Job;
 use App\Models\Statuses;
 use App\Enums\CandidatesStage;
@@ -37,7 +37,7 @@ class CandidateController extends Controller
 {
     try {
         $userId = Auth::id();
-        
+
         // Debug log untuk memastikan pengecekan berjalan
         \Log::info('Checking application data completeness for user:', ['user_id' => $userId]);
 
@@ -63,9 +63,9 @@ class CandidateController extends Controller
 
         // Gunakan logika yang konsisten dengan checkDataCompleteness
         // Check Profile Data
-        $completeness['profile'] = $profile && 
-            !empty($profile->phone_number) && 
-            !empty($profile->address) && 
+        $completeness['profile'] = $profile &&
+            !empty($profile->phone_number) &&
+            !empty($profile->address) &&
             !empty($profile->date_of_birth);
 
         // Check Education - cukup ada data pendidikan
@@ -81,9 +81,9 @@ class CandidateController extends Controller
         $completeness['social_media'] = CandidatesSocialMedia::where('user_id', $userId)->exists();
 
         // Overall completeness berdasarkan data wajib saja
-        $completeness['overall_complete'] = 
-            $completeness['profile'] && 
-            $completeness['education'] && 
+        $completeness['overall_complete'] =
+            $completeness['profile'] &&
+            $completeness['education'] &&
             $completeness['skills'];
 
         \Log::info('Final completeness status:', $completeness);
@@ -98,7 +98,7 @@ class CandidateController extends Controller
             'error' => $e->getMessage(),
             'trace' => $e->getTraceAsString()
         ]);
-        
+
         return response()->json([
             'success' => false,
             'message' => 'Error checking completeness: ' . $e->getMessage()
@@ -813,7 +813,7 @@ class CandidateController extends Controller
     {
         try {
             $userId = Auth::id();
-            
+
             $completeness = [
                 'profile' => false,
                 'education' => false,
@@ -825,9 +825,9 @@ class CandidateController extends Controller
 
             // Check Profile Data
             $profile = CandidatesProfiles::where('user_id', $userId)->first();
-            $completeness['profile'] = $profile && 
-                $profile->phone_number && 
-                $profile->address && 
+            $completeness['profile'] = $profile &&
+                $profile->phone_number &&
+                $profile->address &&
                 $profile->date_of_birth;
 
             // Check Education
@@ -847,9 +847,9 @@ class CandidateController extends Controller
             $completeness['achievements'] = $achievementCount > 0;
 
             // Check if overall data is complete (required fields only)
-            $completeness['overall_complete'] = 
-                $completeness['profile'] && 
-                $completeness['education'] && 
+            $completeness['overall_complete'] =
+                $completeness['profile'] &&
+                $completeness['education'] &&
                 $completeness['skills'];
 
             // Check existing CV
@@ -1218,7 +1218,7 @@ class CandidateController extends Controller
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menyimpan skill: ' . $e->getMessage()
@@ -1990,7 +1990,7 @@ public function deleteAchievement($id)
         if ($achievement->certificate_file) {
             Storage::disk('public')->delete($achievement->certificate_file);
         }
-        
+
         // Hapus file pendukung jika ada
         if ($achievement->supporting_file) {
             Storage::disk('public')->delete($achievement->supporting_file);
@@ -2020,7 +2020,7 @@ public function showConfirmData($job_id = null)
     // Dapatkan status kelengkapan data
     $completenessData = $this->checkApplicationDataCompleteness();
     $completeness = json_decode($completenessData->getContent(), true);
-    
+
     return Inertia::render('candidate/confirm-data', [
         'completeness' => $completeness['completeness'],
         'job_id' => $job_id,
@@ -2035,7 +2035,7 @@ public function showPsychotest($application_id = null)
     try {
         // Aktifkan debugging untuk melihat error yang mungkin terjadi
         \Log::info('ShowPsychotest called with application_id: ' . $application_id);
-        
+
         // Mendapatkan user yang sedang login
         $user = Auth::user();
 
@@ -2106,7 +2106,7 @@ public function showPsychotest($application_id = null)
 
         // Ambil QuestionPack untuk psikotes (atau gunakan dummy data jika tidak ada)
         $questions = $this->getDummyPsychotestQuestions();
-        
+
         // Setup data tes dari application history
         $assessment = [
             'id' => $application->id,
@@ -2127,7 +2127,7 @@ public function showPsychotest($application_id = null)
         \Log::error('Error in showPsychotest: ' . $e->getMessage(), [
             'trace' => $e->getTraceAsString()
         ]);
-        
+
         return redirect()->route('candidate.application-history')
             ->with('error', 'Terjadi kesalahan saat memuat tes psikotes: ' . $e->getMessage());
     }
@@ -2199,10 +2199,10 @@ public function submitPsychotest(Request $request)
             'answers_count' => is_array($request->input('answers')) ? count($request->input('answers')) : 'not array',
             'user_id' => auth()->id()
         ]);
-        
+
         $application_id = $request->input('application_id');
         $answers = $request->input('answers', []);
-        
+
         // Validasi data
         if (!$application_id) {
             return response()->json([
@@ -2210,19 +2210,19 @@ public function submitPsychotest(Request $request)
                 'message' => 'Application ID tidak ditemukan'
             ], 422);
         }
-        
+
         // Cari aplikasi
         $application = \App\Models\Applications::where('id', $application_id)
             ->where('user_id', auth()->id())
             ->first();
-        
+
         if (!$application) {
             return response()->json([
                 'success' => false,
                 'message' => 'Aplikasi tidak ditemukan atau bukan milik Anda'
             ], 404);
         }
-        
+
         // Cari history psikotes aktif
         $psychotestHistory = \App\Models\ApplicationHistory::where('application_id', $application_id)
             ->where('is_active', true)
@@ -2232,31 +2232,31 @@ public function submitPsychotest(Request $request)
                     ->orWhere('name', 'like', '%Psychological%');
             })
             ->first();
-        
+
         if (!$psychotestHistory) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tidak ada tes psikotes aktif untuk aplikasi ini'
             ], 404);
         }
-        
+
         // PERBAIKAN: Hanya update completed_at untuk menandakan kandidat sudah selesai test
         // JANGAN set reviewed_by di sini - ini harus diisi oleh admin saat mengevaluasi
         $psychotestHistory->completed_at = now();
         $psychotestHistory->notes = 'Tes psikotes telah dikerjakan oleh kandidat pada ' . now()->format('Y-m-d H:i') . '. Menunggu evaluasi dari tim rekrutmen.';
-        
+
         // Pastikan field ini TIDAK diisi saat kandidat submit
         // $psychotestHistory->processed_at = now();  // HAPUS - ini untuk admin saat proses evaluasi
-        // $psychotestHistory->score = 80;           // HAPUS - ini untuk admin saat proses evaluasi 
+        // $psychotestHistory->score = 80;           // HAPUS - ini untuk admin saat proses evaluasi
         // $psychotestHistory->reviewed_by = "SuperAdmin"; // HAPUS - ini untuk admin saat proses evaluasi
         // $psychotestHistory->reviewed_at = now();       // HAPUS - ini untuk admin saat proses evaluasi
-        
+
         $psychotestHistory->save();
-        
+
         // Simpan jawaban ke tabel terpisah untuk evaluasi admin
         try {
             DB::beginTransaction();
-            
+
             // Simpan jawaban ke tabel user_answers
             foreach ($answers as $questionId => $choiceId) {
                 \App\Models\UserAnswer::create([
@@ -2265,7 +2265,7 @@ public function submitPsychotest(Request $request)
                     'choice_id' => $choiceId
                 ]);
             }
-            
+
             // Simpan backup jawaban dalam JSON juga untuk keamanan data
             $backupAnswersFile = 'psychotest_answers/user_' . auth()->id() . '_app_' . $application_id . '_' . date('Ymd_His') . '.json';
             \Storage::disk('local')->put($backupAnswersFile, json_encode([
@@ -2274,27 +2274,27 @@ public function submitPsychotest(Request $request)
                 'answers' => $answers,
                 'submitted_at' => now()->format('Y-m-d H:i:s')
             ]));
-            
+
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::warning('Gagal menyimpan jawaban psikotes: ' . $e->getMessage());
             // Tidak mengganggu proses submit - aplikasi tetap dianggap selesai
         }
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Tes psikotes berhasil diselesaikan. Tim rekrutmen akan segera mengevaluasi hasil tes Anda.',
             'redirect_url' => route('candidate.application.status', ['id' => $application_id])
         ]);
-        
+
     } catch (\Exception $e) {
         \Log::error('Error in submitPsychotest: ' . $e->getMessage(), [
             'file' => $e->getFile(),
             'line' => $e->getLine(),
             'trace' => $e->getTraceAsString()
         ]);
-        
+
         return response()->json([
             'success' => false,
             'message' => 'Terjadi kesalahan pada server: ' . $e->getMessage()
@@ -2322,5 +2322,17 @@ public function applicationStatus($id)
         return redirect()->route('candidate.application-history')
             ->with('error', 'Aplikasi tidak ditemukan');
     }
+}
+
+public function dashboard()
+{
+    // Redirect to welcome page instead of dashboard
+    return redirect()->route('welcome');
+}
+
+// Or if you want to create a beranda method:
+public function beranda()
+{
+    return redirect()->route('welcome');
 }
 }
