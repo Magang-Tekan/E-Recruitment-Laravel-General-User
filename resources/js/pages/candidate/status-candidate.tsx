@@ -273,7 +273,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <CalendarIcon />
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Tanggal</p>
-                                                                <p className="font-medium">{formatDateOnly(history.created_at)}</p>
+                                                                {/* Ubah text-gray-500 menjadi text-gray-900 */}
+                                                                <p className="font-medium text-gray-900">{formatDateOnly(history.created_at)}</p>
                                                             </div>
                                                         </div>
 
@@ -281,7 +282,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <MapPinIcon />
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Lokasi</p>
-                                                                <p className="font-medium">
+                                                                {/* Ubah text-gray-900 */}
+                                                                <p className="font-medium text-gray-900">
                                                                     {history.status_name.toLowerCase().includes('psikotes') ||
                                                                      history.status_name.toLowerCase().includes('test') ||
                                                                      history.status_name.toLowerCase().includes('psychological') ?
@@ -294,7 +296,8 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <ClockIcon />
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Durasi</p>
-                                                                <p className="font-medium">
+                                                                {/* Ubah text-gray-900 */}
+                                                                <p className="font-medium text-gray-900">
                                                                     {history.status_name.toLowerCase().includes('psikotes') ||
                                                                      history.status_name.toLowerCase().includes('test') ||
                                                                      history.status_name.toLowerCase().includes('psychological') ?
@@ -306,7 +309,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                         {history.score && (
                                                             <div>
                                                                 <p className="text-gray-500">Skor</p>
-                                                                <p className="font-medium">{history.score}/100</p>
+                                                                <p className="font-medium text-gray-900">{history.score}/100</p>
                                                             </div>
                                                         )}
                                                     </div>
