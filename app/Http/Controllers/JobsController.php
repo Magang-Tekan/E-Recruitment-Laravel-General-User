@@ -115,6 +115,15 @@ class JobsController extends Controller
                 $profileComplete = ['is_complete' => false, 'message' => 'User belum login'];
             }
 
+            // Get companies data
+            $companies = \App\Models\Company::select('id', 'name', 'description')->get();
+            
+            // Get footer companies
+            $footerCompanies = \App\Models\Company::select('id', 'name')->get();
+            
+            // Get contact data
+            $contacts = \App\Models\Contacts::first();
+
             Log::info('Jobs data loaded successfully', [
                 'job_count' => count($formattedJobs),
                 'recommendation_count' => count($recommendations)
@@ -124,10 +133,11 @@ class JobsController extends Controller
                 'jobs' => $formattedJobs,
                 'recommendations' => $recommendations,
                 'companies' => $companies,
-                'candidateMajor' => $candidateMajor,
-                'userEducation' => $userEducation,
-                'profileComplete' => $profileComplete
+                'footerCompanies' => $footerCompanies,
+                'contacts' => $contacts,
+                'candidateMajor' => $candidateMajor
             ]);
+
         } catch (\Exception $e) {
             Log::error('Error in job-hiring: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
