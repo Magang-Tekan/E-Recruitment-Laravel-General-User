@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('company_id')->constrained()->onDelete('cascade');
             $table->string('title');
-            $table->text('job_description')->nullable(); // Tambahkan kolom job_description
+            $table->text('job_description')->nullable();
             $table->foreignId('department_id')->constrained('departments')->onDelete('cascade');
             $table->foreignId('major_id')->constrained('master_majors')->onDelete('cascade');
             $table->foreignId('vacancy_type_id')->constrained('vacancy_types')->onDelete('cascade');
@@ -25,6 +25,7 @@ return new class extends Migration
             $table->json('requirements');
             $table->json('benefits');
             $table->foreignId('question_pack_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('education_level_id')->constrained('education_levels')->onDelete('cascade'); // Added education_level_id
             $table->timestamps();
         });
     }

@@ -10,6 +10,7 @@ use App\Models\QuestionPack;
 use App\Models\Department;
 use App\Models\MasterMajor;
 use App\Models\VacancyType;
+use App\Models\EducationLevel; // Add EducationLevel to the imports at the top
 use Illuminate\Database\Seeder;
 
 class VacanciesSeeder extends Seeder
@@ -23,9 +24,10 @@ class VacanciesSeeder extends Seeder
         $user = User::where('role', UserRole::HR->value)->first() ?? User::factory()->create(['role' => UserRole::HR->value]);
         $companies = Company::all();
         $questionPacks = QuestionPack::all();
-        $departments = Department::all(); // Changed from Departement to Department
+        $departments = Department::all();
         $majors = MasterMajor::all();
         $vacancyTypes = VacancyType::all();
+        $educationLevels = EducationLevel::all(); // Add this line
 
         // Check if dependencies exist
         if ($companies->isEmpty()) {
@@ -56,6 +58,12 @@ class VacanciesSeeder extends Seeder
             $this->command->info('No vacancy types found. Running VacancyTypeSeeder first.');
             $this->call(VacanciesTypesSeeder::class);
             $vacancyTypes = VacancyType::all();
+        }
+
+        // Add education levels check
+        if ($educationLevels->isEmpty()) {
+            $this->command->info('No education levels found. Please check your database seeding.');
+            return;
         }
 
         // Indonesian job vacancies data
@@ -317,8 +325,9 @@ class VacanciesSeeder extends Seeder
             $department = $departments->where('name', $vacancyData['department'])->first();
             $major = $majors->where('name', $vacancyData['major'])->first();
             $vacancyType = $vacancyTypes->where('name', $vacancyData['vacancy_type'])->first();
-            $company = $companies->random(); // Get a random company
+            $company = $companies->random();
             $questionPack = $questionPacks->random();
+            $educationLevel = $educationLevels->random(); // Add this line
 
             // Fallback if specific department/major/type not found
             if (!$department) $department = $departments->random();
@@ -327,7 +336,7 @@ class VacanciesSeeder extends Seeder
 
             Vacancies::create([
                 'title' => $vacancyData['title'],
-                'job_description' => $vacancyData['job_description'], // Tambahkan job_description
+                'job_description' => $vacancyData['job_description'],
                 'department_id' => $department->id,
                 'major_id' => $major->id,
                 'vacancy_type_id' => $vacancyType->id,
@@ -336,8 +345,9 @@ class VacanciesSeeder extends Seeder
                 'requirements' => json_encode($vacancyData['requirements']),
                 'benefits' => json_encode($vacancyData['benefits']),
                 'user_id' => $user->id,
-                'company_id' => $company->id, // Changed from $companies->id to $company->id
+                'company_id' => $company->id,
                 'question_pack_id' => $questionPack->id,
+                'education_level_id' => $educationLevel->id, // Add this line
             ]);
         }
 
