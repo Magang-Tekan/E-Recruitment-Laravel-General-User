@@ -117,10 +117,10 @@ class JobsController extends Controller
 
             // Get companies data
             $companies = \App\Models\Company::select('id', 'name', 'description')->get();
-            
+
             // Get footer companies
             $footerCompanies = \App\Models\Company::select('id', 'name')->get();
-            
+
             // Get contact data
             $contacts = \App\Models\Contacts::first();
 
@@ -184,24 +184,62 @@ class JobsController extends Controller
                 ], 422);
             }
 
-            // Cek apakah sudah pernah apply dalam periode yang sama
-            // Karena aplikasi disimpan berdasarkan vacancy_period_id, kita perlu cari vacancy_period untuk vacancy ini
-            $vacancyPeriod = DB::table('vacancy_periods')
-                ->where('vacancy_id', $id)
+            // Cek apakah vacancy memiliki periode yang valid
+            $currentVacancyPeriod = DB::table('vacancy_periods')
+                ->join('periods', 'vacancy_periods.period_id', '=', 'periods.id')
+                ->where('vacancy_periods.vacancy_id', $id)
+                ->where('periods.start_time', '<=', now())
+                ->where('periods.end_time', '>=', now())
+                ->select(
+                    'vacancy_periods.id as vacancy_period_id',
+                    'vacancy_periods.period_id',
+                    'periods.name as period_name',
+                    'periods.start_time',
+                    'periods.end_time'
+                )
                 ->first();
 
-            if (!$vacancyPeriod) {
-                Log::error('No vacancy period found for vacancy', ['vacancy_id' => $id]);
+            if (!$currentVacancyPeriod) {
+                // Cek apakah ada periode yang akan datang
+                $futurePeriod = DB::table('vacancy_periods')
+                    ->join('periods', 'vacancy_periods.period_id', '=', 'periods.id')
+                    ->where('vacancy_periods.vacancy_id', $id)
+                    ->where('periods.start_time', '>', now())
+                    ->orderBy('periods.start_time', 'asc')
+                    ->select('periods.start_time', 'periods.name')
+                    ->first();
+
+                $message = $futurePeriod
+                    ? "Periode perekrutan untuk lowongan ini belum dimulai. Periode {$futurePeriod->name} akan dimulai pada " . date('d M Y H:i', strtotime($futurePeriod->start_time))
+                    : 'Periode perekrutan untuk lowongan ini tidak aktif atau telah berakhir.';
+
+                Log::warning('No active period found for vacancy', [
+                    'vacancy_id' => $id,
+                    'future_period' => $futurePeriod
+                ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Lowongan ini tidak memiliki periode aktif.'
+                    'message' => $message
                 ], 422);
             }
 
-            // VALIDASI BARU: Cek apakah candidate sudah pernah apply di periode yang sama (untuk lowongan apapun)
-            // Ambil semua vacancy_period_id yang memiliki period_id yang sama dengan lowongan ini
+            Log::info('Active period found', [
+                'vacancy_period_id' => $currentVacancyPeriod->vacancy_period_id,
+                'period_id' => $currentVacancyPeriod->period_id,
+                'period_name' => $currentVacancyPeriod->period_name
+            ]);
+
+            // HAPUS VALIDASI PERIODE REGISTRASI - Biarkan semua user apply ke periode aktif
+            Log::info('Allowing application to active period regardless of registration date', [
+                'user_registration' => $user->created_at,
+                'period_start' => $currentVacancyPeriod->start_time,
+                'period_name' => $currentVacancyPeriod->period_name
+            ]);
+
+            // VALIDASI: Cek apakah candidate sudah pernah apply di periode yang sama (untuk lowongan apapun)
             $samePeriodsVacancyIds = DB::table('vacancy_periods')
-                ->where('period_id', $vacancyPeriod->period_id)
+                ->where('period_id', $currentVacancyPeriod->period_id)
                 ->pluck('id')
                 ->toArray();
 
@@ -227,11 +265,12 @@ class JobsController extends Controller
                     Log::warning('User already applied to another vacancy in the same period', [
                         'existing_application_id' => $existingApplicationInPeriod->id,
                         'existing_vacancy_title' => $appliedVacancy->title,
-                        'current_vacancy_id' => $id
+                        'current_vacancy_id' => $id,
+                        'period_name' => $currentVacancyPeriod->period_name
                     ]);
                     return response()->json([
                         'success' => false,
-                        'message' => "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode ini. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.",
+                        'message' => "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.",
                         'redirect' => '/candidate/application-history'
                     ], 422);
                 }
@@ -268,10 +307,10 @@ class JobsController extends Controller
             // Simpan data aplikasi baru
             DB::beginTransaction();
             try {
-                // Buat aplikasi baru
+                // Buat aplikasi baru menggunakan vacancy_period_id
                 $application = Applications::create([
                     'user_id' => $user->id,
-                    'vacancy_period_id' => $vacancyPeriod->id,
+                    'vacancy_period_id' => $currentVacancyPeriod->vacancy_period_id,
                     'status_id' => $status->id,
                 ]);
 
@@ -280,8 +319,10 @@ class JobsController extends Controller
                 // Buat entry pertama di application_history untuk tracking
                 ApplicationHistory::create([
                     'application_id' => $application->id,
-                    'status_id' => $status->id, // Use status_id instead of stage
+                    'status_id' => $status->id,
                     'processed_at' => now(),
+                    'is_active' => true,
+                    'notes' => "Lamaran dikirim pada " . now()->format('d M Y H:i') . " untuk periode {$currentVacancyPeriod->period_name}",
                 ]);
 
                 Log::info('Application history created');
@@ -289,14 +330,15 @@ class JobsController extends Controller
                 DB::commit();
 
                 Log::info('Application created successfully', [
-                    'application_id' => $application->id,
                     'user_id' => $user->id,
-                    'vacancy_id' => $id
+                    'vacancy_id' => $id,
+                    'vacancy_period_id' => $currentVacancyPeriod->vacancy_period_id,
+                    'period_name' => $currentVacancyPeriod->period_name
                 ]);
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Lamaran berhasil dikirim! Anda dapat melihat status lamaran pada menu "Lamaran".',
+                    'message' => "Lamaran berhasil dikirim untuk periode {$currentVacancyPeriod->period_name}! Anda dapat melihat status lamaran pada menu \"Lamaran\".",
                     'redirect' => '/candidate/application-history'
                 ]);
 
@@ -358,7 +400,7 @@ class JobsController extends Controller
             $education = CandidatesEducations::with('educationLevel')
                 ->where('user_id', Auth::id())
                 ->first();
-            
+
             if ($education) {
                 $userMajor = $education->major_id;
                 $userEducation = $education->educationLevel ? $education->educationLevel->name : null;
@@ -1121,19 +1163,105 @@ class JobsController extends Controller
                 ->where('vacancy_periods.vacancy_id', $vacancyId)
                 ->where('periods.start_time', '<=', now())
                 ->where('periods.end_time', '>=', now())
-                ->select('vacancy_periods.id as vacancy_period_id', 'periods.id as period_id')
+                ->select(
+                    'vacancy_periods.id as vacancy_period_id',
+                    'periods.id as period_id',
+                    'periods.name as period_name',
+                    'periods.start_time',
+                    'periods.end_time'
+                )
                 ->first();
 
             if (!$currentVacancyPeriod) {
-                Log::warning('No active period found', ['vacancy_id' => $vacancyId]);
+                // Cek apakah ada periode yang akan datang
+                $futurePeriod = DB::table('vacancy_periods')
+                    ->join('periods', 'vacancy_periods.period_id', '=', 'periods.id')
+                    ->where('vacancy_periods.vacancy_id', $vacancyId)
+                    ->where('periods.start_time', '>', now())
+                    ->orderBy('periods.start_time', 'asc')
+                    ->select('periods.start_time', 'periods.name')
+                    ->first();
+
+                $message = $futurePeriod
+                    ? "Periode perekrutan untuk lowongan ini belum dimulai. Periode {$futurePeriod->name} akan dimulai pada " . date('d M Y H:i', strtotime($futurePeriod->start_time))
+                    : 'Periode perekrutan untuk lowongan ini tidak aktif atau telah berakhir.';
+
+                Log::warning('No active period found', [
+                    'vacancy_id' => $vacancyId,
+                    'future_period' => $futurePeriod
+                ]);
+
                 return [
                     'can_apply' => false,
-                    'message' => 'Periode perekrutan untuk lowongan ini tidak aktif atau telah berakhir.',
+                    'message' => $message,
                     'status' => 'inactive_period'
                 ];
             }
 
-            // 2. Cek existing application dengan query yang lebih spesifik
+            // 2. LOGIC BARU: Cek apakah user dapat apply berdasarkan periode registrasi
+            $user = \App\Models\User::find($userId);
+            if ($user) {
+                $userRegistrationDate = $user->created_at;
+                $periodStartDate = $currentVacancyPeriod->start_time;
+
+                // Tentukan periode registrasi user berdasarkan tanggal daftar
+                $userRegistrationPeriod = DB::table('periods')
+                    ->where('start_time', '<=', $userRegistrationDate)
+                    ->where('end_time', '>=', $userRegistrationDate)
+                    ->first();
+
+                Log::info('User and period analysis', [
+                    'user_registration' => $userRegistrationDate,
+                    'current_period_start' => $periodStartDate,
+                    'current_period_id' => $currentVacancyPeriod->period_id,
+                    'current_period_name' => $currentVacancyPeriod->period_name,
+                    'user_registration_period' => $userRegistrationPeriod ? $userRegistrationPeriod->id : 'no_period_found'
+                ]);
+
+                // RULE BARU:
+                // 1. User yang mendaftar di periode yang sama atau setelahnya bisa apply
+                // 2. User yang mendaftar sebelum periode dimulai juga bisa apply
+                // 3. Hanya blokir jika user mendaftar di periode yang lebih lama dan sudah lewat
+
+                if ($userRegistrationPeriod) {
+                    // Jika user mendaftar di periode yang sama dengan lowongan, boleh apply
+                    if ($userRegistrationPeriod->id == $currentVacancyPeriod->period_id) {
+                        Log::info('User registered in same period as vacancy - allowing application');
+                      }
+                    // Jika user mendaftar di periode setelah periode lowongan, boleh apply
+                    else if ($userRegistrationPeriod->id > $currentVacancyPeriod->period_id) {
+                        Log::info('User registered in later period - allowing application');
+                    }
+                    // Jika user mendaftar di periode sebelum periode lowongan, boleh apply
+                    else if ($userRegistrationPeriod->id < $currentVacancyPeriod->period_id) {
+                        Log::info('User registered in earlier period - allowing application');
+                    }
+                } else {
+                    // Jika tidak ada periode yang cocok dengan tanggal registrasi user
+                    // Cek apakah user mendaftar sebelum periode pertama atau setelah periode terakhir
+                    $firstPeriod = DB::table('periods')->orderBy('start_time', 'asc')->first();
+                    $lastPeriod = DB::table('periods')->orderBy('end_time', 'desc')->first();
+
+                    if ($userRegistrationDate < $firstPeriod->start_time) {
+                        Log::info('User registered before any period - allowing application');
+                    } else if ($userRegistrationDate > $lastPeriod->end_time) {
+                        Log::info('User registered after all periods - allowing application to current period');
+                    } else {
+                        // User mendaftar di gap antar periode - tetap boleh apply
+                        Log::info('User registered in gap between periods - allowing application');
+                    }
+                }
+
+                // Log untuk debugging
+                Log::info('User registration validation passed', [
+                    'user_registration' => $userRegistrationDate,
+                    'period_start' => $periodStartDate,
+                    'period_name' => $currentVacancyPeriod->period_name,
+                    'can_apply_based_on_registration' => true
+                ]);
+            }
+
+            // 3. Cek existing application dengan query yang lebih spesifik
             $existingApplication = DB::table('applications')
                 ->join('vacancy_periods', 'applications.vacancy_period_id', '=', 'vacancy_periods.id')
                 ->join('vacancies', 'vacancy_periods.vacancy_id', '=', 'vacancies.id')
@@ -1149,13 +1277,14 @@ class JobsController extends Controller
             // Debug log untuk existing application
             Log::info('Existing application check result', [
                 'existing_application' => $existingApplication,
-                'current_period_id' => $currentVacancyPeriod->period_id
+                'current_period_id' => $currentVacancyPeriod->period_id,
+                'period_name' => $currentVacancyPeriod->period_name
             ]);
 
             if ($existingApplication) {
-                $message = $existingApplication->vacancy_id == $vacancyId 
+                $message = $existingApplication->vacancy_id == $vacancyId
                     ? 'Anda sudah melamar untuk lowongan ini.'
-                    : "Anda sudah melamar untuk lowongan '{$existingApplication->title}' pada periode ini. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.";
+                    : "Anda sudah melamar untuk lowongan '{$existingApplication->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.";
 
                 return [
                     'can_apply' => false,
@@ -1168,12 +1297,13 @@ class JobsController extends Controller
                 ];
             }
 
-            // 3. Jika belum pernah apply
+            // 4. Jika semua validasi lolos
             return [
                 'can_apply' => true,
-                'message' => 'Anda dapat melamar lowongan ini.',
+                'message' => "Anda dapat melamar lowongan ini untuk periode {$currentVacancyPeriod->period_name}.",
                 'status' => 'can_apply',
-                'vacancy_period_id' => $currentVacancyPeriod->vacancy_period_id
+                'vacancy_period_id' => $currentVacancyPeriod->vacancy_period_id,
+                'period_name' => $currentVacancyPeriod->period_name
             ];
 
         } catch (\Exception $e) {
