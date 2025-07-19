@@ -43,19 +43,19 @@ export default function Register({ status }: RegisterProps) {
         <div className="flex flex-col min-h-screen bg-white">
             <Head title="Daftar" />
 
-            <header className="fixed top-0 left-0 right-0 bg-white py-4 px-6 shadow z-10">
+            <header className="fixed top-0 left-0 right-0 bg-white py-4 px-4 sm:px-6 shadow z-10">
                 <div className="container mx-auto flex justify-between items-center">
-                    <div className="font-bold text-xl text-black ml-8">MITRA KARYA GROUP</div>
-                    <div className="flex items-center gap-x-4">
+                    <div className="font-bold text-lg sm:text-xl text-black ml-2 sm:ml-8">MITRA KARYA GROUP</div>
+                    <div className="flex items-center gap-x-2 sm:gap-x-4">
                         <Link
                             href={route('login')}
-                            className="px-4 py-2 border-blue-500 text-blue-500 font-medium hover:bg-blue-50 transition"
+                            className="px-2 sm:px-4 py-2 border-blue-500 text-blue-500 font-medium hover:bg-blue-50 transition text-sm sm:text-base"
                         >
                             Masuk
                         </Link>
                         <a
                             href="#"
-                            className="px-4 py-2 rounded-md bg-blue-500 text-white font-medium hover:bg-blue-600 transition"
+                            className="px-2 sm:px-4 py-2 rounded-md bg-blue-500 text-white font-medium hover:bg-blue-600 transition text-sm sm:text-base"
                         >
                             Daftar
                         </a>
@@ -63,13 +63,13 @@ export default function Register({ status }: RegisterProps) {
                 </div>
             </header>
 
-            <main className="flex-grow py-12 px-4 mt-16">
-                <div className="grid grid-cols-1 place-items-center">
-                    <div className="w-full max-w-3xl text-center mb-6">
-                        <h1 className="text-blue-500 text-4xl font-bold mb-3 whitespace-nowrap">
+            <main className="flex-grow flex items-center justify-center py-8 sm:py-12 px-4 pt-28 sm:pt-32">
+                <div className="grid grid-cols-1 place-items-center w-full">
+                    <div className="w-full max-w-3xl text-center mb-4 sm:mb-6">
+                        <h1 className="text-blue-500 text-2xl sm:text-3xl md:text-4xl font-bold mb-3">
                             Mulai Karier Impian Anda Hari Ini!
                         </h1>
-                        <div className="max-w-xl mx-auto">
+                        <div className="max-w-xl mx-auto px-4 sm:px-0">
                         <p className="text-gray-600 text-sm">
                             Bergabunglah dengan ribuan profesional yang telah menemukan pekerjaan impian mereka.
                             Daftar sekarang dan temukan kesempatan terbaik untuk masa depan Anda!
@@ -77,10 +77,10 @@ export default function Register({ status }: RegisterProps) {
                         </div>
                     </div>
 
-                    <form className="flex flex-col gap-4 w-full max-w-md" onSubmit={submit}>
-                        <div className="space-y-4">
+                    <form className="flex flex-col gap-4 w-full max-w-sm sm:max-w-md px-4 sm:px-0" onSubmit={submit}>
+                        <div className="space-y-3 sm:space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="ektp" className="text-base font-medium text-black">No E-KTP</Label>
+                                <Label htmlFor="ektp" className="text-sm sm:text-base font-medium text-black">No E-KTP</Label>
                                 <Input
                                     id="ektp"
                                     type="text"
@@ -96,7 +96,7 @@ export default function Register({ status }: RegisterProps) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="nama" className="text-base font-medium text-black">Nama Lengkap</Label>
+                                <Label htmlFor="nama" className="text-sm sm:text-base font-medium text-black">Nama Lengkap</Label>
                                 <Input
                                     id="nama"
                                     type="text"
@@ -111,7 +111,7 @@ export default function Register({ status }: RegisterProps) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-base font-medium text-black">Email</Label>
+                                <Label htmlFor="email" className="text-sm sm:text-base font-medium text-black">Email</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -131,7 +131,7 @@ export default function Register({ status }: RegisterProps) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="password" className="text-base font-medium text-black">Kata Sandi</Label>
+                                <Label htmlFor="password" className="text-sm sm:text-base font-medium text-black">Kata Sandi</Label>
                                 <div className="relative">
                                     <Input
                                         id="password"
@@ -164,7 +164,7 @@ export default function Register({ status }: RegisterProps) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="password_confirmation" className="text-base font-medium text-black">Konfirmasi Kata Sandi</Label>
+                                <Label htmlFor="password_confirmation" className="text-sm sm:text-base font-medium text-black">Konfirmasi Kata Sandi</Label>
                                 <div className="relative">
                                     <Input
                                         id="password_confirmation"
@@ -194,7 +194,7 @@ export default function Register({ status }: RegisterProps) {
 
                             <Button
                                 type="submit"
-                                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 h-10 mt-4"
+                                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 sm:py-2 h-12 sm:h-10 mt-6 sm:mt-4 text-base sm:text-sm"
                                 tabIndex={5}
                                 disabled={processing}
                             >
@@ -203,7 +203,7 @@ export default function Register({ status }: RegisterProps) {
                             </Button>
                         </div>
 
-                        <div className="text-center text-sm mt-4 font-medium">
+                        <div className="text-center text-sm mt-6 sm:mt-4 font-medium">
                             <p className="text-gray-600">
                                 Sudah mempunyai akun? <TextLink href={route('login')} className="text-blue-500 hover:text-blue-700 no-underline" tabIndex={6}>
                                     Masuk

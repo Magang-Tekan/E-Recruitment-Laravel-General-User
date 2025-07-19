@@ -89,7 +89,8 @@ export default function Welcome(props: WelcomeProps) {
     ];
 
     const [bgIndex, setBgIndex] = useState(0);
-    const [showDropdown, setShowDropdown] = useState(false); // Add this state
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [showMobileMenu, setShowMobileMenu] = useState(false); // Add mobile menu state
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -102,8 +103,15 @@ export default function Welcome(props: WelcomeProps) {
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const dropdown = document.getElementById('profile-dropdown');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            
             if (dropdown && !dropdown.contains(event.target as Node)) {
                 setShowDropdown(false);
+            }
+            if (mobileMenu && !mobileMenu.contains(event.target as Node) && 
+                mobileMenuButton && !mobileMenuButton.contains(event.target as Node)) {
+                setShowMobileMenu(false);
             }
         };
 
@@ -129,13 +137,14 @@ export default function Welcome(props: WelcomeProps) {
                 <link href="https://fonts.bunny.net/css?family=outfit:300,400,500,600" rel="stylesheet" />
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
             </Head>
-            <div className="min-h-screen bg-white text-gray-900">
+            <div className="min-h-screen bg-white text-gray-900 pt-[60px] sm:pt-[80px]">
                 {/* Navbar */}
-                <header className="fixed top-0 right-0 left-0 z-50 h-[80px] border-b border-gray-200 bg-white px-[20px] shadow">
-                    <div className="container mx-auto flex items-center justify-between px-6 py-4">
-                        <div className="text-[20px] font-bold text-gray-800">MITRA KARYA GROUP</div>
+                <header className="fixed top-0 right-0 left-0 z-50 h-[60px] sm:h-[80px] border-b border-gray-200 bg-white px-[12px] sm:px-[20px] shadow">
+                    <div className="container mx-auto flex items-center justify-between px-2 sm:px-6 py-3 sm:py-4">
+                        <div className="text-[16px] sm:text-[20px] font-bold text-gray-800">MITRA KARYA GROUP</div>
 
-                        <nav className="hidden space-x-[24px] text-[14px] font-medium md:flex">
+                        {/* Desktop Navigation */}
+                        <nav className="hidden space-x-[16px] sm:space-x-[24px] text-[12px] sm:text-[14px] font-medium md:flex">
                             <Link href="/" className="hover:text-blue-600">
                                 Beranda
                             </Link>
@@ -149,15 +158,17 @@ export default function Welcome(props: WelcomeProps) {
                                 Kontak
                             </Link>
                         </nav>
-                        <div className="flex items-center gap-4">
+
+                        {/* Desktop Auth Buttons */}
+                        <div className="hidden md:flex items-center gap-2 sm:gap-4">
                             {auth?.user ? (
                                 <div className="relative">
                                     <button
-                                        onClick={() => setShowDropdown(!showDropdown)} // Add this state
-                                        className="w-10 h-10 border-2 border-[#0047FF] rounded-full flex items-center justify-center text-[#0047FF] hover:bg-blue-50"
+                                        onClick={() => setShowDropdown(!showDropdown)}
+                                        className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-[#0047FF] rounded-full flex items-center justify-center text-[#0047FF] hover:bg-blue-50"
                                     >
                                         <svg
-                                            className="w-5 h-5"
+                                            className="w-4 h-4 sm:w-5 sm:h-5"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -174,7 +185,6 @@ export default function Welcome(props: WelcomeProps) {
                                         <div
                                             id="profile-dropdown"
                                             className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-md py-1 z-50 border border-gray-300"
-                                            onBlur={() => setShowDropdown(false)}
                                         >
                                             <div className="px-4 py-2">
                                                 <p className="text-sm font-medium text-gray-900">{auth.user.name}</p>
@@ -206,24 +216,160 @@ export default function Welcome(props: WelcomeProps) {
                                 <>
                                     <Link
                                         href={route('login')}
-                                        className="text-sm font-medium text-blue-600 hover:underline"
+                                        className="text-xs sm:text-sm font-medium text-blue-600 hover:underline"
                                     >
                                         Masuk
                                     </Link>
                                     <Link
                                         href={route('register')}
-                                        className="rounded-md bg-blue-600 px-[16px] py-[10px] text-[14px] text-white hover:bg-blue-700"
+                                        className="rounded-md bg-blue-600 px-[12px] sm:px-[16px] py-[8px] sm:py-[10px] text-[12px] sm:text-[14px] text-white hover:bg-blue-700"
                                     >
                                         Daftar
                                     </Link>
                                 </>
                             )}
                         </div>
+
+                        {/* Mobile Menu Button */}
+                        <div className="md:hidden">
+                            <button
+                                id="mobile-menu-button"
+                                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                                className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900 relative z-50"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    {showMobileMenu ? (
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    ) : (
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                                    )}
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Mobile Menu Overlay */}
+                    {showMobileMenu && (
+                        <div className="md:hidden fixed inset-0 z-40 bg-transparent" 
+                             onClick={() => setShowMobileMenu(false)} />
+                    )}
+
+                    {/* Mobile Menu Card - Slide from Right */}
+                    <div
+                        id="mobile-menu"
+                        className={`md:hidden fixed top-0 right-0 h-full w-80 bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
+                            showMobileMenu ? 'translate-x-0' : 'translate-x-full'
+                        }`}
+                    >
+                        {/* Header with X button */}
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                            <span className="text-lg font-semibold text-gray-800">Menu</span>
+                            <button
+                                onClick={() => setShowMobileMenu(false)}
+                                className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="px-4 py-4 space-y-4 overflow-y-auto h-full">
+                            {/* Navigation Links */}
+                            <div className="space-y-3">
+                                <Link 
+                                    href="/" 
+                                    className="block text-gray-800 hover:text-blue-600 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                                    onClick={() => setShowMobileMenu(false)}
+                                >
+                                    Beranda
+                                </Link>
+                                <Link 
+                                    href="/job-hiring-landing-page" 
+                                    className="block text-gray-800 hover:text-blue-600 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                                    onClick={() => setShowMobileMenu(false)}
+                                >
+                                    Lowongan Pekerjaan
+                                </Link>
+                                <Link 
+                                    href="/about-us" 
+                                    className="block text-gray-800 hover:text-blue-600 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                                    onClick={() => setShowMobileMenu(false)}
+                                >
+                                    Tentang Kami
+                                </Link>
+                                <Link 
+                                    href="/contact" 
+                                    className="block text-gray-800 hover:text-blue-600 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                                    onClick={() => setShowMobileMenu(false)}
+                                >
+                                    Kontak
+                                </Link>
+                            </div>
+
+                            {/* Divider */}
+                            <div className="border-t border-gray-200"></div>
+
+                            {/* Auth Section */}
+                            {auth?.user ? (
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-3 px-3 py-3 bg-gray-50 rounded-lg">
+                                        <div className="w-10 h-10 border-2 border-blue-500 rounded-full flex items-center justify-center text-blue-500">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-900">{auth.user.name}</p>
+                                            <p className="text-xs text-gray-500">{auth.user.email}</p>
+                                        </div>
+                                    </div>
+                                    <Link
+                                        href="/candidate/profile"
+                                        className="block text-gray-800 hover:text-blue-600 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                                        onClick={() => setShowMobileMenu(false)}
+                                    >
+                                        Profil Saya
+                                    </Link>
+                                    <form method="POST" action="/logout">
+                                        <input
+                                            type="hidden"
+                                            name="_token"
+                                            value={document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''}
+                                        />
+                                        <button
+                                            type="submit"
+                                            className="block w-full text-left text-gray-800 hover:text-blue-600 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                                            onClick={() => setShowMobileMenu(false)}
+                                        >
+                                            Logout
+                                        </button>
+                                    </form>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <Link
+                                        href={route('login')}
+                                        className="block w-full text-center py-3 px-4 border border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors"
+                                        onClick={() => setShowMobileMenu(false)}
+                                    >
+                                        Masuk
+                                    </Link>
+                                    <Link
+                                        href={route('register')}
+                                        className="block w-full text-center py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                                        onClick={() => setShowMobileMenu(false)}
+                                    >
+                                        Daftar
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </header>
 
                 {/* Hero Section */}
-                <section className="relative h-[1400px] pt-[128px] pb-[80px] text-center text-white">
+                <section className="relative h-[800px] sm:h-[1200px] md:h-[1400px] pt-[80px] sm:pt-[128px] pb-[40px] sm:pb-[80px] text-center text-white">
                     {/* Background image slideshow */}
                     {backgroundImages.map((img, index) => (
                         <div
@@ -234,17 +380,17 @@ export default function Welcome(props: WelcomeProps) {
                     ))}
                     {/* Black overlay */}
                     <div className="absolute inset-0 z-10 bg-black opacity-60" />
-                    <div className="relative z-20 container mx-auto flex h-full flex-col items-center justify-center px-6">
-                        <h1 className="mb-[16px] text-[36px] font-bold md:text-[56px]">
+                    <div className="relative z-20 container mx-auto flex h-full flex-col items-center justify-center px-4 sm:px-6">
+                        <h1 className="mb-[12px] sm:mb-[16px] text-[24px] sm:text-[36px] md:text-[56px] font-bold leading-tight">
                             Selamat Datang di E-Recruitment
                             <br />
                             Mitra Karya Group
                         </h1>
-                        <p className="mb-[32px] text-[18px]">Temukan Karier Impian Anda Bersama Kami</p>
-                        <div className="flex justify-center gap-4">
+                        <p className="mb-[24px] sm:mb-[32px] text-[14px] sm:text-[18px] px-4">Temukan Karier Impian Anda Bersama Kami</p>
+                        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
                             <Link href="/job-hiring-landing-page">
                                 <Button
-                                    className="rounded-md bg-blue-600 px-[24px] py-[12px] text-white hover:bg-blue-700"
+                                    className="rounded-md bg-blue-600 px-[20px] sm:px-[24px] py-[10px] sm:py-[12px] text-[14px] sm:text-[16px] text-white hover:bg-blue-700"
                                     onClick={() => scrollToSection('lowongan')}
                                 >
                                     Lihat Lowongan
@@ -253,7 +399,7 @@ export default function Welcome(props: WelcomeProps) {
                             <Link href="/about-us">
                                 <Button
                                     variant="outline"
-                                    className="rounded-md border border-white px-[24px] py-[12px] text-white hover:bg-white hover:text-blue-600"
+                                    className="rounded-md border border-white px-[20px] sm:px-[24px] py-[10px] sm:py-[12px] text-[14px] sm:text-[16px] text-white hover:bg-white hover:text-blue-600"
                                 >
                                     Tentang Kami
                                 </Button>
@@ -263,25 +409,25 @@ export default function Welcome(props: WelcomeProps) {
                 </section>
 
                 {/* Section Kenapa Bergabung dengan Ikon Gambar */}
-                <section className="bg-white py-20 text-left">
-                    <div className="container mx-auto px-6">
-                        <h2 className="mb-[16px] text-center text-[24px] font-bold md:text-[32px]">MENGAPA BERGABUNG DENGAN MITRA KARYA GROUP?</h2>
-                        <p className="mx-auto mb-[48px] max-w-[672px] text-center text-[16px] text-gray-600">
+                <section className="bg-white py-12 sm:py-20 text-left">
+                    <div className="container mx-auto px-4 sm:px-6">
+                        <h2 className="mb-[12px] sm:mb-[16px] text-center text-[20px] sm:text-[24px] md:text-[32px] font-bold">MENGAPA BERGABUNG DENGAN MITRA KARYA GROUP?</h2>
+                        <p className="mx-auto mb-[32px] sm:mb-[48px] max-w-[672px] text-center text-[14px] sm:text-[16px] text-gray-600 px-4 sm:px-0">
                             Kami menawarkan lingkungan kerja yang mendukung, peluang pengembangan karier, serta benefit kompetitif.
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12">
                             {benefitCards.map((card, index) => (
-                                <div key={index} className="rounded-lg border border-gray-200 p-6 shadow-sm h-full">
+                                <div key={index} className="rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm h-full">
                                     <div className="flex flex-col items-center">
-                                        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-3 sm:mb-4">
                                             <img src={card.icon} alt="" className="w-full h-full" />
                                         </div>
 
-                                        <h3 className="text-lg font-semibold mb-3 text-center">
+                                        <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-center">
                                             {card.title}
                                         </h3>
 
-                                        <p className="text-sm text-gray-600 text-center w-full overflow-hidden">
+                                        <p className="text-xs sm:text-sm text-gray-600 text-center w-full overflow-hidden">
                                             {card.description}
                                         </p>
                                     </div>
@@ -291,30 +437,30 @@ export default function Welcome(props: WelcomeProps) {
                     </div>
                 </section>
                 {/* Perusahaan Kami & Lowongan */}
-                <section className="py-[80px] text-center">
-                    <div className="container mx-auto px-6">
-                        <h2 className="mb-[40px] text-[24px] font-bold md:text-[32px]">Perusahaan Kami</h2>
-                        <div className="mb-[40px] flex flex-col justify-center gap-[60px] md:flex-row">
+                <section className="py-[60px] sm:py-[80px] text-center">
+                    <div className="container mx-auto px-4 sm:px-6">
+                        <h2 className="mb-[32px] sm:mb-[40px] text-[20px] sm:text-[24px] md:text-[32px] font-bold">Perusahaan Kami</h2>
+                        <div className="mb-[32px] sm:mb-[40px] flex flex-col justify-center gap-[40px] sm:gap-[60px] md:flex-row">
                             {props.companies && props.companies.length > 0 ? (
                                 props.companies
                                     .filter(company => [2, 3].includes(company.id)) // Filter only ID 2 and 3
                                     .map((company) => (
                                         <div
                                             key={company.id}
-                                            className="mx-auto flex w-[528px] items-start gap-4 text-left hover:shadow-lg transition-all duration-300 rounded-lg p-4"
+                                            className="mx-auto flex w-full max-w-[400px] sm:max-w-[528px] items-start gap-3 sm:gap-4 text-left hover:shadow-lg transition-all duration-300 rounded-lg p-3 sm:p-4"
                                         >
                                             <img
                                                 src={company.logo}
                                                 alt={company.name}
-                                                className="mt-1 h-[60px] w-[60px] object-contain"
+                                                className="mt-1 h-[48px] w-[48px] sm:h-[60px] sm:w-[60px] object-contain"
                                                 onError={(e) => {
                                                     const target = e.target as HTMLImageElement;
                                                     target.src = '/images/default-company-logo.png';
                                                 }}
                                             />
                                             <div>
-                                                <h3 className="mb-1 font-semibold">{company.name}</h3>
-                                                <p className="text-sm text-gray-600">
+                                                <h3 className="mb-1 text-sm sm:text-base font-semibold">{company.name}</h3>
+                                                <p className="text-xs sm:text-sm text-gray-600">
                                                     {company.description}
                                                 </p>
                                             </div>
@@ -327,7 +473,7 @@ export default function Welcome(props: WelcomeProps) {
                             )}
                         </div>
                         <Link href="/about-us">
-                            <Button className="rounded-md border border-blue-600 bg-white px-[24px] py-[12px] text-blue-600 hover:bg-blue-50">
+                            <Button className="rounded-md border border-blue-600 bg-white px-[20px] sm:px-[24px] py-[10px] sm:py-[12px] text-[14px] sm:text-[16px] text-blue-600 hover:bg-blue-50">
                                 Tentang Kami →
                             </Button>
                         </Link>
@@ -335,28 +481,28 @@ export default function Welcome(props: WelcomeProps) {
                 </section>
 
                 {/* Lowongan Pekerjaan Section */}
-                <section className="bg-[#f6fafe] py-[80px] text-center">
-                    <div className="container mx-auto px-6">
-                        <h2 className="mb-[16px] text-[24px] font-bold md:text-[32px]">LOWONGAN PEKERJAAN TERSEDIA</h2>
-                        <p className="mx-auto mb-[40px] max-w-[672px] text-[16px] text-gray-600">
+                <section className="bg-[#f6fafe] py-[60px] sm:py-[80px] text-center">
+                    <div className="container mx-auto px-4 sm:px-6">
+                        <h2 className="mb-[12px] sm:mb-[16px] text-[20px] sm:text-[24px] md:text-[32px] font-bold">LOWONGAN PEKERJAAN TERSEDIA</h2>
+                        <p className="mx-auto mb-[32px] sm:mb-[40px] max-w-[672px] text-[14px] sm:text-[16px] text-gray-600 px-4 sm:px-0">
                             Temukan posisi yang sesuai dengan minat dan keahlian Anda di PT Mitra Karya Analitika.
                             Kami membuka peluang karier di berbagai bidang.
                         </p>
-                        <div className="mb-[40px] grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="mb-[32px] sm:mb-[40px] grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
                             {props.vacancies && props.vacancies.length > 0 ? (
                                 props.vacancies.map((job) => (
                                     <div
                                         key={job.id}
-                                        className="mx-auto flex h-auto w-full max-w-[400px] flex-col rounded-xl border border-gray-200 bg-white p-6 text-left shadow-sm hover:shadow-md transition-shadow duration-300"
+                                        className="mx-auto flex h-auto w-full max-w-[350px] sm:max-w-[400px] flex-col rounded-xl border border-gray-200 bg-white p-4 sm:p-6 text-left shadow-sm hover:shadow-md transition-shadow duration-300"
                                     >
                                         <div className="mb-3">
                                             <div className="flex items-center justify-between mb-2">
-                                                <h3 className="text-lg font-semibold">{job.title}</h3>
+                                                <h3 className="text-base sm:text-lg font-semibold">{job.title}</h3>
                                                 <span className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-600">
                                                     {job.department}
                                                 </span>
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                                            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-gray-600">
                                                 <span>{job.company.name}</span>
                                                 <span>•</span>
                                                 <span>{job.location}</span>
@@ -372,19 +518,19 @@ export default function Welcome(props: WelcomeProps) {
                                                 )}
                                             </div>
                                             {job.description && (
-                                                <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                                                    {job.description.length > 120
-                                                        ? `${job.description.substring(0, 120)}...`
+                                                <p className="text-xs sm:text-sm text-gray-600 mt-2 line-clamp-2">
+                                                    {job.description.length > 100
+                                                        ? `${job.description.substring(0, 100)}...`
                                                         : job.description}
                                                 </p>
                                             )}
                                         </div>
 
-                                        <div className="mb-4">
+                                        <div className="mb-3 sm:mb-4">
                                             {job.requirements && (
                                                 <div>
-                                                    <h4 className="text-sm font-semibold mb-1">Persyaratan:</h4>
-                                                    <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                                                    <h4 className="text-xs sm:text-sm font-semibold mb-1">Persyaratan:</h4>
+                                                    <ul className="list-disc list-inside text-xs sm:text-sm text-gray-600 space-y-1">
                                                         {(() => {
                                                             let reqArray: string[] = [];
 
@@ -425,14 +571,14 @@ export default function Welcome(props: WelcomeProps) {
                                         </div>
 
                                         <div className="mt-auto">
-                                            <div className="flex flex-wrap gap-2 mb-4">
-                                                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
+                                            <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
+                                                <span className="rounded-full bg-gray-100 px-2 sm:px-3 py-1 text-xs text-gray-600">
                                                     {job.type}
                                                 </span>
                                             </div>
 
                                             <Button
-                                                className="w-full rounded bg-blue-600 py-2 text-sm text-white hover:bg-blue-700"
+                                                className="w-full rounded bg-blue-600 py-2 text-xs sm:text-sm text-white hover:bg-blue-700"
                                                 onClick={() => handleJobDetailClick(job.id)}
                                             >
                                                 Lihat Detail
@@ -447,7 +593,7 @@ export default function Welcome(props: WelcomeProps) {
                             )}
                         </div>
                         <Link href="/job-hiring-landing-page">
-                            <Button className="rounded-md bg-blue-100 px-6 py-3 text-blue-600 hover:bg-blue-200">
+                            <Button className="rounded-md bg-blue-100 px-4 sm:px-6 py-2 sm:py-3 text-[14px] sm:text-[16px] text-blue-600 hover:bg-blue-200">
                                 Lihat Semua Lowongan →
                             </Button>
                         </Link>
@@ -455,17 +601,17 @@ export default function Welcome(props: WelcomeProps) {
                 </section>
 
                 {/* Cara Mendaftar */}
-                <section className="bg-white py-[80px] text-center">
-                    <div className="relative container mx-auto px-6">
-                        <h2 className="mb-4 text-[24px] font-bold md:text-[32px]">Cara Mendaftar</h2>
-                        <p className="mx-auto mb-16 max-w-[768px] text-[16px] text-gray-600">
+                <section className="bg-white py-[60px] sm:py-[80px] text-center">
+                    <div className="relative container mx-auto px-4 sm:px-6">
+                        <h2 className="mb-3 sm:mb-4 text-[20px] sm:text-[24px] md:text-[32px] font-bold">Cara Mendaftar</h2>
+                        <p className="mx-auto mb-12 sm:mb-16 max-w-[768px] text-[14px] sm:text-[16px] text-gray-600 px-4 sm:px-0">
                             Mohon persiapkan terlebih dahulu seluruh data pribadi Anda termasuk pendidikan, pengalaman kerja, organisasi, serta data
                             penunjang lainnya
                         </p>
 
                         {/* Wrapper dengan garis horizontal */}
                         {/* Wrapper dengan garis horizontal dibatasi antara step 1 dan step 4 */}
-                        <div className="relative grid grid-cols-1 items-start gap-10 md:grid-cols-4">
+                        <div className="relative grid grid-cols-1 items-start gap-6 sm:gap-10 md:grid-cols-4">
                             {/* Garis horizontal hanya antara step 1–4 */}
                             <div className="absolute top-[22px] right-[12.5%] left-[12.5%] z-0 hidden h-[2px] bg-gradient-to-r from-purple-400 to-violet-500 md:block" />
 
@@ -492,32 +638,32 @@ export default function Welcome(props: WelcomeProps) {
                                 },
                             ].map((step) => (
                                 <div key={step.number} className="relative z-10 flex flex-col items-center px-2 text-center">
-                                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-violet-500 font-bold text-white">
+                                    <div className="mb-3 sm:mb-4 flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-violet-500 font-bold text-white text-sm sm:text-base">
                                         {step.number}
                                     </div>
-                                    <h3 className="mb-2 text-[16px] font-semibold">{step.title}</h3>
-                                    <p className="max-w-[240px] text-sm text-gray-600">{step.desc}</p>
+                                    <h3 className="mb-2 text-[14px] sm:text-[16px] font-semibold">{step.title}</h3>
+                                    <p className="max-w-[240px] text-xs sm:text-sm text-gray-600">{step.desc}</p>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </section>
 
-                <section className="py-[80px]">
-                    <div className="container mx-auto px-6">
-                        <div className="relative overflow-hidden rounded-[24px] bg-black">
-                            <img src="/images/siap-bergabung.png" alt="Bergabung" className="h-[300x] w-full object-cover opacity-60" />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center text-white">
-                                <h2 className="mb-4 text-[28px] font-bold md:text-[36px]">Siap untuk Bergabung?</h2>
-                                <p className="mb-6 max-w-[560px] text-[14px] md:text-[16px]">
+                <section className="py-[60px] sm:py-[80px]">
+                    <div className="container mx-auto px-4 sm:px-6">
+                        <div className="relative overflow-hidden rounded-[16px] sm:rounded-[24px] bg-black">
+                            <img src="/images/siap-bergabung.png" alt="Bergabung" className="h-[250px] sm:h-[300px] w-full object-cover opacity-60" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6 text-center text-white">
+                                <h2 className="mb-3 sm:mb-4 text-[22px] sm:text-[28px] md:text-[36px] font-bold">Siap untuk Bergabung?</h2>
+                                <p className="mb-4 sm:mb-6 max-w-[560px] text-[12px] sm:text-[14px] md:text-[16px] px-4 sm:px-0">
                                     Jangan lewatkan kesempatan untuk menjadi bagian dari tim PT Mitra Karya Analitika.
                                 </p>
-                                <div className="flex flex-wrap justify-center gap-4">
+                                <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4">
                                     <Link href="/job-hiring-landing-page">
-                                        <Button className="rounded-md bg-white px-6 py-3 text-blue-600 hover:bg-blue-50">Lihat Lowongan</Button>
+                                        <Button className="rounded-md bg-white px-4 sm:px-6 py-2 sm:py-3 text-[14px] sm:text-[16px] text-blue-600 hover:bg-blue-50">Lihat Lowongan</Button>
                                     </Link>
                                     <Link href="/about-us">
-                                        <Button className="rounded-md bg-blue-600 px-6 py-3 text-white hover:bg-blue-700">Tentang Kami</Button>
+                                        <Button className="rounded-md bg-blue-600 px-4 sm:px-6 py-2 sm:py-3 text-[14px] sm:text-[16px] text-white hover:bg-blue-700">Tentang Kami</Button>
                                     </Link>
                                 </div>
                             </div>
@@ -526,27 +672,27 @@ export default function Welcome(props: WelcomeProps) {
                 </section>
 
                 {/* Footer */}
-                <footer className="bg-[#f6fafe] py-16">
-                    <div className="container mx-auto grid grid-cols-1 gap-10 px-6 md:grid-cols-3">
+                <footer className="bg-[#f6fafe] py-12 sm:py-16">
+                    <div className="container mx-auto grid grid-cols-1 gap-8 sm:gap-10 px-4 sm:px-6 md:grid-cols-3">
                         {/* Kolom 1 */}
                         <div>
                             {props.companies && props.companies.length > 0 ? (
                                 <>
-                                    <h4 className="mb-2 text-[16px] font-bold">{props.companies[0].name}</h4>
-                                    <p className="mb-6 text-sm text-gray-700">
+                                    <h4 className="mb-2 text-[14px] sm:text-[16px] font-bold">{props.companies[0].name}</h4>
+                                    <p className="mb-4 sm:mb-6 text-xs sm:text-sm text-gray-700">
                                         {props.companies[0].description}
                                     </p>
                                 </>
                             ) : (
                                 <>
-                                    <h4 className="mb-2 text-[16px] font-bold">MITRA KARYA GROUP</h4>
-                                    <p className="mb-6 text-sm text-gray-700">
+                                    <h4 className="mb-2 text-[14px] sm:text-[16px] font-bold">MITRA KARYA GROUP</h4>
+                                    <p className="mb-4 sm:mb-6 text-xs sm:text-sm text-gray-700">
                                         Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
                                     </p>
                                 </>
                             )}
                             {/* Social Media Icons */}
-                            <div className="flex space-x-6 text-xl text-blue-600">
+                            <div className="flex space-x-4 sm:space-x-6 text-lg sm:text-xl text-blue-600">
                                 {/* Instagram - Dropup untuk dua akun */}
                                 <div className="relative group">
                                     <a href="#" className="group-hover:text-blue-800">
@@ -622,8 +768,8 @@ export default function Welcome(props: WelcomeProps) {
 
                         {/* Kolom 2 */}
                         <div>
-                            <h4 className="mb-2 text-[16px] font-bold">Perusahaan Kami</h4>
-                            <ul className="space-y-1 text-sm text-gray-700">
+                            <h4 className="mb-2 text-[14px] sm:text-[16px] font-bold">Perusahaan Kami</h4>
+                            <ul className="space-y-1 text-xs sm:text-sm text-gray-700">
                                 {props.footerCompanies && props.footerCompanies.length > 0 ? (
                                     props.footerCompanies.map((company) => (
                                         <li key={company.id}>{company.name}</li>
@@ -636,8 +782,8 @@ export default function Welcome(props: WelcomeProps) {
 
                         {/* Kolom 3 */}
                         <div>
-                            <h4 className="mb-4 text-[16px] font-bold">Contact</h4>
-                            <ul className="space-y-2 text-sm text-gray-700">
+                            <h4 className="mb-3 sm:mb-4 text-[14px] sm:text-[16px] font-bold">Contact</h4>
+                            <ul className="space-y-2 text-xs sm:text-sm text-gray-700">
                                 {props.contacts && (
                                     <>
                                         <li className="flex items-start gap-2">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
@@ -51,17 +51,27 @@ const PrestasiListForm: React.FC<PrestasiListFormProps> = ({ onAdd, onEdit }) =>
             try {
                 setLoading(true);
                 setError(null);
-                const response = await axios.get('/candidate/achievements');
-
-                if (response.data.status === 'success') {
-                    setAchievements(response.data.data);
-                } else {
-                    throw new Error('Failed to fetch achievements');
-                }
+                
+                // Use router.get() with onSuccess and onError callbacks
+                router.get('/candidate/achievements', {}, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.status === 'success') {
+                            setAchievements(page.props.data);
+                        } else {
+                            throw new Error('Failed to fetch achievements');
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error fetching achievements:', error);
+                        setError(error?.message || 'Terjadi kesalahan saat mengambil data');
+                    },
+                    onFinish: () => {
+                        setLoading(false);
+                    }
+                });
             } catch (error: any) {
                 console.error('Error fetching achievements:', error);
-                setError(error.response?.data?.message || 'Terjadi kesalahan saat mengambil data');
-            } finally {
+                setError('Terjadi kesalahan saat mengambil data');
                 setLoading(false);
             }
         };
@@ -88,21 +98,36 @@ const PrestasiListForm: React.FC<PrestasiListFormProps> = ({ onAdd, onEdit }) =>
         }
 
         try {
-            await axios.delete(`/candidate/achievement/${id}`);
-            
-            // Update local state to remove deleted item
-            setAchievements(achievements.filter(achievement => achievement.id !== id));
-            
-            // Show success message
-            setMessage({
-                type: 'success',
-                text: 'Prestasi berhasil dihapus!'
-            });
+            // Use router.delete() with onSuccess and onError callbacks
+            router.delete(`/candidate/achievement/${id}`, {
+                onSuccess: () => {
+                    // Update local state to remove deleted item
+                    setAchievements(achievements.filter(achievement => achievement.id !== id));
+                    
+                    // Show success message
+                    setMessage({
+                        type: 'success',
+                        text: 'Prestasi berhasil dihapus!'
+                    });
 
-            // Clear message after 3 seconds
-            setTimeout(() => {
-                setMessage(null);
-            }, 3000);
+                    // Clear message after 3 seconds
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                },
+                onError: (error: any) => {
+                    console.error('Error deleting achievement:', error);
+                    setMessage({
+                        type: 'error',
+                        text: 'Gagal menghapus prestasi'
+                    });
+
+                    // Clear error message after 3 seconds
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
+            });
 
         } catch (error) {
             console.error('Error deleting achievement:', error);

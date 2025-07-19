@@ -1,17 +1,7 @@
-import axios from 'axios';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import React, { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import InputField from '../InputField';
 import SelectField from '../SelectField';
-
-// Configure axios defaults for Laravel
-axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-axios.defaults.withCredentials = true;
-
-// Get CSRF token from meta tag
-const csrf_token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-if (csrf_token) {
-    axios.defaults.headers.common['X-CSRF-TOKEN'] = csrf_token;
-}
 
 interface Major {
     id: number;
@@ -78,16 +68,33 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
         const fetchMajors = async () => {
             setIsLoadingMajors(true);
             try {
-                const response = await axios.get('/api/majors');
-                console.log('Majors loaded:', response.data);
-                setMajors(response.data);
+                // Use router.get() with onSuccess and onError callbacks
+                router.get('/api/majors', {}, {
+                    onSuccess: (page: any) => {
+                        console.log('Majors loaded:', page.props);
+                        if (page.props?.data) {
+                            setMajors(page.props.data);
+                        } else {
+                            setMajors(page.props || []);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error fetching majors:', error);
+                        setMessage({
+                            type: 'error',
+                            text: 'Gagal memuat data program studi'
+                        });
+                    },
+                    onFinish: () => {
+                        setIsLoadingMajors(false);
+                    }
+                });
             } catch (error) {
                 console.error('Error fetching majors:', error);
                 setMessage({
                     type: 'error',
                     text: 'Gagal memuat data program studi'
                 });
-            } finally {
                 setIsLoadingMajors(false);
             }
         };
@@ -100,16 +107,33 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
         const fetchEducationLevels = async () => {
             setIsLoadingEducationLevels(true);
             try {
-                const response = await axios.get('/api/education-levels');
-                console.log('Education levels loaded:', response.data);
-                setEducationLevels(response.data);
+                // Use router.get() with onSuccess and onError callbacks
+                router.get('/api/education-levels', {}, {
+                    onSuccess: (page: any) => {
+                        console.log('Education levels loaded:', page.props);
+                        if (page.props?.data) {
+                            setEducationLevels(page.props.data);
+                        } else {
+                            setEducationLevels(page.props || []);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error fetching education levels:', error);
+                        setMessage({
+                            type: 'error',
+                            text: 'Gagal memuat data jenjang pendidikan'
+                        });
+                    },
+                    onFinish: () => {
+                        setIsLoadingEducationLevels(false);
+                    }
+                });
             } catch (error) {
                 console.error('Error fetching education levels:', error);
                 setMessage({
                     type: 'error',
                     text: 'Gagal memuat data jenjang pendidikan'
                 });
-            } finally {
                 setIsLoadingEducationLevels(false);
             }
         };

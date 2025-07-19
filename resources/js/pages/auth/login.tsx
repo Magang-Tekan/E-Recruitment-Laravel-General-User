@@ -38,19 +38,19 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         <div className="flex flex-col min-h-screen bg-white">
             <Head title="Masuk" />
             
-            <header className="py-4 px-6 shadow">
+            <header className="fixed top-0 left-0 right-0 bg-white py-4 px-4 sm:px-6 shadow z-10">
                 <div className="container mx-auto flex justify-between items-center">
-                    <div className="font-bold text-xl text-black ml-8">MITRA KARYA GROUP</div>
-                    <div className="flex items-center gap-x-4">
+                    <div className="font-bold text-lg sm:text-xl text-black ml-2 sm:ml-8">MITRA KARYA GROUP</div>
+                    <div className="flex items-center gap-x-2 sm:gap-x-4">
                         <Link
                             href={route('register')}
-                            className="px-4 py-2 border-blue-500 text-blue-500 font-medium hover:bg-blue-50 transition"
+                            className="px-2 sm:px-4 py-2 border-blue-500 text-blue-500 font-medium hover:bg-blue-50 transition text-sm sm:text-base"
                         >
                             Daftar
                         </Link>
                         <a
                             href="#"
-                            className="px-4 py-2 rounded-md bg-blue-500 text-white font-medium hover:bg-blue-600 transition"
+                            className="px-2 sm:px-4 py-2 rounded-md bg-blue-500 text-white font-medium hover:bg-blue-600 transition text-sm sm:text-base"
                         >
                             Masuk
                         </a>
@@ -58,17 +58,19 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                 </div>
             </header>
             
-            <main className="flex-grow flex items-center justify-center py-12 px-4">
-                <div className="w-full max-w-md">
-                    <div className="text-center mb-6">
-                        <h1 className="text-blue-500 text-4xl font-bold mb-3 whitespace-nowrap text-justify">Selamat Datang Kembali!</h1>
-                        <p className="text-gray-600 text-sm">
+            <main className="flex-grow flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 mt-16">
+                <div className="w-full max-w-sm sm:max-w-md">
+                    <div className="text-center mb-6 sm:mb-8">
+                        <h1 className="text-blue-500 text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
+                            Selamat Datang Kembali!
+                        </h1>
+                        <p className="text-gray-600 text-sm px-2 sm:px-0 leading-relaxed">
                             Sudah siap melangkah lebih dekat ke peluang impian Anda? Masuk sekarang dan lanjutkan perjalanan karier Anda bersama kami!
                         </p>
                     </div>
 
                     {status && status.includes('Email berhasil diverifikasi') && (
-                        <div className="mb-6 animate-fadeIn">
+                        <div className="mb-4 sm:mb-6 animate-fadeIn">
                             <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
                                 <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
                                 <p className="text-sm font-medium">{status}</p>
@@ -79,7 +81,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                     <form className="flex flex-col gap-6" onSubmit={submit}>
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-base font-medium text-black">Email</Label>
+                                <Label htmlFor="email" className="text-sm sm:text-base font-medium text-black">Email</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -96,7 +98,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="password" className="text-base font-mediumm text-black">Kata Sandi</Label>
+                                <Label htmlFor="password" className="text-sm sm:text-base font-medium text-black">Kata Sandi</Label>
                                 <div className="relative">
                                     <Input
                                         id="password"
@@ -139,7 +141,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
                             <Button
                                 type="submit"
-                                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 h-10"
+                                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 sm:py-2 h-12 sm:h-10 text-base sm:text-sm"
                                 tabIndex={3}
                                 disabled={processing}
                             >

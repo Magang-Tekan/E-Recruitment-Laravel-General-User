@@ -1,7 +1,7 @@
 import React, { ChangeEvent, FormEvent, useState } from 'react';
 import InputField from '../InputField';
 import SelectField from '../SelectField';
-import axios from 'axios';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
@@ -136,38 +136,79 @@ const TambahPengalamanForm: React.FC<TambahPengalamanFormProps> = ({
             };
 
             if (experienceData?.id) {
-                await axios.put(`/candidate/work-experience/${experienceData.id}`, payload);
-                setMessage({
-                    type: 'success',
-                    text: 'Data berhasil diperbarui!'
+                // Use router.put() for updates
+                router.put(`/candidate/work-experience/${experienceData.id}`, payload, {
+                    onSuccess: (page: any) => {
+                        setMessage({
+                            type: 'success',
+                            text: 'Data berhasil diperbarui!'
+                        });
+
+                        // Scroll to top
+                        window.scrollTo({
+                            top: 0,
+                            behavior: 'smooth'
+                        });
+
+                        // Auto hide after 3 seconds and redirect
+                        setTimeout(() => {
+                            setMessage(null);
+                            onSubmit(payload);
+                        }, 3000);
+                    },
+                    onError: (error: any) => {
+                        console.error('Error:', error);
+                        setMessage({
+                            type: 'error',
+                            text: 'Terjadi kesalahan saat memperbarui data'
+                        });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
+                    }
                 });
             } else {
-                await axios.post('/candidate/work-experience', payload);
-                setMessage({
-                    type: 'success',
-                    text: 'Data berhasil disimpan!'
+                // Use router.post() for new entries
+                router.post('/candidate/work-experience', payload, {
+                    onSuccess: (page: any) => {
+                        setMessage({
+                            type: 'success',
+                            text: 'Data berhasil disimpan!'
+                        });
+
+                        // Scroll to top
+                        window.scrollTo({
+                            top: 0,
+                            behavior: 'smooth'
+                        });
+
+                        // Auto hide after 3 seconds and redirect
+                        setTimeout(() => {
+                            setMessage(null);
+                            onSubmit(payload);
+                        }, 3000);
+                    },
+                    onError: (error: any) => {
+                        console.error('Error:', error);
+                        setMessage({
+                            type: 'error',
+                            text: 'Terjadi kesalahan saat menyimpan data'
+                        });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
+                    }
                 });
             }
-
-            // Scroll to top
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-
-            // Auto hide after 3 seconds and redirect
-            setTimeout(() => {
-                setMessage(null);
-                onSubmit(payload);
-            }, 3000);
         } catch (err: any) {
-            console.error('Error:', err.response?.data);
+            console.error('Client-side error:', err);
             setMessage({
                 type: 'error',
-                text: 'Terjadi kesalahan saat menyimpan data'
+                text: 'Terjadi kesalahan saat validasi data'
             });
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        } finally {
             setLoading(false);
         }
     };

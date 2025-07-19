@@ -18,8 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { UserTable, type User } from '@/components/user-table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
-import axios from 'axios';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import { Filter, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -88,18 +87,25 @@ export default function UserManagement(props: UserManagementProps) {
             try {
                 updateUrlParams(page, perPage);
 
-                const response = await axios.get('/dashboard/users/list', {
-                    params: {
-                        page,
-                        per_page: perPage,
+                // Gunakan router.get() dari Inertia.js
+                router.get('/dashboard/users/list', {
+                    page,
+                    per_page: perPage,
+                }, {
+                    onSuccess: (data: any) => {
+                        setUsers(data.props.users || []);
+                        setFilteredUsers(data.props.users || []);
+                        setPagination(data.props.pagination || {});
                     },
+                    onError: (error: any) => {
+                        console.error('Error fetching users:', error);
+                    },
+                    onFinish: () => {
+                        setIsLoading(false);
+                    }
                 });
-                setUsers(response.data.users);
-                setFilteredUsers(response.data.users);
-                setPagination(response.data.pagination);
             } catch (error) {
                 console.error('Error fetching users:', error);
-            } finally {
                 setIsLoading(false);
             }
         },
@@ -199,12 +205,21 @@ export default function UserManagement(props: UserManagementProps) {
 
         setIsLoading(true);
         try {
-            await axios.put(`/dashboard/users/${editUser.id}`, editUser);
-            fetchUsers(pagination.current_page, pagination.per_page);
-            setIsEditDialogOpen(false);
+            // Gunakan router.put() dari Inertia.js
+            router.put(`/dashboard/users/${editUser.id}`, editUser, {
+                onSuccess: () => {
+                    fetchUsers(pagination.current_page, pagination.per_page);
+                    setIsEditDialogOpen(false);
+                },
+                onError: (error: any) => {
+                    console.error('Error updating user:', error);
+                },
+                onFinish: () => {
+                    setIsLoading(false);
+                }
+            });
         } catch (error) {
             console.error('Error updating user:', error);
-        } finally {
             setIsLoading(false);
         }
     };
@@ -218,11 +233,21 @@ export default function UserManagement(props: UserManagementProps) {
         if (userIdToDelete === null) return;
 
         try {
-            await axios.delete(`/dashboard/users/${userIdToDelete}`);
-            fetchUsers(pagination.current_page, pagination.per_page);
+            // Gunakan router.delete() dari Inertia.js
+            router.delete(`/dashboard/users/${userIdToDelete}`, {
+                onSuccess: () => {
+                    fetchUsers(pagination.current_page, pagination.per_page);
+                },
+                onError: (error: any) => {
+                    console.error('Error deleting user:', error);
+                },
+                onFinish: () => {
+                    setIsDeleteDialogOpen(false);
+                    setUserIdToDelete(null);
+                }
+            });
         } catch (error) {
             console.error('Error deleting user:', error);
-        } finally {
             setIsDeleteDialogOpen(false);
             setUserIdToDelete(null);
         }
@@ -240,14 +265,23 @@ export default function UserManagement(props: UserManagementProps) {
     const handleCreateUser = async () => {
         setIsLoading(true);
         try {
-            await axios.post('/dashboard/users', newUser);
-            // After creating a user, refresh the current page
-            fetchUsers(pagination.current_page, pagination.per_page);
-            setIsCreateDialogOpen(false);
-            setNewUser({ name: '', email: '', password: '', role: '' });
+            // Gunakan router.post() dari Inertia.js
+            router.post('/dashboard/users', newUser, {
+                onSuccess: () => {
+                    // After creating a user, refresh the current page
+                    fetchUsers(pagination.current_page, pagination.per_page);
+                    setIsCreateDialogOpen(false);
+                    setNewUser({ name: '', email: '', password: '', role: '' });
+                },
+                onError: (error: any) => {
+                    console.error('Error creating user:', error);
+                },
+                onFinish: () => {
+                    setIsLoading(false);
+                }
+            });
         } catch (error) {
             console.error('Error creating user:', error);
-        } finally {
             setIsLoading(false);
         }
     };

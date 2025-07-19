@@ -19,8 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
-import axios from 'axios';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import { Filter } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -143,11 +142,22 @@ export default function Jobs(props: JobProps) {
 
         setIsLoading(true);
         try {
-            await axios.delete(`/dashboard/jobs/${jobIdToDelete}`);
-            setJobsList((prevJobs) => prevJobs.filter((job) => job.id !== jobIdToDelete));
+            // Gunakan router.delete() dari Inertia.js
+            router.delete(`/dashboard/jobs/${jobIdToDelete}`, {
+                onSuccess: () => {
+                    setJobsList((prevJobs) => prevJobs.filter((job) => job.id !== jobIdToDelete));
+                },
+                onError: (error: any) => {
+                    console.error('Error deleting job:', error);
+                },
+                onFinish: () => {
+                    setIsLoading(false);
+                    setIsDeleteDialogOpen(false);
+                    setJobIdToDelete(null);
+                }
+            });
         } catch (error) {
             console.error('Error deleting job:', error);
-        } finally {
             setIsLoading(false);
             setIsDeleteDialogOpen(false);
             setJobIdToDelete(null);
@@ -177,21 +187,33 @@ export default function Jobs(props: JobProps) {
                 benefits: newJob.benefits ? newJob.benefits.split('\n').filter((ben) => ben.trim() !== '') : null,
             };
             console.log('formattedData', formattedData);
-            const response = await axios.post('/dashboard/jobs', formattedData);
-            console.log('response', response);
-            console.log('response', response.status);
-            setJobsList((prevJobs) => [...prevJobs, response.data.job]);
-            setIsCreateDialogOpen(false);
-            setNewJob({
-                title: '',
-                department: '',
-                location: '',
-                requirements: '',
-                benefits: '',
+            
+            // Gunakan router.post() dari Inertia.js
+            router.post('/dashboard/jobs', formattedData, {
+                onSuccess: (data: any) => {
+                    console.log('response data', data);
+                    // Asumsikan response job ada di data.props.job
+                    if (data.props?.job) {
+                        setJobsList((prevJobs) => [...prevJobs, data.props.job]);
+                    }
+                    setIsCreateDialogOpen(false);
+                    setNewJob({
+                        title: '',
+                        department: '',
+                        location: '',
+                        requirements: '',
+                        benefits: '',
+                    });
+                },
+                onError: (error: any) => {
+                    console.error('Error creating job:', error);
+                },
+                onFinish: () => {
+                    setIsLoading(false);
+                }
             });
         } catch (error) {
             console.error('Error creating job:', error);
-        } finally {
             setIsLoading(false);
         }
     };
@@ -205,14 +227,25 @@ export default function Jobs(props: JobProps) {
                 benefits: editJob.benefits ? editJob.benefits.split('\n').filter((ben) => ben.trim() !== '') : null,
             };
 
-            const response = await axios.put(`/dashboard/jobs/${editJob.id}`, formattedData);
-            const updatedJob = response.data.job;
-
-            setJobsList((prevJobs) => prevJobs.map((job) => (job.id === editJob.id ? updatedJob : job)));
-            setIsEditDialogOpen(false);
+            // Gunakan router.put() dari Inertia.js
+            router.put(`/dashboard/jobs/${editJob.id}`, formattedData, {
+                onSuccess: (data: any) => {
+                    // Asumsikan response job ada di data.props.job
+                    const updatedJob = data.props?.job;
+                    if (updatedJob) {
+                        setJobsList((prevJobs) => prevJobs.map((job) => (job.id === editJob.id ? updatedJob : job)));
+                    }
+                    setIsEditDialogOpen(false);
+                },
+                onError: (error: any) => {
+                    console.error('Error updating job:', error);
+                },
+                onFinish: () => {
+                    setIsLoading(false);
+                }
+            });
         } catch (error) {
             console.error('Error updating job:', error);
-        } finally {
             setIsLoading(false);
         }
     };

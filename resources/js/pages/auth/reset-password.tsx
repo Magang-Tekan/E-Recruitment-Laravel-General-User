@@ -40,34 +40,34 @@ export default function ResetPassword({ token, email, status }: ResetPasswordPro
         <div className="flex flex-col min-h-screen bg-gray-50">
             <Head title="Atur Ulang Kata Sandi" />
 
-            <header className="py-4 px-6 bg-white shadow-sm border-b border-gray-200">
+            <header className="py-3 sm:py-4 px-4 sm:px-6 bg-white shadow-sm border-b border-gray-200">
                 <div className="container mx-auto flex justify-start items-center">
-                    <div className="font-bold text-xl text-black">MITRA KARYA GROUP</div>
+                    <div className="font-bold text-lg sm:text-xl text-black">MITRA KARYA GROUP</div>
                 </div>
             </header>
 
-            <main className="flex-grow flex items-center justify-center py-12 px-4">
+            <main className="flex-grow flex items-center justify-center py-8 sm:py-12 px-4">
                 <div className="w-full max-w-md">
-                    <div className="bg-white rounded-lg shadow-md p-8 border border-gray-100">
+                    <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 border border-gray-100">
                         {status && (
-                            <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded mb-6 flex items-center">
-                                <CheckCircle2 className="w-5 h-5 mr-2 text-green-500" />
-                                <span>{status}</span>
+                            <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 sm:p-4 rounded mb-4 sm:mb-6 flex items-center">
+                                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-green-500" />
+                                <span className="text-sm sm:text-base">{status}</span>
                             </div>
                         )}
 
-                        <div className="text-center mb-8">
-                            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                                <ShieldCheck className="h-8 w-8 text-blue-600" />
+                        <div className="text-center mb-6 sm:mb-8">
+                            <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+                                <ShieldCheck className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
                             </div>
-                            <h1 className="text-blue-600 text-2xl font-bold mb-2">Buat Kata Sandi Baru</h1>
-                            <p className="text-gray-500 text-sm">Silakan masukkan kata sandi baru untuk akun Anda</p>
+                            <h1 className="text-blue-600 text-xl sm:text-2xl font-bold mb-2">Buat Kata Sandi Baru</h1>
+                            <p className="text-gray-500 text-xs sm:text-sm">Silakan masukkan kata sandi baru untuk akun Anda</p>
                         </div>
 
-                        <form onSubmit={submit} className="space-y-6">
+                        <form onSubmit={submit} className="space-y-4 sm:space-y-6">
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <Label htmlFor="password" className="font-medium text-gray-700">
+                                    <Label htmlFor="password" className="font-medium text-gray-700 text-sm sm:text-base">
                                         Kata Sandi Baru
                                     </Label>
                                     <span className="text-xs text-gray-500">Wajib diisi</span>
@@ -101,7 +101,7 @@ export default function ResetPassword({ token, email, status }: ResetPasswordPro
 
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <Label htmlFor="password_confirmation" className="font-medium text-gray-700">
+                                    <Label htmlFor="password_confirmation" className="font-medium text-gray-700 text-sm sm:text-base">
                                         Konfirmasi Kata Sandi
                                     </Label>
                                     <span className="text-xs text-gray-500">Wajib diisi</span>
@@ -139,10 +139,10 @@ export default function ResetPassword({ token, email, status }: ResetPasswordPro
                                 )}
                             </div>
 
-                            <div className="pt-6">
+                            <div className="pt-3 sm:pt-6">
                                 <Button
                                     type="submit"
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 h-11 font-medium rounded-md"
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 h-10 sm:h-11 font-medium rounded-md text-sm sm:text-base"
                                     disabled={processing || !data.password || !data.password_confirmation || !passwordMatch}
                                 >
                                     {processing ? (
@@ -156,11 +156,11 @@ export default function ResetPassword({ token, email, status }: ResetPasswordPro
                                 </Button>
                             </div>
 
-                            <div className="mt-4">
+                            <div className="mt-3 sm:mt-4">
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="w-full !bg-white !text-black !border-gray-300 hover:!bg-gray-100 hover:!text-black"
+                                    className="w-full !bg-white !text-black !border-gray-300 hover:!bg-gray-100 hover:!text-black h-10 sm:h-11 text-sm sm:text-base"
                                     onClick={() => window.location.href = route('login')}
                                 >
                                     ← Kembali ke Login
@@ -168,10 +168,6 @@ export default function ResetPassword({ token, email, status }: ResetPasswordPro
                             </div>
                         </form>
                     </div>
-                    
-                    <p className="mt-6 text-center text-xs text-gray-500">
-                        © {new Date().getFullYear()} Mitra Karya Group. All rights reserved.
-                    </p>
                 </div>
             </main>
         </div>

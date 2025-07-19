@@ -1,5 +1,4 @@
-import { router } from '@inertiajs/react';
-import axios from 'axios';
+import { router, Head, Link, useForm } from '@inertiajs/react';
 import React, { useEffect, useState } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 
@@ -234,11 +233,8 @@ const JobHiring: React.FC<Props> = ({
   const [filteredJobs, setFilteredJobs] = useState<Job[]>(jobs || []);
 
   useEffect(() => {
-    // Set CSRF token for all AJAX requests
-    const token = document.head.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (token) {
-      axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
-    }
+    // CSRF token sudah ditangani otomatis oleh Inertia.js
+    // Tidak perlu setup manual lagi
   }, []);
 
   useEffect(() => {
@@ -253,14 +249,9 @@ const JobHiring: React.FC<Props> = ({
     setActiveFilter(filter);
   };
 
-  // Function untuk navigasi dengan CSRF yang aman
+  // Function untuk navigasi yang aman dengan Inertia.js
   const navigateToJobDetail = (jobId: number) => {
-    // Pastikan token CSRF tersedia sebelum navigasi
-    const token = document.head.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (token) {
-      axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
-    }
-
+    // Inertia.js otomatis menangani CSRF token dan navigasi
     router.visit(`/candidate/job/${jobId}`);
   };
 

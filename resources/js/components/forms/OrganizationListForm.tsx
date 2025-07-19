@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 
 // Add Alert component
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
@@ -35,6 +36,7 @@ interface OrganisasiData {
     start_year: number;
     end_month: string | null;
     end_year: number | null;
+    [key: string]: any;
 }
 
 interface OrganisasiListFormProps {
@@ -50,14 +52,16 @@ const OrganisasiListForm: React.FC<OrganisasiListFormProps> = ({ onAdd, onEdit }
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const fetchOrganizations = async () => {
-        try {
-            const response = await axios.get('/candidate/organizations');
-            setOrganizations(response.data);
-        } catch (error) {
-            console.error('Error fetching organizations:', error);
-        } finally {
-            setLoading(false);
-        }
+        router.get('/candidate/organizations', {}, {
+            onSuccess: (page: any) => {
+                setOrganizations(page.props.data || []);
+                setLoading(false);
+            },
+            onError: (errors) => {
+                console.error('Error fetching organizations:', errors);
+                setLoading(false);
+            }
+        });
     };
 
     useEffect(() => {
@@ -65,28 +69,28 @@ const OrganisasiListForm: React.FC<OrganisasiListFormProps> = ({ onAdd, onEdit }
     }, []);
 
     const handleDelete = async (id: number) => {
-        try {
-            await axios.delete(`/candidate/organization/${id}`);
-            
-            // Refresh data setelah delete
-            fetchOrganizations();
-            setMessage({
-                type: 'success',
-                text: 'Data organisasi berhasil dihapus!'
-            });
+        router.delete(`/candidate/organization/${id}`, {
+            onSuccess: () => {
+                // Refresh data setelah delete
+                fetchOrganizations();
+                setMessage({
+                    type: 'success',
+                    text: 'Data organisasi berhasil dihapus!'
+                });
 
-            // Clear message after 3 seconds
-            setTimeout(() => {
-                setMessage(null);
-            }, 3000);
-
-        } catch (error) {
-            console.error('Error deleting organization:', error);
-            setMessage({
-                type: 'error',
-                text: 'Gagal menghapus data organisasi'
-            });
-        }
+                // Clear message after 3 seconds
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            },
+            onError: (errors) => {
+                console.error('Error deleting organization:', errors);
+                setMessage({
+                    type: 'error',
+                    text: 'Gagal menghapus data organisasi'
+                });
+            }
+        });
     };
 
     const getMonthName = (month: string | null): string => {

@@ -1,5 +1,4 @@
-import { Head, Link, usePage } from "@inertiajs/react";
-import axios from 'axios';
+import { Head, Link, useForm, usePage, router } from "@inertiajs/react";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import Swal from 'sweetalert2';
@@ -15,16 +14,6 @@ type Completeness = {
   additional_data: boolean;
   overall_complete: boolean;
 };
-
-interface ApiErrorResponse {
-  response?: {
-    status?: number;
-    data?: {
-      message?: string;
-      redirect?: string;
-    };
-  };
-}
 
 type PageProps = {
   auth: {
@@ -65,13 +54,20 @@ const ConfirmData = () => {
   useEffect(() => {
     const checkCompleteness = async () => {
       try {
-        const response = await axios.get('/candidate/applicant-completeness');
-        console.log('Completeness response:', response.data); // Untuk debugging
-
-        // Update localCompleteness jika ada data baru
-        if (response.data.success && response.data.completeness) {
-          setLocalCompleteness(response.data.completeness);
-        }
+        // Gunakan router.get() dari Inertia.js
+        router.get('/candidate/applicant-completeness', {}, {
+          onSuccess: (data: any) => {
+            console.log('Completeness response:', data); // Untuk debugging
+            
+            // Update localCompleteness jika ada data baru
+            if (data.props?.completeness) {
+              setLocalCompleteness(data.props.completeness);
+            }
+          },
+          onError: (error: any) => {
+            console.error('Error checking completeness:', error);
+          }
+        });
       } catch (error) {
         console.error('Error checking completeness:', error);
       }
@@ -83,13 +79,19 @@ const ConfirmData = () => {
   // Tambahkan fungsi untuk refresh data
   const refreshCompleteness = async () => {
     try {
-      const response = await axios.get('/candidate/applicant-completeness');
-      console.log('Fresh completeness data:', response.data);
-
-      // Update state completeness jika diperlukan
-      if (response.data.success) {
-        setLocalCompleteness(response.data.completeness);
-      }
+      router.get('/candidate/applicant-completeness', {}, {
+        onSuccess: (data: any) => {
+          console.log('Fresh completeness data:', data);
+          
+          // Update state completeness jika diperlukan
+          if (data.props?.completeness) {
+            setLocalCompleteness(data.props.completeness);
+          }
+        },
+        onError: (error: any) => {
+          console.error('Error refreshing completeness data:', error);
+        }
+      });
     } catch (error) {
       console.error('Error refreshing completeness data:', error);
     }
@@ -179,89 +181,67 @@ const ConfirmData = () => {
         allowOutsideClick: false,
         showConfirmButton: false,
         didOpen: () => {
-          Swal.showLoading();
+          Swal.showLoading(Swal.getDenyButton());
         }
       });
 
-      // Kirim aplikasi ke backend
-      const response = await axios.post(`/candidate/apply/${job_id}`, {}, {
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+      // Kirim aplikasi ke backend menggunakan Inertia.js router
+      router.post(`/candidate/apply/${job_id}`, {}, {
+        onSuccess: (data: any) => {
+          Swal.close();
+          
+          // Tampilkan pesan sukses dan langsung redirect
+          Swal.fire({
+            icon: 'success',
+            title: 'Berhasil!',
+            text: 'Lamaran berhasil dikirim! Anda akan dialihkan ke halaman riwayat lamaran.',
+            confirmButtonColor: '#3085d6',
+            timer: 2000,
+            timerProgressBar: true,
+            showConfirmButton: false
+          }).then(() => {
+            // Redirect ke halaman history
+            router.visit('/candidate/application-history');
+          });
+
+          // Backup redirect jika SweetAlert gagal
+          setTimeout(() => {
+            router.visit('/candidate/application-history');
+          }, 2500);
+        },
+        onError: (errors: any) => {
+          console.error('Error submitting application:', errors);
+          Swal.close();
+
+          // Handle different error cases
+          if (errors.message) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Data Belum Lengkap',
+              text: errors.message,
+              confirmButtonColor: '#3085d6'
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.',
+              confirmButtonColor: '#3085d6'
+            });
+          }
         }
       });
-
-      Swal.close();
-
-      // Jika berhasil, langsung redirect ke application-history
-      if (response.data.success) {
-        // Tampilkan pesan sukses dan langsung redirect
-        Swal.fire({
-          icon: 'success',
-          title: 'Berhasil!',
-          text: response.data.message || 'Lamaran berhasil dikirim! Anda akan dialihkan ke halaman riwayat lamaran.',
-          confirmButtonColor: '#3085d6',
-          timer: 2000,
-          timerProgressBar: true,
-          showConfirmButton: false
-        }).then(() => {
-          // Redirect ke halaman history
-          window.location.href = '/candidate/application-history';
-        });
-
-        // Backup redirect jika SweetAlert gagal
-        setTimeout(() => {
-          window.location.href = '/candidate/application-history';
-        }, 2500);
-      } else {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Perhatian',
-          text: response.data.message || 'Terjadi kesalahan saat mengirim lamaran.',
-          confirmButtonColor: '#3085d6'
-        });
-      }
     } catch (error: unknown) {
       console.error('Error submitting application:', error);
       Swal.close();
-
-      // Cek jika ada response dengan redirect dari backend
-      if (error instanceof Error && 'response' in error) {
-        const axiosError = error as ApiErrorResponse;
-        if (axiosError.response?.data?.redirect) {
-          window.location.href = axiosError.response.data.redirect;
-          return;
-        }
-
-        // Cek jika error 422 (Unprocessable Content) dengan pesan khusus
-        if (axiosError.response?.status === 422) {
-          const errorMessage = axiosError.response?.data?.message || 'Data profil belum lengkap.';
-          Swal.fire({
-            icon: 'warning',
-            title: 'Data Belum Lengkap',
-            text: errorMessage,
-            confirmButtonColor: '#3085d6'
-          });
-          return;
-        }
-
-        // Error lainnya dengan response dari server
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: axiosError.response?.data?.message || 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.',
-          confirmButtonColor: '#3085d6'
-        });
-      } else {
-        // Error tanpa response (network error, dll)
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
-          confirmButtonColor: '#3085d6'
-        });
-      }
+      
+      // Error tanpa response (network error, dll)
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
+        confirmButtonColor: '#3085d6'
+      });
     }
   };
 

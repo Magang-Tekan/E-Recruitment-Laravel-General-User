@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import EditPengalamanKerjaForm from '../components/forms/EditExperienceForm';
 import TambahPengalamanForm from '../components/forms/AddExperience';
 
@@ -58,8 +58,16 @@ const PengalamanKerjaForm: React.FC = () => {
     useEffect(() => {
         const fetchWorkExperiences = async () => {
             try {
-                const response = await axios.get('/candidate/work-experiences');
-                setWorkExperiences(response.data);
+                // Gunakan router.get() dari Inertia.js
+                router.get('/candidate/work-experiences', {}, {
+                    onSuccess: (data: any) => {
+                        // Asumsikan data work experiences ada di data.props.workExperiences
+                        setWorkExperiences(data.props?.workExperiences || []);
+                    },
+                    onError: (error: any) => {
+                        console.error('Error fetching work experiences:', error);
+                    }
+                });
             } catch (error) {
                 console.error('Error fetching work experiences:', error);
             }
@@ -103,20 +111,35 @@ const PengalamanKerjaForm: React.FC = () => {
         }
 
         try {
-            await axios.delete(`/candidate/work-experience/${id}`);
-            setWorkExperiences((prev) => prev.filter((exp) => exp.id !== id));
-            
-            // Show success message
-            setMessage({
-                type: 'success',
-                text: 'Data pengalaman kerja berhasil dihapus!'
+            // Gunakan router.delete() dari Inertia.js
+            router.delete(`/candidate/work-experience/${id}`, {
+                onSuccess: () => {
+                    setWorkExperiences((prev) => prev.filter((exp) => exp.id !== id));
+                    
+                    // Show success message
+                    setMessage({
+                        type: 'success',
+                        text: 'Data pengalaman kerja berhasil dihapus!'
+                    });
+
+                    // Clear message after 3 seconds
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                },
+                onError: (error: any) => {
+                    console.error('Error deleting work experience:', error);
+                    setMessage({
+                        type: 'error',
+                        text: 'Gagal menghapus data pengalaman kerja'
+                    });
+
+                    // Clear error message after 3 seconds
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             });
-
-            // Clear message after 3 seconds
-            setTimeout(() => {
-                setMessage(null);
-            }, 3000);
-
         } catch (error) {
             console.error('Error deleting work experience:', error);
             setMessage({

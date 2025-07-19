@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { usePage, router } from '@inertiajs/react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import type { PageProps as InertiaPageProps } from '@inertiajs/core';
-import axios from 'axios';
 import Swal from 'sweetalert2';
 
 interface Choice {
@@ -161,43 +160,31 @@ export default function CandidatePsychotest() {
             });
             
             try {
-                const response = await axios.post('/candidate/tests/psychotest/submit', {
+                // Gunakan router.post() dari Inertia.js
+                router.post('/candidate/tests/psychotest/submit', {
                     application_id: assessment?.id,
                     answers: userAnswers
-                });
-                
-                console.log("Server response:", response.data);
-
-                if (response.data.success) {
-                    // Tampilkan pesan sukses sebentar
-                    setTimeout(() => {
-                        // Redirect ke halaman status aplikasi
-                        if (response.data.redirect_url) {
-                            window.location.href = response.data.redirect_url;
-                        } else {
-                            // Fallback redirect
+                }, {
+                    onSuccess: (data) => {
+                        console.log("Server response:", data);
+                        
+                        // Tampilkan pesan sukses sebentar
+                        setTimeout(() => {
+                            // Redirect ke halaman status aplikasi
                             router.visit('/candidate/application-history');
-                        }
-                    }, 3000); // 3 detik delay untuk menampilkan pesan completion
-                } else {
-                    console.error('Failed to submit psychotest:', response.data.message);
-                    alert('Gagal menyimpan hasil tes: ' + response.data.message);
-                    setCurrentPhase('test');
-                    setTestCompleted(false);
-                    setIsSubmitting(false);
-                }
+                        }, 3000); // 3 detik delay untuk menampilkan pesan completion
+                    },
+                    onError: (errors) => {
+                        console.error('Failed to submit psychotest:', errors);
+                        alert('Gagal menyimpan hasil tes: ' + (errors.message || 'Unknown error'));
+                        setCurrentPhase('test');
+                        setTestCompleted(false);
+                        setIsSubmitting(false);
+                    }
+                });
             } catch (error) {
-                // Tampilkan lebih detail error
                 console.error('Error submitting psychotest:', error);
-                
-                // Check if it's an Axios error with response data
-                if (axios.isAxiosError(error) && error.response && error.response.data) {
-                    console.error('Server error details:', error.response.data);
-                    alert('Terjadi kesalahan: ' + (error.response.data.message || 'Unknown error'));
-                } else {
-                    alert('Terjadi kesalahan saat mengirim data. Silakan coba lagi.');
-                }
-                
+                alert('Terjadi kesalahan saat mengirim data. Silakan coba lagi.');
                 setCurrentPhase('test');
                 setTestCompleted(false);
                 setIsSubmitting(false);

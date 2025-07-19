@@ -1,5 +1,4 @@
-import { usePage } from '@inertiajs/react';
-import axios from 'axios';
+import { usePage, Head, Link, useForm, router } from '@inertiajs/react';
 import React from 'react';
 import styled from 'styled-components';
 import Swal from 'sweetalert2';
@@ -20,16 +19,6 @@ interface JobDetailProps extends Record<string, unknown> {
     canApply: boolean;
     applicationMessage: string;
     flash?: { success?: string; error?: string; };
-}
-
-interface ApiErrorResponse {
-    response?: {
-        status?: number;
-        data?: {
-            message?: string;
-            redirect?: string;
-        };
-    };
 }
 
 const PageWrapper = styled.div`
@@ -216,75 +205,57 @@ const JobDetailPage: React.FC = () => {
                         allowOutsideClick: false,
                         showConfirmButton: false,
                         didOpen: () => {
-                            Swal.showLoading();
+                            Swal.showLoading(Swal.getDenyButton());
                         }
                     });
 
-                    const response = await axios.post(`/candidate/apply/${job.id}`, {}, {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
+                    // Gunakan router.post() dari Inertia.js
+                    router.post(`/candidate/apply/${job.id}`, {}, {
+                        onSuccess: (data: any) => {
+                            Swal.close();
+                            
+                            Swal.fire({
+                                title: 'Berhasil!',
+                                text: 'Lamaran Anda telah berhasil dikirim.',
+                                icon: 'success',
+                                confirmButtonText: 'OK'
+                            }).then(() => {
+                                // Redirect ke halaman application history
+                                router.visit('/candidate/application-history');
+                            });
+                        },
+                        onError: (errors: any) => {
+                            Swal.close();
+                            console.error('Apply error:', errors);
+
+                            // Handle different error cases
+                            if (errors.message) {
+                                Swal.fire({
+                                    title: 'Perhatian',
+                                    text: errors.message,
+                                    icon: 'warning',
+                                    confirmButtonText: 'OK'
+                                });
+                            } else {
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: 'Terjadi kesalahan saat melamar. Silakan coba lagi.',
+                                    icon: 'error',
+                                    confirmButtonText: 'OK'
+                                });
+                            }
                         }
                     });
-
-                    Swal.close();
-
-                    if (response.data.success) {
-                        Swal.fire({
-                            title: 'Berhasil!',
-                            text: response.data.message,
-                            icon: 'success',
-                            confirmButtonText: 'OK'
-                        }).then(() => {
-                            // Redirect ke halaman application history
-                            window.location.href = response.data.redirect || '/candidate/application-history';
-                        });
-                    } else {
-                        Swal.fire({
-                            title: 'Perhatian',
-                            text: response.data.message,
-                            icon: 'warning',
-                            confirmButtonText: 'OK'
-                        });
-                    }
                 } catch (error: unknown) {
                     Swal.close();
                     console.error('Apply error:', error);
-
-                    // Check if error response contains redirect
-                    if (error instanceof Error && 'response' in error) {
-                        const axiosError = error as ApiErrorResponse;
-                        if (axiosError.response?.data?.redirect) {
-                            window.location.href = axiosError.response.data.redirect;
-                            return;
-                        }
-
-                        // Handle different error statuses
-                        if (axiosError.response?.status === 422) {
-                            const errorMessage = axiosError.response?.data?.message || 'Data profil belum lengkap.';
-                            Swal.fire({
-                                title: 'Data Belum Lengkap',
-                                text: errorMessage,
-                                icon: 'warning',
-                                confirmButtonText: 'OK'
-                            });
-                        } else {
-                            Swal.fire({
-                                title: 'Error',
-                                text: axiosError.response?.data?.message || 'Terjadi kesalahan saat melamar. Silakan coba lagi.',
-                                icon: 'error',
-                                confirmButtonText: 'OK'
-                            });
-                        }
-                    } else {
-                        Swal.fire({
-                            title: 'Error',
-                            text: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
-                            icon: 'error',
-                            confirmButtonText: 'OK'
-                        });
-                    }
+                    
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
                 }
             }
         });

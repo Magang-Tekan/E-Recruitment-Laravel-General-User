@@ -1,5 +1,5 @@
 import React, { ChangeEvent, useEffect, useState } from 'react';
-import axios from 'axios';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import TwoColumnForm from './TwoColumnForm';
 
 interface DataTambahanFormProps {
@@ -75,13 +75,19 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
     // Fetch functions
     const fetchSkillsData = async () => {
         try {
-            const response = await axios.get('/candidate/skills');
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    skills: response.data.data || []
-                }));
-            }
+            router.get('/candidate/skills', {}, {
+                onSuccess: (page: any) => {
+                    if (page.props?.success) {
+                        setSavedData(prev => ({
+                            ...prev,
+                            skills: page.props.data || []
+                        }));
+                    }
+                },
+                onError: (error: any) => {
+                    console.error('Error fetching skills:', error);
+                }
+            });
         } catch (error) {
             console.error('Error fetching skills:', error);
         }
@@ -89,13 +95,19 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
     const fetchCoursesData = async () => {
         try {
-            const response = await axios.get('/candidate/courses');
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    kursus: response.data.data || []
-                }));
-            }
+            router.get('/candidate/courses', {}, {
+                onSuccess: (page: any) => {
+                    if (page.props?.success) {
+                        setSavedData(prev => ({
+                            ...prev,
+                            kursus: page.props.data || []
+                        }));
+                    }
+                },
+                onError: (error: any) => {
+                    console.error('Error fetching courses:', error);
+                }
+            });
         } catch (error) {
             console.error('Error fetching courses:', error);
         }
@@ -104,15 +116,21 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
     const fetchCertificationsData = async () => {
         try {
             console.log('Fetching certifications...'); // Debug log
-            const response = await axios.get('/candidate/certifications');
-            console.log('Certifications response:', response.data); // Debug log
-            
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    sertifikasi: response.data.data || []
-                }));
-            }
+            router.get('/candidate/certifications', {}, {
+                onSuccess: (page: any) => {
+                    console.log('Certifications response:', page.props); // Debug log
+                    
+                    if (page.props?.success) {
+                        setSavedData(prev => ({
+                            ...prev,
+                            sertifikasi: page.props.data || []
+                        }));
+                    }
+                },
+                onError: (error: any) => {
+                    console.error('Error fetching certifications:', error);
+                }
+            });
         } catch (error) {
             console.error('Error fetching certifications:', error);
         }
@@ -120,13 +138,19 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
     const fetchLanguagesData = async () => {
         try {
-            const response = await axios.get('/candidate/languages');
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    bahasa: response.data.data || []
-                }));
-            }
+            router.get('/candidate/languages', {}, {
+                onSuccess: (page: any) => {
+                    if (page.props?.success) {
+                        setSavedData(prev => ({
+                            ...prev,
+                            bahasa: page.props.data || []
+                        }));
+                    }
+                },
+                onError: (error: any) => {
+                    console.error('Error fetching languages:', error);
+                }
+            });
         } catch (error) {
             console.error('Error fetching languages:', error);
         }
@@ -197,72 +221,99 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         }
 
         try {
-            let response;
-            
             if (state.editingId) {
-                // Update existing skill - PERBAIKI URL INI
-                formData.append('_method', 'PUT');
-                response = await axios.post(`/candidate/skills/${state.editingId}`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
+                // Update existing skill using router.put()
+                router.put(`/candidate/skills/${state.editingId}`, formData, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.success) {
+                            // Update existing skill in saved data
+                            setSavedData(prev => ({
+                                ...prev,
+                                skills: prev.skills.map(skill => 
+                                    skill.id === state.editingId ? page.props.data : skill
+                                )
+                            }));
+                            setMessage({
+                                type: 'success',
+                                text: 'Skill berhasil diupdate!'
+                            });
+
+                            // Reset form and go back
+                            setState(prev => ({
+                                ...prev,
+                                activeForm: null,
+                                editingId: null,
+                                formData: {
+                                    ...prev.formData,
+                                    skills: { name: '', file: null }
+                                }
+                            }));
+
+                            setTimeout(() => {
+                                setMessage(null);
+                            }, 3000);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error updating skill:', error);
+                        setMessage({
+                            type: 'error',
+                            text: error?.message || 'Gagal mengupdate skill'
+                        });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
             } else {
-                // Create new skill - PERBAIKI URL INI
-                response = await axios.post('/candidate/skills', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
+                // Create new skill using router.post()
+                router.post('/candidate/skills', formData, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.success) {
+                            // Add new skill to saved data
+                            setSavedData(prev => ({
+                                ...prev,
+                                skills: [...prev.skills, page.props.data]
+                            }));
+                            setMessage({
+                                type: 'success',
+                                text: 'Skill berhasil disimpan!'
+                            });
+
+                            // Reset form and go back
+                            setState(prev => ({
+                                ...prev,
+                                activeForm: null,
+                                editingId: null,
+                                formData: {
+                                    ...prev.formData,
+                                    skills: { name: '', file: null }
+                                }
+                            }));
+
+                            setTimeout(() => {
+                                setMessage(null);
+                            }, 3000);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error saving skill:', error);
+                        setMessage({
+                            type: 'error',
+                            text: error?.message || 'Gagal menyimpan skill'
+                        });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
-            }
-
-            if (response.data.success) {
-                if (state.editingId) {
-                    // Update existing skill in saved data
-                    setSavedData(prev => ({
-                        ...prev,
-                        skills: prev.skills.map(skill => 
-                            skill.id === state.editingId ? response.data.data : skill
-                        )
-                    }));
-                    setMessage({
-                        type: 'success',
-                        text: 'Skill berhasil diupdate!'
-                    });
-                } else {
-                    // Add new skill to saved data
-                    setSavedData(prev => ({
-                        ...prev,
-                        skills: [...prev.skills, response.data.data]
-                    }));
-                    setMessage({
-                        type: 'success',
-                        text: 'Skill berhasil disimpan!'
-                    });
-                }
-
-                // Reset form and go back
-                setState(prev => ({
-                    ...prev,
-                    activeForm: null,
-                    editingId: null,
-                    formData: {
-                        ...prev.formData,
-                        skills: { name: '', file: null }
-                    }
-                }));
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
             }
         } catch (error: any) {
             console.error('Error saving skill:', error);
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Gagal menyimpan skill'
+                text: 'Gagal menyimpan skill'
             });
-        } finally {
             setLoading(false);
         }
     };
@@ -275,30 +326,41 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            // PERBAIKI URL INI
-            const response = await axios.delete(`/candidate/skills/${id}`);
+            // Use router.delete()
+            router.delete(`/candidate/skills/${id}`, {
+                onSuccess: (page: any) => {
+                    if (page.props?.success) {
+                        setSavedData(prev => ({
+                            ...prev,
+                            skills: prev.skills.filter(skill => skill.id !== id)
+                        }));
+                        setMessage({
+                            type: 'success',
+                            text: 'Skill berhasil dihapus!'
+                        });
 
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    skills: prev.skills.filter(skill => skill.id !== id)
-                }));
-                setMessage({
-                    type: 'success',
-                    text: 'Skill berhasil dihapus!'
-                });
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
-            }
+                        setTimeout(() => {
+                            setMessage(null);
+                        }, 3000);
+                    }
+                },
+                onError: (error: any) => {
+                    console.error('Error deleting skill:', error);
+                    setMessage({
+                        type: 'error',
+                        text: error?.message || 'Gagal menghapus skill'
+                    });
+                },
+                onFinish: () => {
+                    setLoading(false);
+                }
+            });
         } catch (error: any) {
             console.error('Error deleting skill:', error);
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Gagal menghapus skill'
+                text: 'Gagal menghapus skill'
             });
-        } finally {
             setLoading(false);
         }
     };
@@ -339,71 +401,93 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         }
 
         try {
-            let response;
-            
             if (state.editingId) {
-                formData.append('_method', 'PUT');
-                response = await axios.post(`/candidate/courses/${state.editingId}`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
+                router.put(`/candidate/courses/${state.editingId}`, formData, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.success) {
+                            setSavedData(prev => ({
+                                ...prev,
+                                kursus: prev.kursus.map(course => 
+                                    course.id === state.editingId ? page.props.data : course
+                                )
+                            }));
+                            setMessage({
+                                type: 'success',
+                                text: 'Kursus berhasil diupdate!'
+                            });
+
+                            setState(prev => ({
+                                ...prev,
+                                activeForm: null,
+                                editingId: null,
+                                formData: {
+                                    ...prev.formData,
+                                    kursus: { name: '', file: null }
+                                }
+                            }));
+
+                            setTimeout(() => {
+                                setMessage(null);
+                            }, 3000);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error updating course:', error);
+                        setMessage({
+                            type: 'error',
+                            text: error?.message || 'Gagal mengupdate kursus'
+                        });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
             } else {
-                // PERBAIKI URL INI
-                response = await axios.post('/candidate/courses', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
+                router.post('/candidate/courses', formData, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.success) {
+                            setSavedData(prev => ({
+                                ...prev,
+                                kursus: [...prev.kursus, page.props.data]
+                            }));
+                            setMessage({
+                                type: 'success',
+                                text: 'Kursus berhasil disimpan!'
+                            });
+
+                            setState(prev => ({
+                                ...prev,
+                                activeForm: null,
+                                editingId: null,
+                                formData: {
+                                    ...prev.formData,
+                                    kursus: { name: '', file: null }
+                                }
+                            }));
+
+                            setTimeout(() => {
+                                setMessage(null);
+                            }, 3000);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error saving course:', error);
+                        setMessage({
+                            type: 'error',
+                            text: error?.message || 'Gagal menyimpan kursus'
+                        });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
-            }
-
-            if (response.data.success) {
-                if (state.editingId) {
-                    // Update existing course in saved data
-                    setSavedData(prev => ({
-                        ...prev,
-                        kursus: prev.kursus.map(course => 
-                            course.id === state.editingId ? response.data.data : course
-                        )
-                    }));
-                    setMessage({
-                        type: 'success',
-                        text: 'Kursus berhasil diupdate!'
-                    });
-                } else {
-                    // Add new course to saved data
-                    setSavedData(prev => ({
-                        ...prev,
-                        kursus: [...prev.kursus, response.data.data]
-                    }));
-                    setMessage({
-                        type: 'success',
-                        text: 'Kursus berhasil disimpan!'
-                    });
-                }
-
-                // Reset form and go back
-                setState(prev => ({
-                    ...prev,
-                    activeForm: null,
-                    editingId: null,
-                    formData: {
-                        ...prev.formData,
-                        kursus: { name: '', file: null }
-                    }
-                }));
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
             }
         } catch (error: any) {
             console.error('Error saving course:', error);
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Gagal menyimpan kursus'
+                text: 'Gagal menyimpan kursus'
             });
-        } finally {
             setLoading(false);
         }
     };
@@ -416,30 +500,40 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            // PERBAIKI URL INI
-            const response = await axios.delete(`/candidate/courses/${id}`);
+            router.delete(`/candidate/courses/${id}`, {
+                onSuccess: (page: any) => {
+                    if (page.props?.success) {
+                        setSavedData(prev => ({
+                            ...prev,
+                            kursus: prev.kursus.filter(course => course.id !== id)
+                        }));
+                        setMessage({
+                            type: 'success',
+                            text: 'Kursus berhasil dihapus!'
+                        });
 
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    kursus: prev.kursus.filter(course => course.id !== id)
-                }));
-                setMessage({
-                    type: 'success',
-                    text: 'Kursus berhasil dihapus!'
-                });
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
-            }
+                        setTimeout(() => {
+                            setMessage(null);
+                        }, 3000);
+                    }
+                },
+                onError: (error: any) => {
+                    console.error('Error deleting course:', error);
+                    setMessage({
+                        type: 'error',
+                        text: error?.message || 'Gagal menghapus kursus'
+                    });
+                },
+                onFinish: () => {
+                    setLoading(false);
+                }
+            });
         } catch (error: any) {
             console.error('Error deleting course:', error);
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Gagal menghapus kursus'
+                text: 'Gagal menghapus kursus'
             });
-        } finally {
             setLoading(false);
         }
     };
@@ -480,55 +574,87 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         }
 
         try {
-            let response;
-            
             if (state.editingId) {
-                formData.append('_method', 'PUT');
-                response = await axios.post(`/candidate/certifications/${state.editingId}`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
+                router.put(`/candidate/certifications/${state.editingId}`, formData, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.success) {
+                            setState(prev => ({
+                                ...prev,
+                                activeForm: null,
+                                editingId: null,
+                                formData: {
+                                    ...prev.formData,
+                                    sertifikasi: { name: '', file: null }
+                                }
+                            }));
+
+                            setMessage({
+                                type: 'success',
+                                text: 'Sertifikasi berhasil diupdate!'
+                            });
+
+                            fetchCertificationsData();
+
+                            setTimeout(() => {
+                                setMessage(null);
+                            }, 3000);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error updating certification:', error);
+                        setMessage({
+                            type: 'error',
+                            text: error?.message || 'Gagal mengupdate sertifikasi'
+                        });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
             } else {
-                // PERBAIKI URL INI
-                response = await axios.post('/candidate/certifications', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
+                router.post('/candidate/certifications', formData, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.success) {
+                            setState(prev => ({
+                                ...prev,
+                                activeForm: null,
+                                editingId: null,
+                                formData: {
+                                    ...prev.formData,
+                                    sertifikasi: { name: '', file: null }
+                                }
+                            }));
+
+                            setMessage({
+                                type: 'success',
+                                text: 'Sertifikasi berhasil disimpan!'
+                            });
+
+                            fetchCertificationsData();
+
+                            setTimeout(() => {
+                                setMessage(null);
+                            }, 3000);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error saving certification:', error);
+                        setMessage({
+                            type: 'error',
+                            text: error?.message || 'Gagal menyimpan sertifikasi'
+                        });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
-            }
-
-            if (response.data.success) {
-                // Reset form state
-                setState(prev => ({
-                    ...prev,
-                    activeForm: null,
-                    editingId: null,
-                    formData: {
-                        ...prev.formData,
-                        sertifikasi: { name: '', file: null }
-                    }
-                }));
-
-                setMessage({
-                    type: 'success',
-                    text: state.editingId ? 'Sertifikasi berhasil diupdate!' : 'Sertifikasi berhasil disimpan!'
-                });
-
-                // Refresh data untuk memastikan tampil di form utama
-                await fetchCertificationsData();
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
             }
         } catch (error: any) {
             console.error('Error saving certification:', error);
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Gagal menyimpan sertifikasi'
+                text: 'Gagal menyimpan sertifikasi'
             });
-        } finally {
             setLoading(false);
         }
     };
@@ -541,30 +667,40 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            // PERBAIKI URL INI
-            const response = await axios.delete(`/candidate/certifications/${id}`);
+            router.delete(`/candidate/certifications/${id}`, {
+                onSuccess: (page: any) => {
+                    if (page.props?.success) {
+                        setSavedData(prev => ({
+                            ...prev,
+                            sertifikasi: prev.sertifikasi.filter(cert => cert.id !== id)
+                        }));
+                        setMessage({
+                            type: 'success',
+                            text: 'Sertifikasi berhasil dihapus!'
+                        });
 
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    sertifikasi: prev.sertifikasi.filter(cert => cert.id !== id)
-                }));
-                setMessage({
-                    type: 'success',
-                    text: 'Sertifikasi berhasil dihapus!'
-                });
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
-            }
+                        setTimeout(() => {
+                            setMessage(null);
+                        }, 3000);
+                    }
+                },
+                onError: (error: any) => {
+                    console.error('Error deleting certification:', error);
+                    setMessage({
+                        type: 'error',
+                        text: error?.message || 'Gagal menghapus sertifikasi'
+                    });
+                },
+                onFinish: () => {
+                    setLoading(false);
+                }
+            });
         } catch (error: any) {
             console.error('Error deleting certification:', error);
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Gagal menghapus sertifikasi'
+                text: 'Gagal menghapus sertifikasi'
             });
-        } finally {
             setLoading(false);
         }
     };
@@ -605,54 +741,87 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         }
 
         try {
-            let response;
-            
             if (state.editingId) {
-                formData.append('_method', 'PUT');
-                response = await axios.post(`/candidate/languages/${state.editingId}`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
+                router.put(`/candidate/languages/${state.editingId}`, formData, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.success) {
+                            setState(prev => ({
+                                ...prev,
+                                activeForm: null,
+                                editingId: null,
+                                formData: {
+                                    ...prev.formData,
+                                    bahasa: { name: '', file: null }
+                                }
+                            }));
+
+                            setMessage({
+                                type: 'success',
+                                text: 'Bahasa berhasil diupdate!'
+                            });
+
+                            fetchLanguagesData();
+
+                            setTimeout(() => {
+                                setMessage(null);
+                            }, 3000);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error updating language:', error);
+                        setMessage({
+                            type: 'error',
+                            text: error?.message || 'Gagal mengupdate bahasa'
+                        });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
             } else {
-                // PERBAIKI URL INI
-                response = await axios.post('/candidate/languages', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
+                router.post('/candidate/languages', formData, {
+                    onSuccess: (page: any) => {
+                        if (page.props?.success) {
+                            setState(prev => ({
+                                ...prev,
+                                activeForm: null,
+                                editingId: null,
+                                formData: {
+                                    ...prev.formData,
+                                    bahasa: { name: '', file: null }
+                                }
+                            }));
+
+                            setMessage({
+                                type: 'success',
+                                text: 'Bahasa berhasil disimpan!'
+                            });
+
+                            fetchLanguagesData();
+
+                            setTimeout(() => {
+                                setMessage(null);
+                            }, 3000);
+                        }
+                    },
+                    onError: (error: any) => {
+                        console.error('Error saving language:', error);
+                        setMessage({
+                            type: 'error',
+                            text: error?.message || 'Gagal menyimpan bahasa'
+                        });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
-            }
-
-            if (response.data.success) {
-                setState(prev => ({
-                    ...prev,
-                    activeForm: null,
-                    editingId: null,
-                    formData: {
-                        ...prev.formData,
-                        bahasa: { name: '', file: null }
-                    }
-                }));
-
-                setMessage({
-                    type: 'success',
-                    text: state.editingId ? 'Bahasa berhasil diupdate!' : 'Bahasa berhasil disimpan!'
-                });
-
-                // Refresh data
-                await fetchLanguagesData(); // Enable ini
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
             }
         } catch (error: any) {
             console.error('Error saving language:', error);
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Gagal menyimpan bahasa'
+                text: 'Gagal menyimpan bahasa'
             });
-        } finally {
             setLoading(false);
         }
     };
@@ -665,30 +834,40 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            // PERBAIKI URL INI
-            const response = await axios.delete(`/candidate/languages/${id}`);
+            router.delete(`/candidate/languages/${id}`, {
+                onSuccess: (page: any) => {
+                    if (page.props?.success) {
+                        setSavedData(prev => ({
+                            ...prev,
+                            bahasa: prev.bahasa.filter(lang => lang.id !== id)
+                        }));
+                        setMessage({
+                            type: 'success',
+                            text: 'Bahasa berhasil dihapus!'
+                        });
 
-            if (response.data.success) {
-                setSavedData(prev => ({
-                    ...prev,
-                    bahasa: prev.bahasa.filter(lang => lang.id !== id)
-                }));
-                setMessage({
-                    type: 'success',
-                    text: 'Bahasa berhasil dihapus!'
-                });
-
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
-            }
+                        setTimeout(() => {
+                            setMessage(null);
+                        }, 3000);
+                    }
+                },
+                onError: (error: any) => {
+                    console.error('Error deleting language:', error);
+                    setMessage({
+                        type: 'error',
+                        text: error?.message || 'Gagal menghapus bahasa'
+                    });
+                },
+                onFinish: () => {
+                    setLoading(false);
+                }
+            });
         } catch (error: any) {
             console.error('Error deleting language:', error);
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Gagal menghapus bahasa'
+                text: 'Gagal menghapus bahasa'
             });
-        } finally {
             setLoading(false);
         }
     };

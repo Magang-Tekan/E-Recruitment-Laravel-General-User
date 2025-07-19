@@ -1,4 +1,5 @@
-import axios from 'axios';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 interface Education {
@@ -11,6 +12,7 @@ interface Education {
     gpa: string;
     year_in: string;
     year_out: string;
+    [key: string]: any;
 }
 
 export const useEducation = () => {
@@ -19,83 +21,54 @@ export const useEducation = () => {
     const [error, setError] = useState<string | null>(null);
 
     const fetchEducation = async () => {
-        try {
-            setLoading(true);
-            setError(null);
+        setLoading(true);
+        setError(null);
 
-            console.log('🔄 Fetching education data...');
+        console.log('🔄 Fetching education data...');
 
-            const response = await axios.get('/api/candidate/education', {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                    'Cache-Control': 'no-cache'
+        router.get('/api/candidate/education', {}, {
+            onSuccess: (page: any) => {
+                console.log('✅ Education data received:', page.props.data);
+                setEducation(page.props.data || null);
+                setLoading(false);
+            },
+            onError: (errors: any) => {
+                console.error('❌ Error fetching education:', errors);
+                if (errors.status === 404 || !errors.data) {
+                    // No education data found - this is OK
+                    setEducation(null);
+                    setError(null);
+                } else {
+                    setError('Gagal memuat data pendidikan');
                 }
-            });
-
-            console.log('✅ Education data received:', response.data);
-            setEducation(response.data);
-
-        } catch (error: any) {
-            console.error('❌ Error fetching education:', error);
-            if (error.response?.status === 404 || error.response?.data === null) {
-                // No education data found - this is OK
-                setEducation(null);
-                setError(null);
-            } else {
-                setError('Gagal memuat data pendidikan');
+                setLoading(false);
             }
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     const updateEducation = async (data: any, onSuccess?: () => void) => {
-        try {
-            setLoading(true);
+        setLoading(true);
 
-            // Get the CSRF token from the cookie instead of meta tag
-            // Laravel stores it in the XSRF-TOKEN cookie
-            const getCsrfToken = () => {
-                const match = document.cookie.match(new RegExp('(^| )XSRF-TOKEN=([^;]+)'));
-                return match ? decodeURIComponent(match[2]) : null;
-            };
+        console.log('🔄 Updating education data...');
 
-            const csrfToken = getCsrfToken();
-            console.log('🔐 Using CSRF Token:', csrfToken);
+        router.post('/api/candidate/education', data, {
+            onSuccess: (page: any) => {
+                const result = page.props.data || page.props;
+                console.log('✅ Education data updated:', result);
+                setEducation(result.data || result);
 
-            const response = await fetch('/api/candidate/education', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-XSRF-TOKEN': csrfToken || '',
-                },
-                credentials: 'include', // Important: include cookies in request
-                body: JSON.stringify(data),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('❌ Server returned error:', response.status, errorData);
-                throw new Error(errorData.message || 'Failed to update education');
+                if (onSuccess) {
+                    onSuccess();
+                }
+                setLoading(false);
+                return result;
+            },
+            onError: (errors: any) => {
+                console.error('❌ Error updating education:', errors);
+                setLoading(false);
+                throw new Error(errors.message || 'Failed to update education');
             }
-
-            const result = await response.json();
-            console.log('✅ Education data updated:', result);
-            setEducation(result.data || result);
-
-            if (onSuccess) {
-                onSuccess();
-            }
-
-            return result;
-        } catch (error) {
-            console.error('❌ Error updating education:', error);
-            throw error;
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     const refreshEducation = async () => {

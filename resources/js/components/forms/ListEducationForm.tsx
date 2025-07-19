@@ -1,16 +1,7 @@
-import axios from 'axios';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import React, { useEffect, useState } from 'react';
 import TambahPendidikanForm from './AddEducationForm';
-
-// Configure axios defaults for Laravel
-axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-axios.defaults.withCredentials = true;
-
-// Get CSRF token from meta tag
-const csrf_token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-if (csrf_token) {
-    axios.defaults.headers.common['X-CSRF-TOKEN'] = csrf_token;
-}
 
 // Update interface Education
 interface Education {
@@ -28,6 +19,7 @@ interface Education {
     gpa: string;
     year_in: string;
     year_out: string;
+    [key: string]: any;
 }
 
 // Add interface for API response education data
@@ -45,6 +37,7 @@ interface EducationResponse {
     gpa: string;
     year_in: string;
     year_out: string;
+    [key: string]: any;
 }
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
@@ -78,23 +71,25 @@ const ListEducationForm: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     const fetchEducations = async () => {
-        try {
-            const response = await axios.get('/api/candidate/educations');
-            if (response.data.success && response.data.data) {
-                setEducations(response.data.data.map((education: EducationResponse) => ({
-                    ...education,
-                    education_level: education.educationLevel?.name || education.education_level || '-'
-                })));
+        router.get('/api/candidate/educations', {}, {
+            onSuccess: (page: any) => {
+                if (page.props.success && page.props.data) {
+                    setEducations(page.props.data.map((education: EducationResponse) => ({
+                        ...education,
+                        education_level: education.educationLevel?.name || education.education_level || '-'
+                    })));
+                }
+                setLoading(false);
+            },
+            onError: (errors) => {
+                console.error('Error fetching educations:', errors);
+                setMessage({
+                    type: 'error',
+                    text: 'Gagal mengambil data pendidikan'
+                });
+                setLoading(false);
             }
-            setLoading(false);
-        } catch (error) {
-            console.error('Error fetching educations:', error);
-            setMessage({
-                type: 'error',
-                text: 'Gagal mengambil data pendidikan'
-            });
-            setLoading(false);
-        }
+        });
     };
 
     useEffect(() => {
@@ -105,33 +100,46 @@ const ListEducationForm: React.FC = () => {
         e.preventDefault();
         setMessage(null);
 
-        try {
-            const formData = new FormData(e.currentTarget);
-            const data = Object.fromEntries(formData);
+        const formData = new FormData(e.currentTarget);
+        const data = Object.fromEntries(formData);
 
-            if (editingId) {
-                await axios.put(`/api/candidate/education/${editingId}`, data);
-                setMessage({
-                    type: 'success',
-                    text: 'Data pendidikan berhasil diperbarui!'
-                });
-            } else {
-                await axios.post('/api/candidate/education', data);
-                setMessage({
-                    type: 'success',
-                    text: 'Data pendidikan berhasil ditambahkan!'
-                });
-            }
-
-            fetchEducations();
-            setIsAdding(false);
-            setEditingId(null);
-
-        } catch (error) {
-            console.error('Error saving education:', error);
-            setMessage({
-                type: 'error',
-                text: 'Terjadi kesalahan saat menyimpan data'
+        if (editingId) {
+            router.put(`/api/candidate/education/${editingId}`, data, {
+                onSuccess: () => {
+                    setMessage({
+                        type: 'success',
+                        text: 'Data pendidikan berhasil diperbarui!'
+                    });
+                    fetchEducations();
+                    setIsAdding(false);
+                    setEditingId(null);
+                },
+                onError: (errors) => {
+                    console.error('Error saving education:', errors);
+                    setMessage({
+                        type: 'error',
+                        text: 'Terjadi kesalahan saat menyimpan data'
+                    });
+                }
+            });
+        } else {
+            router.post('/api/candidate/education', data, {
+                onSuccess: () => {
+                    setMessage({
+                        type: 'success',
+                        text: 'Data pendidikan berhasil ditambahkan!'
+                    });
+                    fetchEducations();
+                    setIsAdding(false);
+                    setEditingId(null);
+                },
+                onError: (errors) => {
+                    console.error('Error saving education:', errors);
+                    setMessage({
+                        type: 'error',
+                        text: 'Terjadi kesalahan saat menyimpan data'
+                    });
+                }
             });
         }
     };
@@ -141,35 +149,27 @@ const ListEducationForm: React.FC = () => {
             return;
         }
 
-        try {
-            // Make sure to include the CSRF token in the headers
-            const csrf_token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        router.delete(`/api/candidate/education/${id}`, {
+            onSuccess: () => {
+                setMessage({
+                    type: 'success',
+                    text: 'Data pendidikan berhasil dihapus!'
+                });
+                fetchEducations();
 
-            await axios.delete(`/api/candidate/education/${id}`, {
-                headers: {
-                    'X-CSRF-TOKEN': csrf_token,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
-            });
-
-            setMessage({
-                type: 'success',
-                text: 'Data pendidikan berhasil dihapus!'
-            });
-            fetchEducations();
-
-            // Auto hide message after 3 seconds
-            setTimeout(() => {
-                setMessage(null);
-            }, 3000);
-        } catch (error) {
-            console.error('Error deleting education:', error);
-            setMessage({
-                type: 'error',
-                text: 'Gagal menghapus data pendidikan'
-            });
-        }
+                // Auto hide message after 3 seconds
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            },
+            onError: (errors) => {
+                console.error('Error deleting education:', errors);
+                setMessage({
+                    type: 'error',
+                    text: 'Gagal menghapus data pendidikan'
+                });
+            }
+        });
     };
 
     if (loading) {

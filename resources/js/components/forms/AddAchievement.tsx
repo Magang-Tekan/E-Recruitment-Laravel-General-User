@@ -1,7 +1,7 @@
 import React, { ChangeEvent, FormEvent, useState, useEffect } from 'react';
 import InputField from '../InputField';
 import SelectField from '../SelectField';
-import axios from 'axios';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 
 interface PrestasiData {
     id?: number;
@@ -134,64 +134,94 @@ const TambahPrestasiForm: React.FC<TambahPrestasiFormProps> = ({
                 console.log(key, value);
             }
 
-            let response;
             if (achievementData?.id) {
-                // For update, use POST with _method field
-                formPayload.append('_method', 'PUT');
-                response = await axios.post(`/candidate/achievement/${achievementData.id}`, formPayload, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                        'Accept': 'application/json'
+                // For update, use router.put()
+                router.put(`/candidate/achievement/${achievementData.id}`, formPayload, {
+                    onSuccess: (page: any) => {
+                        console.log('Success response:', page.props);
+
+                        setMessage({
+                            type: 'success',
+                            text: 'Data berhasil diperbarui!'
+                        });
+
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        setTimeout(() => {
+                            onSuccess();
+                        }, 2000);
+                    },
+                    onError: (error: any) => {
+                        console.error('Error response:', error);
+                        
+                        let errorMessage = 'Terjadi kesalahan saat memperbarui data';
+                        
+                        if (error?.errors) {
+                            // Validation errors
+                            const errorMessages = Object.values(error.errors).flat();
+                            errorMessage = errorMessages.join(', ');
+                        } else if (error?.message) {
+                            errorMessage = error.message;
+                        }
+
+                        setMessage({
+                            type: 'error',
+                            text: errorMessage
+                        });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
             } else {
-                response = await axios.post('/candidate/achievement', formPayload, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                        'Accept': 'application/json'
+                // For create, use router.post()
+                router.post('/candidate/achievement', formPayload, {
+                    onSuccess: (page: any) => {
+                        console.log('Success response:', page.props);
+
+                        setMessage({
+                            type: 'success',
+                            text: 'Data berhasil disimpan!'
+                        });
+
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        setTimeout(() => {
+                            onSuccess();
+                        }, 2000);
+                    },
+                    onError: (error: any) => {
+                        console.error('Error response:', error);
+                        
+                        let errorMessage = 'Terjadi kesalahan saat menyimpan data';
+                        
+                        if (error?.errors) {
+                            // Validation errors
+                            const errorMessages = Object.values(error.errors).flat();
+                            errorMessage = errorMessages.join(', ');
+                        } else if (error?.message) {
+                            errorMessage = error.message;
+                        }
+
+                        setMessage({
+                            type: 'error',
+                            text: errorMessage
+                        });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    },
+                    onFinish: () => {
+                        setLoading(false);
                     }
                 });
             }
 
-            console.log('Success response:', response.data);
-
-            setMessage({
-                type: 'success',
-                text: achievementData?.id ? 'Data berhasil diperbarui!' : 'Data berhasil disimpan!'
-            });
-
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            setTimeout(() => {
-                onSuccess();
-            }, 2000);
-
         } catch (error: any) {
-            console.error('Full error object:', error);
-            console.error('Error response:', error.response?.data);
+            console.error('Client-side validation error:', error);
             
-            let errorMessage = 'Terjadi kesalahan saat menyimpan data';
-            
-            if (error.response?.status === 422) {
-                // Validation errors
-                const errors = error.response.data.errors;
-                if (errors) {
-                    const errorMessages = Object.values(errors).flat();
-                    errorMessage = errorMessages.join(', ');
-                } else {
-                    errorMessage = error.response.data.message || 'Data tidak valid';
-                }
-            } else if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
             setMessage({
                 type: 'error',
-                text: errorMessage
+                text: error.message || 'Terjadi kesalahan saat validasi data'
             });
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        } finally {
             setLoading(false);
         }
     };
