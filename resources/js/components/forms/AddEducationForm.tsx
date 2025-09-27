@@ -1,5 +1,6 @@
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import React, { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import axios from 'axios';
 import InputField from '../InputField';
 import SelectField from '../SelectField';
 
@@ -68,28 +69,11 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
         const fetchMajors = async () => {
             setIsLoadingMajors(true);
             try {
-                // Use router.get() with onSuccess and onError callbacks
-                router.get('/api/majors', {}, {
-                    onSuccess: (page: any) => {
-                        console.log('Majors loaded:', page.props);
-                        if (page.props?.data) {
-                            setMajors(page.props.data);
-                        } else {
-                            setMajors(page.props || []);
-                        }
-                    },
-                    onError: (error: any) => {
-                        console.error('Error fetching majors:', error);
-                        setMessage({
-                            type: 'error',
-                            text: 'Gagal memuat data program studi'
-                        });
-                    },
-                    onFinish: () => {
-                        setIsLoadingMajors(false);
-                    }
-                });
-            } catch (error) {
+                const response = await axios.get('/api/majors');
+                console.log('Majors loaded:', response.data);
+                setMajors(response.data || []);
+                setIsLoadingMajors(false);
+            } catch (error: any) {
                 console.error('Error fetching majors:', error);
                 setMessage({
                     type: 'error',
@@ -107,28 +91,11 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
         const fetchEducationLevels = async () => {
             setIsLoadingEducationLevels(true);
             try {
-                // Use router.get() with onSuccess and onError callbacks
-                router.get('/api/education-levels', {}, {
-                    onSuccess: (page: any) => {
-                        console.log('Education levels loaded:', page.props);
-                        if (page.props?.data) {
-                            setEducationLevels(page.props.data);
-                        } else {
-                            setEducationLevels(page.props || []);
-                        }
-                    },
-                    onError: (error: any) => {
-                        console.error('Error fetching education levels:', error);
-                        setMessage({
-                            type: 'error',
-                            text: 'Gagal memuat data jenjang pendidikan'
-                        });
-                    },
-                    onFinish: () => {
-                        setIsLoadingEducationLevels(false);
-                    }
-                });
-            } catch (error) {
+                const response = await axios.get('/api/education-levels');
+                console.log('Education levels loaded:', response.data);
+                setEducationLevels(response.data || []);
+                setIsLoadingEducationLevels(false);
+            } catch (error: any) {
                 console.error('Error fetching education levels:', error);
                 setMessage({
                     type: 'error',

@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 
 interface Education {
     id?: number;
@@ -26,24 +27,22 @@ export const useEducation = () => {
 
         console.log('🔄 Fetching education data...');
 
-        router.get('/api/candidate/education', {}, {
-            onSuccess: (page: any) => {
-                console.log('✅ Education data received:', page.props.data);
-                setEducation(page.props.data || null);
-                setLoading(false);
-            },
-            onError: (errors: any) => {
-                console.error('❌ Error fetching education:', errors);
-                if (errors.status === 404 || !errors.data) {
-                    // No education data found - this is OK
-                    setEducation(null);
-                    setError(null);
-                } else {
-                    setError('Gagal memuat data pendidikan');
-                }
-                setLoading(false);
+        try {
+            const response = await axios.get('/api/candidate/education');
+            console.log('✅ Education data received:', response.data.data);
+            setEducation(response.data.data || null);
+            setLoading(false);
+        } catch (error: any) {
+            console.error('❌ Error fetching education:', error);
+            if (error.response?.status === 404 || !error.response?.data) {
+                // No education data found - this is OK
+                setEducation(null);
+                setError(null);
+            } else {
+                setError('Gagal memuat data pendidikan');
             }
-        });
+            setLoading(false);
+        }
     };
 
     const updateEducation = async (data: any, onSuccess?: () => void) => {

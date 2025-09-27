@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import TambahPendidikanForm from './AddEducationForm';
 
 // Update interface Education
@@ -71,25 +72,23 @@ const ListEducationForm: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     const fetchEducations = async () => {
-        router.get('/api/candidate/educations', {}, {
-            onSuccess: (page: any) => {
-                if (page.props.success && page.props.data) {
-                    setEducations(page.props.data.map((education: EducationResponse) => ({
-                        ...education,
-                        education_level: education.educationLevel?.name || education.education_level || '-'
-                    })));
-                }
-                setLoading(false);
-            },
-            onError: (errors) => {
-                console.error('Error fetching educations:', errors);
-                setMessage({
-                    type: 'error',
-                    text: 'Gagal mengambil data pendidikan'
-                });
-                setLoading(false);
+        try {
+            const response = await axios.get('/api/candidate/educations');
+            if (response.data.success && response.data.data) {
+                setEducations(response.data.data.map((education: EducationResponse) => ({
+                    ...education,
+                    education_level: education.educationLevel?.name || education.education_level || '-'
+                })));
             }
-        });
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching educations:', error);
+            setMessage({
+                type: 'error',
+                text: 'Gagal mengambil data pendidikan'
+            });
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -103,9 +102,10 @@ const ListEducationForm: React.FC = () => {
         const formData = new FormData(e.currentTarget);
         const data = Object.fromEntries(formData);
 
-        if (editingId) {
-            router.put(`/api/candidate/education/${editingId}`, data, {
-                onSuccess: () => {
+        try {
+            if (editingId) {
+                const response = await axios.put(`/api/candidate/education/${editingId}`, data);
+                if (response.data?.success) {
                     setMessage({
                         type: 'success',
                         text: 'Data pendidikan berhasil diperbarui!'
@@ -113,18 +113,10 @@ const ListEducationForm: React.FC = () => {
                     fetchEducations();
                     setIsAdding(false);
                     setEditingId(null);
-                },
-                onError: (errors) => {
-                    console.error('Error saving education:', errors);
-                    setMessage({
-                        type: 'error',
-                        text: 'Terjadi kesalahan saat menyimpan data'
-                    });
                 }
-            });
-        } else {
-            router.post('/api/candidate/education', data, {
-                onSuccess: () => {
+            } else {
+                const response = await axios.post('/api/candidate/education', data);
+                if (response.data?.success) {
                     setMessage({
                         type: 'success',
                         text: 'Data pendidikan berhasil ditambahkan!'
@@ -132,14 +124,13 @@ const ListEducationForm: React.FC = () => {
                     fetchEducations();
                     setIsAdding(false);
                     setEditingId(null);
-                },
-                onError: (errors) => {
-                    console.error('Error saving education:', errors);
-                    setMessage({
-                        type: 'error',
-                        text: 'Terjadi kesalahan saat menyimpan data'
-                    });
                 }
+            }
+        } catch (error: any) {
+            console.error('Error saving education:', error);
+            setMessage({
+                type: 'error',
+                text: 'Terjadi kesalahan saat menyimpan data'
             });
         }
     };
@@ -149,8 +140,9 @@ const ListEducationForm: React.FC = () => {
             return;
         }
 
-        router.delete(`/api/candidate/education/${id}`, {
-            onSuccess: () => {
+        try {
+            const response = await axios.delete(`/api/candidate/education/${id}`);
+            if (response.data?.success) {
                 setMessage({
                     type: 'success',
                     text: 'Data pendidikan berhasil dihapus!'
@@ -161,15 +153,14 @@ const ListEducationForm: React.FC = () => {
                 setTimeout(() => {
                     setMessage(null);
                 }, 3000);
-            },
-            onError: (errors) => {
-                console.error('Error deleting education:', errors);
-                setMessage({
-                    type: 'error',
-                    text: 'Gagal menghapus data pendidikan'
-                });
             }
-        });
+        } catch (error: any) {
+            console.error('Error deleting education:', error);
+            setMessage({
+                type: 'error',
+                text: 'Gagal menghapus data pendidikan'
+            });
+        }
     };
 
     if (loading) {

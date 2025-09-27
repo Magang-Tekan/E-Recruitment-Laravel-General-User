@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
+import axios from 'axios';
 
 // Add Alert component
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
@@ -52,16 +53,14 @@ const OrganisasiListForm: React.FC<OrganisasiListFormProps> = ({ onAdd, onEdit }
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const fetchOrganizations = async () => {
-        router.get('/candidate/organizations', {}, {
-            onSuccess: (page: any) => {
-                setOrganizations(page.props.data || []);
-                setLoading(false);
-            },
-            onError: (errors) => {
-                console.error('Error fetching organizations:', errors);
-                setLoading(false);
-            }
-        });
+        try {
+            const response = await axios.get('/candidate/organizations');
+            setOrganizations(response.data || []);
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching organizations:', error);
+            setLoading(false);
+        }
     };
 
     useEffect(() => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
+import axios from 'axios';
 import EditPengalamanKerjaForm from '../components/forms/EditExperienceForm';
 import TambahPengalamanForm from '../components/forms/AddExperience';
 
@@ -58,16 +59,8 @@ const PengalamanKerjaForm: React.FC = () => {
     useEffect(() => {
         const fetchWorkExperiences = async () => {
             try {
-                // Gunakan router.get() dari Inertia.js
-                router.get('/candidate/work-experiences', {}, {
-                    onSuccess: (data: any) => {
-                        // Asumsikan data work experiences ada di data.props.workExperiences
-                        setWorkExperiences(data.props?.workExperiences || []);
-                    },
-                    onError: (error: any) => {
-                        console.error('Error fetching work experiences:', error);
-                    }
-                });
+                const response = await axios.get('/candidate/work-experiences');
+                setWorkExperiences(response.data || []);
             } catch (error) {
                 console.error('Error fetching work experiences:', error);
             }

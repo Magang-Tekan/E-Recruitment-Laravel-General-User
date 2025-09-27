@@ -1,5 +1,6 @@
 import React, { ChangeEvent, useEffect, useState } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
+    import axios from 'axios';
 import TwoColumnForm from './TwoColumnForm';
 
 interface DataTambahanFormProps {
@@ -75,19 +76,13 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
     // Fetch functions
     const fetchSkillsData = async () => {
         try {
-            router.get('/candidate/skills', {}, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            skills: page.props.data || []
-                        }));
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error fetching skills:', error);
-                }
-            });
+            const response = await axios.get('/candidate/skills');
+            if (response.data?.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    skills: response.data.data || []
+                }));
+            }
         } catch (error) {
             console.error('Error fetching skills:', error);
         }
@@ -95,19 +90,13 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
     const fetchCoursesData = async () => {
         try {
-            router.get('/candidate/courses', {}, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            kursus: page.props.data || []
-                        }));
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error fetching courses:', error);
-                }
-            });
+            const response = await axios.get('/candidate/courses');
+            if (response.data?.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    kursus: response.data.data || []
+                }));
+            }
         } catch (error) {
             console.error('Error fetching courses:', error);
         }
@@ -115,22 +104,13 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
     const fetchCertificationsData = async () => {
         try {
-            console.log('Fetching certifications...'); // Debug log
-            router.get('/candidate/certifications', {}, {
-                onSuccess: (page: any) => {
-                    console.log('Certifications response:', page.props); // Debug log
-                    
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            sertifikasi: page.props.data || []
-                        }));
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error fetching certifications:', error);
-                }
-            });
+            const response = await axios.get('/candidate/certifications');
+            if (response.data?.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    sertifikasi: response.data.data || []
+                }));
+            }
         } catch (error) {
             console.error('Error fetching certifications:', error);
         }
@@ -138,19 +118,13 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
     const fetchLanguagesData = async () => {
         try {
-            router.get('/candidate/languages', {}, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            bahasa: page.props.data || []
-                        }));
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error fetching languages:', error);
-                }
-            });
+            const response = await axios.get('/candidate/languages');
+            if (response.data?.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    bahasa: response.data.data || []
+                }));
+            }
         } catch (error) {
             console.error('Error fetching languages:', error);
         }

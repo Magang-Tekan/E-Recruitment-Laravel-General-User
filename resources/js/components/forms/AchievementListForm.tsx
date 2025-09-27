@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
+import axios from 'axios';
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
@@ -52,26 +53,16 @@ const PrestasiListForm: React.FC<PrestasiListFormProps> = ({ onAdd, onEdit }) =>
                 setLoading(true);
                 setError(null);
                 
-                // Use router.get() with onSuccess and onError callbacks
-                router.get('/candidate/achievements', {}, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.status === 'success') {
-                            setAchievements(page.props.data);
-                        } else {
-                            throw new Error('Failed to fetch achievements');
-                        }
-                    },
-                    onError: (error: any) => {
-                        console.error('Error fetching achievements:', error);
-                        setError(error?.message || 'Terjadi kesalahan saat mengambil data');
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
-                });
+                const response = await axios.get('/candidate/achievements');
+                if (response.data?.status === 'success') {
+                    setAchievements(response.data.data);
+                } else {
+                    throw new Error('Failed to fetch achievements');
+                }
             } catch (error: any) {
                 console.error('Error fetching achievements:', error);
                 setError('Terjadi kesalahan saat mengambil data');
+            } finally {
                 setLoading(false);
             }
         };

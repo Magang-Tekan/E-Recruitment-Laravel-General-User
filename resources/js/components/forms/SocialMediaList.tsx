@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
+import axios from 'axios';
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
@@ -51,19 +52,17 @@ const SocialMediaList: React.FC<SocialMediaListProps> = ({ onAdd, onEdit, onSucc
     };
 
     const fetchSocialMedias = async () => {
-        router.get('/candidate/social-media', {}, {
-            onSuccess: (page: any) => {
-                if (page.props.status === 'success') {
-                    setSocialMedias(page.props.data || []);
-                }
-                setLoading(false);
-            },
-            onError: (errors) => {
-                console.error('Error fetching social media:', errors);
-                setError('Gagal memuat data');
-                setLoading(false);
+        try {
+            const response = await axios.get('/candidate/social-media');
+            if (response.data?.status === 'success') {
+                setSocialMedias(response.data.data || []);
             }
-        });
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching social media:', error);
+            setError('Gagal memuat data');
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -79,18 +78,16 @@ const SocialMediaList: React.FC<SocialMediaListProps> = ({ onAdd, onEdit, onSucc
     };
 
     const refreshList = async () => {
-        router.get('/candidate/social-media', {}, {
-            onSuccess: (page: any) => {
-                if (page.props.status === 'success') {
-                    setSocialMedias(page.props.data || []);
-                    setLoading(false);
-                }
-            },
-            onError: (errors) => {
-                console.error('Error refreshing social media:', errors);
-                showNotification('error', 'Gagal memperbarui data');
+        try {
+            const response = await axios.get('/candidate/social-media');
+            if (response.data?.status === 'success') {
+                setSocialMedias(response.data.data || []);
+                setLoading(false);
             }
-        });
+        } catch (error) {
+            console.error('Error refreshing social media:', error);
+            showNotification('error', 'Gagal memperbarui data');
+        }
     };
 
     useEffect(() => {
@@ -107,17 +104,17 @@ const SocialMediaList: React.FC<SocialMediaListProps> = ({ onAdd, onEdit, onSucc
             return;
         }
 
-        router.delete(`/candidate/social-media/${id}`, {
-            onSuccess: () => {
+        try {
+            const response = await axios.delete(`/candidate/social-media/${id}`);
+            if (response.data?.status === 'success') {
                 setSocialMedias(prev => prev.filter(item => item.id !== id));
                 showNotification('success', 'Social media berhasil dihapus!');
                 refreshList();
-            },
-            onError: (errors) => {
-                console.error('Error deleting social media:', errors);
-                showNotification('error', 'Gagal menghapus social media');
             }
-        });
+        } catch (error: any) {
+            console.error('Error deleting social media:', error);
+            showNotification('error', 'Gagal menghapus social media');
+        }
     };
 
     if (loading) return <div className="text-center p-4">Loading...</div>;

@@ -1,6 +1,7 @@
 import { Head, Link, useForm, usePage, router } from "@inertiajs/react";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import axios from 'axios';
 import Swal from 'sweetalert2';
 
 type Completeness = {
@@ -54,20 +55,13 @@ const ConfirmData = () => {
   useEffect(() => {
     const checkCompleteness = async () => {
       try {
-        // Gunakan router.get() dari Inertia.js
-        router.get('/candidate/applicant-completeness', {}, {
-          onSuccess: (data: any) => {
-            console.log('Completeness response:', data); // Untuk debugging
-            
-            // Update localCompleteness jika ada data baru
-            if (data.props?.completeness) {
-              setLocalCompleteness(data.props.completeness);
-            }
-          },
-          onError: (error: any) => {
-            console.error('Error checking completeness:', error);
-          }
-        });
+        const response = await axios.get('/candidate/applicant-completeness');
+        console.log('Completeness response:', response.data); // Untuk debugging
+        
+        // Update localCompleteness jika ada data baru
+        if (response.data?.completeness) {
+          setLocalCompleteness(response.data.completeness);
+        }
       } catch (error) {
         console.error('Error checking completeness:', error);
       }
@@ -79,19 +73,13 @@ const ConfirmData = () => {
   // Tambahkan fungsi untuk refresh data
   const refreshCompleteness = async () => {
     try {
-      router.get('/candidate/applicant-completeness', {}, {
-        onSuccess: (data: any) => {
-          console.log('Fresh completeness data:', data);
-          
-          // Update state completeness jika diperlukan
-          if (data.props?.completeness) {
-            setLocalCompleteness(data.props.completeness);
-          }
-        },
-        onError: (error: any) => {
-          console.error('Error refreshing completeness data:', error);
-        }
-      });
+      const response = await axios.get('/candidate/applicant-completeness');
+      console.log('Fresh completeness data:', response.data);
+      
+      // Update state completeness jika diperlukan
+      if (response.data?.completeness) {
+        setLocalCompleteness(response.data.completeness);
+      }
     } catch (error) {
       console.error('Error refreshing completeness data:', error);
     }

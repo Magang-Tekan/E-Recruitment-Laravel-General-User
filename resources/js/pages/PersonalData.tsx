@@ -1,6 +1,7 @@
 import SocialMediaList from "@/components/forms/SocialMediaList";
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import React, { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import Swal from 'sweetalert2';
 import InputField from "../components/InputField";
 import SelectField from "../components/SelectField";
@@ -58,20 +59,13 @@ const CustomProfileHeader = ({
     useEffect(() => {
         const loadProfileImage = async () => {
             try {
-                // Use router.get() with onSuccess callback
-                router.get('/api/candidate/profile-image', {}, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success && page.props?.image) {
-                            setProfileImage(page.props.image);
-                            console.log('Loaded profile image:', page.props.image);
-                        } else {
-                            console.log('No profile image found');
-                        }
-                    },
-                    onError: (error: any) => {
-                        console.error('Error loading profile image:', error);
-                    }
-                });
+                const response = await axios.get('/api/candidate/profile-image');
+                if (response.data?.success && response.data?.image) {
+                    setProfileImage(response.data.image);
+                    console.log('Loaded profile image:', response.data.image);
+                } else {
+                    console.log('No profile image found');
+                }
             } catch (error) {
                 console.error('Error loading profile image:', error);
             }
@@ -586,49 +580,39 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
 
             console.log('Sending data to server:', dataPribadi);
 
-            // Use router.post() with proper callbacks
-            router.post('/candidate/data-pribadi', dataPribadi, {
-                onSuccess: (page: any) => {
-                    console.log('Server response:', page);
+            // Use axios.post() for API call
+            const response = await axios.post('/candidate/data-pribadi', dataPribadi);
+            console.log('Server response:', response.data);
 
-                    setMessage({
-                        type: 'success',
-                        text: 'Data pribadi berhasil disimpan'
-                    });
+            if (response.data?.success) {
+                setMessage({
+                    type: 'success',
+                    text: 'Data pribadi berhasil disimpan'
+                });
 
-                    // Scroll to top to show success message
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                // Scroll to top to show success message
+                window.scrollTo({ top: 0, behavior: 'smooth' });
 
-                    setTimeout(() => setMessage(null), 3000);
-                },
-                onError: (error: any) => {
-                    console.error('Error saving data:', error);
-
-                    let errorMessage = 'Terjadi kesalahan';
-
-                    // Handle different types of errors
-                    if (error?.errors) {
-                        // Validation errors
-                        errorMessage = Object.values(error.errors).flat().join(', ');
-                    } else if (error?.message) {
-                        errorMessage = error.message;
-                    }
-
-                    setMessage({
-                        type: 'error',
-                        text: errorMessage
-                    });
-
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-            });
-
+                setTimeout(() => setMessage(null), 3000);
+            }
         } catch (error: any) {
             console.error('Error saving data:', error);
 
+            let errorMessage = 'Terjadi kesalahan';
+
+            // Handle different types of errors
+            if (error?.response?.data?.errors) {
+                // Validation errors
+                errorMessage = Object.values(error.response.data.errors).flat().join(', ');
+            } else if (error?.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            }
+
             setMessage({
                 type: 'error',
-                text: 'Tidak dapat terhubung ke server'
+                text: errorMessage
             });
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -661,22 +645,13 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
     const checkDataCompleteness = async () => {
         setLoadingCompleteness(true);
         try {
-            // Use router.get() with callbacks
-            router.get('/candidate/data-completeness', {}, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setCompletenessData(page.props.data);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error checking data completeness:', error);
-                },
-                onFinish: () => {
-                    setLoadingCompleteness(false);
-                }
-            });
+            const response = await axios.get('/candidate/data-completeness');
+            if (response.data?.success) {
+                setCompletenessData(response.data.data);
+            }
         } catch (error) {
             console.error('Error checking data completeness:', error);
+        } finally {
             setLoadingCompleteness(false);
         }
     };
@@ -703,64 +678,52 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
         try {
             console.log('Starting CV generation...');
 
-            // Use router.get() for CV generation
-            router.get('/candidate/cv/generate', {}, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        console.log('CV generated successfully:', page.props);
+            const response = await axios.get('/candidate/cv/generate');
+            if (response.data?.success) {
+                console.log('CV generated successfully:', response.data);
 
-                        setMessage({
-                            type: 'success',
-                            text: `${page.props.message} CV Anda siap diunduh.`,
-                        });
+                setMessage({
+                    type: 'success',
+                    text: `${response.data.message} CV Anda siap diunduh.`,
+                });
 
-                        // Open the download in a new tab
-                        if (page.props.data?.download_url) {
-                            setTimeout(() => {
-                                const downloadWindow = window.open(page.props.data.download_url, '_blank');
-                                if (!downloadWindow) {
-                                    setMessage({
-                                        type: 'error',
-                                        text: 'Popup diblokir oleh browser. Mohon izinkan popup untuk mengunduh CV.'
-                                    });
-                                }
-                            }, 1000);
-                        }
-
-                        setTimeout(() => {
-                            checkDataCompleteness();
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error generating CV:', error);
-
-                    let errorMessage = 'Gagal generate CV';
-                    if (error?.message) {
-                        errorMessage = error.message;
-                    }
-
-                    setMessage({
-                        type: 'error',
-                        text: errorMessage
-                    });
-
+                // Open the download in a new tab
+                if (response.data.data?.download_url) {
                     setTimeout(() => {
-                        setMessage(null);
-                    }, 5000);
-                },
-                onFinish: () => {
-                    setGeneratingCV(false);
+                        const downloadWindow = window.open(response.data.data.download_url, '_blank');
+                        if (!downloadWindow) {
+                            setMessage({
+                                type: 'error',
+                                text: 'Popup diblokir oleh browser. Mohon izinkan popup untuk mengunduh CV.'
+                            });
+                        }
+                    }, 1000);
                 }
-            });
 
-        } catch (error) {
+                setTimeout(() => {
+                    checkDataCompleteness();
+                    setMessage(null);
+                }, 3000);
+            }
+        } catch (error: any) {
             console.error('Error generating CV:', error);
+
+            let errorMessage = 'Gagal generate CV';
+            if (error?.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            }
+
             setMessage({
                 type: 'error',
-                text: 'Terjadi kesalahan saat generate CV'
+                text: errorMessage
             });
+
+            setTimeout(() => {
+                setMessage(null);
+            }, 5000);
+        } finally {
             setGeneratingCV(false);
         }
     };
