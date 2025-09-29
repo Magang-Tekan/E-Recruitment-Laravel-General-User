@@ -13,7 +13,7 @@ Route::middleware(['auth'])
     ->prefix('candidate')
     ->group(function () {
         Route::get('/', [CandidateController::class, 'index'])->name('user.info');
-        Route::get('/profile', [CandidateController::class, 'profile'])->name('user.profile');
+        Route::get('/profile', [CandidateController::class, 'profile'])->name('candidate.profile');
         Route::post('/profile/data-pribadi', [CandidateController::class, 'storeDataPribadi'])->name('candidate.profile.store');
         Route::get('/dashboard', [CandidateController::class, 'dashboard'])->name('user.dashboard');
 

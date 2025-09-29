@@ -51,6 +51,7 @@ Sistem Rekrutmen berbasis website yang dikembangkan menggunakan **Laravel 12** d
 6. Jalankan server lokal:
     ```bash
     php artisan serve
+    npm run dev
     ```
 7. Buka di browser: `http://127.0.0.1:8000`
 
