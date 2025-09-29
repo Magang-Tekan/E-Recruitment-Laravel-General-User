@@ -44,13 +44,13 @@ class PeriodsSeeder extends Seeder
                 'name' => 'Q3 2025 Recruitment',
                 'description' => 'Third quarter recruitment campaign',
                 'start_time' => '2025-07-01 00:00:00',
-                'end_time' => '2025-09-30 23:59:59',
+                'end_time' => '2025-12-31 23:59:59', // Diperpanjang sampai akhir tahun
             ],
             [
                 'id' => 4,
                 'name' => 'Q4 2025 Recruitment',
                 'description' => 'Fourth quarter recruitment campaign',
-                'start_time' => '2025-10-01 00:00:00',
+                'start_time' => '2025-09-01 00:00:00',
                 'end_time' => '2025-12-31 23:59:59',
             ],
         ];
@@ -69,8 +69,8 @@ class PeriodsSeeder extends Seeder
             $vacancy->periods()->detach();
             
             if ($index === 0) {
-                // First vacancy - Q1 and Q3
-                $vacancy->periods()->attach([$periods[0]->id, $periods[2]->id]);
+                // First vacancy (Software Engineer) - Q3 (aktif sekarang) dan Q4
+                $vacancy->periods()->attach([$periods[2]->id, $periods[3]->id]);
             } elseif ($index === 1) {
                 // Second vacancy - Q2 and Q4
                 $vacancy->periods()->attach([$periods[1]->id, $periods[3]->id]);

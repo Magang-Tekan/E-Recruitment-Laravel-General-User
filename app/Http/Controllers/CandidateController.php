@@ -1,4 +1,5 @@
 <?php
+// @phpstan-ignore-file
 namespace App\Http\Controllers;
 
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -20,11 +21,13 @@ use App\Models\CandidatesCV;
 use Illuminate\Http\Request; // Tambahkan import ini
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Validation\ValidationException;
 use App\Models\Applications;
 use App\Models\Job;
+use App\Models\Vacancies;
 use App\Models\Statuses;
 use App\Enums\CandidatesStage;
 use App\Models\Assessment;
@@ -39,16 +42,16 @@ class CandidateController extends Controller
         $userId = Auth::id();
 
         // Debug log untuk memastikan pengecekan berjalan
-        \Log::info('Checking application data completeness for user:', ['user_id' => $userId]);
+        \Illuminate\Support\Facades\Log::info('Checking application data completeness for user:', ['user_id' => $userId]);
 
         // Koleksi data untuk pengecekan
         $profile = CandidatesProfiles::where('user_id', $userId)->first();
         $education = CandidatesEducations::where('user_id', $userId)->first();
         $skills = CandidatesSkills::where('user_id', $userId)->get();
 
-        \Log::info('Found profile data:', ['exists' => (bool)$profile]);
-        \Log::info('Found education data:', ['exists' => (bool)$education]);
-        \Log::info('Found skills count:', ['count' => $skills->count()]);
+        \Illuminate\Support\Facades\Log::info('Found profile data:', ['exists' => (bool)$profile]);
+        \Illuminate\Support\Facades\Log::info('Found education data:', ['exists' => (bool)$education]);
+        \Illuminate\Support\Facades\Log::info('Found skills count:', ['count' => $skills->count()]);
 
         $completeness = [
             'profile' => false,
@@ -86,7 +89,7 @@ class CandidateController extends Controller
             $completeness['education'] &&
             $completeness['skills'];
 
-        \Log::info('Final completeness status:', $completeness);
+        \Illuminate\Support\Facades\Log::info('Final completeness status:', $completeness);
 
         return response()->json([
             'success' => true,
@@ -94,7 +97,7 @@ class CandidateController extends Controller
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error checking application completeness:', [
+        \Illuminate\Support\Facades\Log::error('Error checking application completeness:', [
             'error' => $e->getMessage(),
             'trace' => $e->getTraceAsString()
         ]);
@@ -140,7 +143,7 @@ class CandidateController extends Controller
         $profileData = $profile ? $profile->toArray() : null;
 
         // Log data untuk debugging
-        \Log::info('Profile data being sent to frontend:', ['profile' => $profileData]);
+        \Illuminate\Support\Facades\Log::info('Profile data being sent to frontend:', ['profile' => $profileData]);
 
         return Inertia::render('PersonalData', [
             'profile' => $profileData,
@@ -224,7 +227,7 @@ class CandidateController extends Controller
             return back()->withErrors($e->errors());
 
         } catch (\Exception $e) {
-            \Log::error('Error saving profile data: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error saving profile data: ' . $e->getMessage());
 
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
@@ -273,7 +276,7 @@ class CandidateController extends Controller
     public function storeEducation(Request $request)
     {
         try {
-            \Log::info('Storing education data. Request:', $request->all());
+            \Illuminate\Support\Facades\Log::info('Storing education data. Request:', $request->all());
 
             $validated = $request->validate([
                 'education_level_id' => 'required|exists:education_levels,id', // Changed from education_level
@@ -285,7 +288,7 @@ class CandidateController extends Controller
                 'year_out' => 'nullable|integer'
             ]);
 
-            \Log::info('Validated data:', $validated);
+            \Illuminate\Support\Facades\Log::info('Validated data:', $validated);
 
             // Add user_id to validated data
             $validated['user_id'] = Auth::id();
@@ -311,7 +314,7 @@ class CandidateController extends Controller
                 'year_out' => $education->year_out
             ];
 
-            \Log::info('Education stored successfully:', $responseData);
+            \Illuminate\Support\Facades\Log::info('Education stored successfully:', $responseData);
 
             return response()->json([
                 'success' => true,
@@ -320,7 +323,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error storing education data: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error storing education data: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error storing education data: ' . $e->getMessage()
@@ -331,7 +334,7 @@ class CandidateController extends Controller
     public function getEducation()
     {
         try {
-            \Log::info('Getting education data for user: ' . Auth::id());
+            \Illuminate\Support\Facades\Log::info('Getting education data for user: ' . Auth::id());
 
             $education = CandidatesEducations::with(['major', 'educationLevel'])
                 ->where('user_id', Auth::id())
@@ -357,7 +360,7 @@ class CandidateController extends Controller
                 'year_out' => $education->year_out
             ];
 
-            \Log::info('Education data retrieved:', $educationData);
+            \Illuminate\Support\Facades\Log::info('Education data retrieved:', $educationData);
 
             return response()->json([
                 'success' => true,
@@ -365,7 +368,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error getting education data: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error getting education data: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error getting education data: ' . $e->getMessage()
@@ -527,7 +530,7 @@ class CandidateController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error saving organization: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error saving organization: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Terjadi kesalahan saat menyimpan data',
                 'error' => $e->getMessage()
@@ -573,7 +576,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error deleting organization: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error deleting organization: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menghapus organisasi'
@@ -642,7 +645,7 @@ class CandidateController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error saving achievement: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error saving achievement: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Terjadi kesalahan saat menyimpan data',
                 'error' => $e->getMessage()
@@ -693,7 +696,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error updating achievement: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error updating achievement: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Terjadi kesalahan saat memperbarui data',
                 'error' => $e->getMessage()
@@ -713,7 +716,7 @@ class CandidateController extends Controller
                 'data' => $achievements
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error fetching achievements: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error fetching achievements: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan saat mengambil data prestasi'
@@ -799,7 +802,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error deleting social media: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error deleting social media: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus social media'
@@ -877,7 +880,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error checking data completeness: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error checking data completeness: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memeriksa kelengkapan data: ' . $e->getMessage()
@@ -891,7 +894,7 @@ class CandidateController extends Controller
             $userId = Auth::id();
             $user = Auth::user();
 
-            \Log::info('Starting CV generation for user: ' . $userId);
+            \Illuminate\Support\Facades\Log::info('Starting CV generation for user: ' . $userId);
 
             // Validate user data completeness
             $this->validateUserDataForCV($userId);
@@ -936,7 +939,7 @@ class CandidateController extends Controller
                 'socialMedia' => CandidatesSocialMedia::where('user_id', $userId)->get()
             ];
 
-            \Log::info('Generating PDF with data:', ['userId' => $userId]);
+            \Illuminate\Support\Facades\Log::info('Generating PDF with data:', ['userId' => $userId]);
 
             // Create PDF
             $pdf = PDF::loadView('cv.template', $data);
@@ -956,7 +959,7 @@ class CandidateController extends Controller
             // Save PDF to storage
             Storage::disk('public')->put($fullPath, $pdf->output());
 
-            \Log::info('PDF file generated and saved', ['path' => $fullPath]);
+            \Illuminate\Support\Facades\Log::info('PDF file generated and saved', ['path' => $fullPath]);
 
             // Save to database
             $cvRecord = CandidatesCV::create([
@@ -986,7 +989,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error generating CV: ' . $e->getMessage(), [
+            \Illuminate\Support\Facades\Log::error('Error generating CV: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
 
@@ -1036,10 +1039,10 @@ class CandidateController extends Controller
             $cv->update(['last_downloaded_at' => now()]);
 
             // Return file download
-            return Storage::disk('public')->download($cv->cv_path, $cv->cv_filename);
+            return response()->download(storage_path('app/public/' . $cv->cv_path), $cv->cv_filename);
 
         } catch (\Exception $e) {
-            \Log::error('Download CV error: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Download CV error: ' . $e->getMessage());
             return response()->json(['error' => 'Download failed'], 500);
         }
     }
@@ -1058,7 +1061,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error listing CVs: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error listing CVs: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil daftar CV'
@@ -1088,7 +1091,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error deleting CV: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error deleting CV: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menghapus CV'
@@ -1131,13 +1134,13 @@ class CandidateController extends Controller
     public function testPDF()
     {
         try {
-            \Log::info('Testing PDF generation');
+            \Illuminate\Support\Facades\Log::info('Testing PDF generation');
 
             $html = '<h1>Test PDF</h1><p>This is a test PDF generation at ' . now() . '</p>';
             $pdf = Pdf::loadHTML($html);
             $content = $pdf->output();
 
-            \Log::info('Test PDF generated successfully', ['size' => strlen($content)]);
+            \Illuminate\Support\Facades\Log::info('Test PDF generated successfully', ['size' => strlen($content)]);
 
             return response($content, 200, [
                 'Content-Type' => 'application/pdf',
@@ -1146,7 +1149,7 @@ class CandidateController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Test PDF generation failed', [
+            \Illuminate\Support\Facades\Log::error('Test PDF generation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -1168,7 +1171,7 @@ class CandidateController extends Controller
                 'data' => $skills
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error fetching skills: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error fetching skills: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data skills'
@@ -1201,11 +1204,11 @@ class CandidateController extends Controller
                 $data['certificate_file'] = $path;
             }
 
-            \Log::info('Creating skill with data:', $data);
+            \Illuminate\Support\Facades\Log::info('Creating skill with data:', $data);
 
             $skill = CandidatesSkills::create($data);
 
-            \Log::info('Skill created:', $skill->toArray());
+            \Illuminate\Support\Facades\Log::info('Skill created:', $skill->toArray());
 
             return response()->json([
                 'success' => true,
@@ -1214,7 +1217,7 @@ class CandidateController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            \Log::error('Error storing skill:', [
+            \Illuminate\Support\Facades\Log::error('Error storing skill:', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -1270,7 +1273,7 @@ public function updateSkill(Request $request, $id)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error updating skill: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error updating skill: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal memperbarui skill'
@@ -1298,7 +1301,7 @@ public function deleteSkill($id)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error deleting skill: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error deleting skill: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal menghapus skill'
@@ -1320,7 +1323,7 @@ public function indexLanguages()
             'data' => $languages
         ]);
     } catch (\Exception $e) {
-        \Log::error('Error fetching languages: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error fetching languages: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal mengambil data bahasa'
@@ -1365,7 +1368,7 @@ public function storeLanguage(Request $request)
         ], 201);
 
     } catch (\Exception $e) {
-        \Log::error('Error storing language: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error storing language: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal menyimpan bahasa'
@@ -1412,7 +1415,7 @@ public function updateLanguage(Request $request, $id)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error updating language: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error updating language: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal memperbarui bahasa'
@@ -1440,7 +1443,7 @@ public function deleteLanguage($id)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error deleting language: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error deleting language: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal menghapus bahasa'
@@ -1461,7 +1464,7 @@ public function indexCourses()
             'data' => $courses
         ]);
     } catch (\Exception $e) {
-        \Log::error('Error fetching courses: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error fetching courses: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal mengambil data kursus'
@@ -1502,7 +1505,7 @@ public function storeCourse(Request $request)
         ], 201);
 
     } catch (\Exception $e) {
-        \Log::error('Error storing course: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error storing course: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal menyimpan kursus'
@@ -1552,7 +1555,7 @@ public function updateCourse(Request $request, $id)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error updating course: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error updating course: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal memperbarui kursus'
@@ -1581,7 +1584,7 @@ public function deleteCourse($id)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error deleting course: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error deleting course: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal menghapus kursus'
@@ -1602,7 +1605,7 @@ public function indexCertifications()
             'data' => $certifications
         ]);
     } catch (\Exception $e) {
-        \Log::error('Error fetching certifications: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error fetching certifications: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal mengambil data sertifikasi'
@@ -1645,7 +1648,7 @@ public function storeCertification(Request $request)
         ], 201);
 
     } catch (\Exception $e) {
-        \Log::error('Error storing certification: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error storing certification: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal menyimpan sertifikasi'
@@ -1696,7 +1699,7 @@ public function updateCertification(Request $request, $id)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error updating certification: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error updating certification: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal memperbarui sertifikasi'
@@ -1718,7 +1721,7 @@ public function jobRecommendations()
 
     $jobs = [];
     if ($majorId) {
-        $jobs = \App\Models\Job::with('company')
+        $jobs = Vacancies::with('company')
             ->where('major_id', $majorId)
             ->get();
     }
@@ -1768,7 +1771,7 @@ public function getProfileImage()
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error getting profile image: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error getting profile image: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Error getting profile image'
@@ -1816,7 +1819,7 @@ public function uploadProfileImage(Request $request)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error uploading profile image: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error uploading profile image: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Error uploading profile image: ' . $e->getMessage()
@@ -1851,7 +1854,7 @@ public function getAllEducations()
             'data' => $educations
         ]);
     } catch (\Exception $e) {
-        \Log::error('Error fetching educations: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error fetching educations: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Gagal mengambil data pendidikan'
@@ -1883,7 +1886,7 @@ public function deleteEducation($id)
 public function updateEducation(Request $request, $id)
 {
     try {
-        \Log::info('Updating education data. Request:', $request->all());
+        \Illuminate\Support\Facades\Log::info('Updating education data. Request:', $request->all());
 
         $education = CandidatesEducations::where('id', $id)
             ->where('user_id', Auth::id())
@@ -1899,7 +1902,7 @@ public function updateEducation(Request $request, $id)
             'year_out' => 'nullable|integer'
         ]);
 
-        \Log::info('Validated data for education update:', $validated);
+        \Illuminate\Support\Facades\Log::info('Validated data for education update:', $validated);
 
         // Update education record
         $education->update($validated);
@@ -1922,7 +1925,7 @@ public function updateEducation(Request $request, $id)
             'year_out' => $education->year_out
         ];
 
-        \Log::info('Education updated successfully:', $responseData);
+        \Illuminate\Support\Facades\Log::info('Education updated successfully:', $responseData);
 
         return response()->json([
             'success' => true,
@@ -1931,14 +1934,14 @@ public function updateEducation(Request $request, $id)
         ]);
 
     } catch (\Illuminate\Validation\ValidationException $e) {
-        \Log::error('Validation error updating education: ' . json_encode($e->errors()));
+        \Illuminate\Support\Facades\Log::error('Validation error updating education: ' . json_encode($e->errors()));
         return response()->json([
             'success' => false,
             'message' => 'Validasi gagal',
             'errors' => $e->errors()
         ], 422);
     } catch (\Exception $e) {
-        \Log::error('Error updating education data: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error updating education data: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Error updating education data: ' . $e->getMessage()
@@ -1972,7 +1975,7 @@ public function getProfile()
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error getting profile data: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error getting profile data: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Error retrieving profile data'
@@ -2004,7 +2007,7 @@ public function deleteAchievement($id)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error deleting achievement: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Error deleting achievement: ' . $e->getMessage());
         return response()->json([
             'status' => 'error',
             'message' => 'Gagal menghapus prestasi'
@@ -2034,7 +2037,7 @@ public function showPsychotest($application_id = null)
 {
     try {
         // Aktifkan debugging untuk melihat error yang mungkin terjadi
-        \Log::info('ShowPsychotest called with application_id: ' . $application_id);
+        \Illuminate\Support\Facades\Log::info('ShowPsychotest called with application_id: ' . $application_id);
 
         // Mendapatkan user yang sedang login
         $user = Auth::user();
@@ -2056,7 +2059,7 @@ public function showPsychotest($application_id = null)
             if ($application) {
                 $application_id = $application->id;
             } else {
-                \Log::warning('No active psychotest found for user: ' . $user->id);
+                \Illuminate\Support\Facades\Log::warning('No active psychotest found for user: ' . $user->id);
                 return redirect()->route('candidate.application-history')
                     ->with('error', 'Anda tidak memiliki tes psikotes yang aktif saat ini.');
             }
@@ -2068,7 +2071,7 @@ public function showPsychotest($application_id = null)
             ->first();
 
         if (!$application) {
-            \Log::warning('Application not found or not owned by user: ' . $user->id . ', application_id: ' . $application_id);
+            \Illuminate\Support\Facades\Log::warning('Application not found or not owned by user: ' . $user->id . ', application_id: ' . $application_id);
             return redirect()->route('candidate.application-history')
                 ->with('error', 'Data aplikasi tidak ditemukan atau bukan milik Anda.');
         }
@@ -2084,13 +2087,13 @@ public function showPsychotest($application_id = null)
             ->first();
 
         if (!$activePsychoTest) {
-            \Log::warning('No active psychotest stage for application_id: ' . $application_id);
+            \Illuminate\Support\Facades\Log::warning('No active psychotest stage for application_id: ' . $application_id);
             return redirect()->route('candidate.application-history')
                 ->with('error', 'Aplikasi ini tidak sedang dalam tahap psikotes.');
         }
 
         // Debug info untuk membantu troubleshooting
-        \Log::info('Active psychotest record found', [
+        \Illuminate\Support\Facades\Log::info('Active psychotest record found', [
             'application_id' => $application->id,
                        'completed_at' => $activePsychoTest->completed_at,
             'is_active' => $activePsychoTest->is_active,
@@ -2099,7 +2102,7 @@ public function showPsychotest($application_id = null)
 
         // Cek apakah psikotes sudah dikerjakan
         if ($activePsychoTest->completed_at) {
-            \Log::info('Psychotest already completed for application_id: ' . $application_id);
+            \Illuminate\Support\Facades\Log::info('Psychotest already completed for application_id: ' . $application_id);
             return redirect()->route('candidate.application-status', ['id' => $application->id])
                 ->with('warning', 'Anda sudah mengerjakan tes psikotes untuk aplikasi ini.');
         }
@@ -2116,7 +2119,7 @@ public function showPsychotest($application_id = null)
             'duration' => 60 // 60 menit
         ];
 
-        \Log::info('Rendering candidate-psychotest view');
+        \Illuminate\Support\Facades\Log::info('Rendering candidate-psychotest view');
         return Inertia::render('candidate/tests/candidate-psychotest', [
             'assessment' => $assessment,
             'questions' => $questions,
@@ -2124,7 +2127,7 @@ public function showPsychotest($application_id = null)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error in showPsychotest: ' . $e->getMessage(), [
+        \Illuminate\Support\Facades\Log::error('Error in showPsychotest: ' . $e->getMessage(), [
             'trace' => $e->getTraceAsString()
         ]);
 
@@ -2194,7 +2197,7 @@ private function getDummyPsychotestQuestions()
 public function submitPsychotest(Request $request)
 {
     try {
-        \Log::info('Received psychotest submission', [
+        \Illuminate\Support\Facades\Log::info('Received psychotest submission', [
             'application_id' => $request->input('application_id'),
             'answers_count' => is_array($request->input('answers')) ? count($request->input('answers')) : 'not array',
             'user_id' => auth()->id()
@@ -2268,7 +2271,7 @@ public function submitPsychotest(Request $request)
 
             // Simpan backup jawaban dalam JSON juga untuk keamanan data
             $backupAnswersFile = 'psychotest_answers/user_' . auth()->id() . '_app_' . $application_id . '_' . date('Ymd_His') . '.json';
-            \Storage::disk('local')->put($backupAnswersFile, json_encode([
+            Storage::disk('local')->put($backupAnswersFile, json_encode([
                 'user_id' => auth()->id(),
                 'application_id' => $application_id,
                 'answers' => $answers,
@@ -2278,7 +2281,7 @@ public function submitPsychotest(Request $request)
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::warning('Gagal menyimpan jawaban psikotes: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning('Gagal menyimpan jawaban psikotes: ' . $e->getMessage());
             // Tidak mengganggu proses submit - aplikasi tetap dianggap selesai
         }
 
@@ -2289,7 +2292,7 @@ public function submitPsychotest(Request $request)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Error in submitPsychotest: ' . $e->getMessage(), [
+        \Illuminate\Support\Facades\Log::error('Error in submitPsychotest: ' . $e->getMessage(), [
             'file' => $e->getFile(),
             'line' => $e->getLine(),
             'trace' => $e->getTraceAsString()
