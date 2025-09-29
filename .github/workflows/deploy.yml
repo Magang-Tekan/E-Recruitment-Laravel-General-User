@@ -32,10 +32,10 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /root/project
+            cd /root/project/E-Recruitment-Laravel-General-User
             
             # Stop existing containers
-            docker compose down
+            docker compose down || true
             
             # Clean up unused Docker resources
             docker system prune -af
@@ -47,6 +47,14 @@ jobs:
             docker compose up -d
             
             # Wait for services to be ready
+            echo "Waiting for services to start..."
+            sleep 60
+            
+            # Check if containers are running
+            docker compose ps
+            
+            # Wait for database to be ready
+            echo "Waiting for database to be ready..."
             sleep 30
             
             # Run database migrations
@@ -75,10 +83,46 @@ jobs:
           script: |
             cd /root/project/E-Recruitment-Laravel-General-User
             
-            # Check if application is accessible
-            curl -f http://72.60.76.18:8001 || exit 1
-            
-            # Check container health
+            # Check container status first
+            echo "Checking container status..."
             docker compose ps
+            
+            # Wait a bit more for application to be fully ready
+            echo "Waiting for application to be ready..."
+            sleep 30
+            
+            # Check if port 8001 is listening
+            echo "Checking if port 8001 is listening..."
+            netstat -tulpn | grep :8001 || echo "Port 8001 not found in netstat"
+            
+            # Try to get the VPS IP dynamically
+            VPS_IP=$(hostname -I | awk '{print $1}')
+            echo "VPS IP: $VPS_IP"
+            
+            # Check if application is accessible (try multiple times)
+            echo "Testing application accessibility..."
+            for i in {1..5}; do
+              echo "Attempt $i/5..."
+              if curl -f http://localhost:8001 --connect-timeout 10 --max-time 30; then
+                echo "✅ Application is accessible on localhost:8001"
+                break
+              elif curl -f http://$VPS_IP:8001 --connect-timeout 10 --max-time 30; then
+                echo "✅ Application is accessible on $VPS_IP:8001"
+                break
+              else
+                echo "❌ Attempt $i failed, waiting 10 seconds..."
+                sleep 10
+              fi
+            done
+            
+            # Final check
+            if curl -f http://localhost:8001 --connect-timeout 5 --max-time 10; then
+              echo "✅ Final verification: Application is accessible!"
+            else
+              echo "❌ Final verification failed"
+              echo "Container logs:"
+              docker compose logs app
+              exit 1
+            fi
             
             echo "Deployment verification completed!"
