@@ -95,18 +95,15 @@ jobs:
             echo "Checking if port 8001 is listening..."
             netstat -tulpn | grep :8001 || echo "Port 8001 not found in netstat"
             
-            # Try to get the VPS IP dynamically
+            # Get the VPS IP dynamically
             VPS_IP=$(hostname -I | awk '{print $1}')
             echo "VPS IP: $VPS_IP"
             
-            # Check if application is accessible (try multiple times)
-            echo "Testing application accessibility..."
+            # Check if application is accessible using VPS IP only
+            echo "Testing application accessibility on VPS IP..."
             for i in {1..5}; do
               echo "Attempt $i/5..."
-              if curl -f http://localhost:8001 --connect-timeout 10 --max-time 30; then
-                echo "✅ Application is accessible on localhost:8001"
-                break
-              elif curl -f http://$VPS_IP:8001 --connect-timeout 10 --max-time 30; then
+              if curl -f http://$VPS_IP:8001 --connect-timeout 10 --max-time 30; then
                 echo "✅ Application is accessible on $VPS_IP:8001"
                 break
               else
@@ -115,13 +112,15 @@ jobs:
               fi
             done
             
-            # Final check
-            if curl -f http://localhost:8001 --connect-timeout 5 --max-time 10; then
-              echo "✅ Final verification: Application is accessible!"
+            # Final check using VPS IP only
+            if curl -f http://$VPS_IP:8001 --connect-timeout 5 --max-time 10; then
+              echo "✅ Final verification: Application is accessible on $VPS_IP:8001!"
             else
               echo "❌ Final verification failed"
               echo "Container logs:"
               docker compose logs app
+              echo "Port status:"
+              netstat -tulpn | grep :8001
               exit 1
             fi
             

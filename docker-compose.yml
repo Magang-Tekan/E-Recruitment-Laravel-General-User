@@ -40,10 +40,10 @@ services:
     container_name: erecruitment_app
     restart: unless-stopped
     ports:
-      - "8001:8000"
+      - "8001:8000"  # External port 8001, internal port 8000
     environment:
-      - APP_ENV=local
-      - APP_DEBUG=true
+      - APP_ENV=production
+      - APP_DEBUG=false
       - DB_CONNECTION=mysql
       - DB_HOST=mysql
       - DB_PORT=3306
@@ -60,16 +60,8 @@ services:
         condition: service_started
     networks:
       - erecruitment_network
-    command: >
-      sh -c "
-        sleep 10 &&
-        composer install &&
-        npm install &&
-        php artisan key:generate --force &&
-        php artisan config:cache &&
-        php artisan migrate --force &&
-        php artisan serve --host=0.0.0.0 --port=8000
-      "
+    # Remove custom command, let Dockerfile handle it
+    # The Dockerfile already has CMD to start Laravel server
 
 volumes:
   mysql_data:

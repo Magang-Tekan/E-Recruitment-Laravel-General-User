@@ -54,9 +54,6 @@ RUN npm ci
 # Build frontend assets
 RUN npm run build
 
-# Remove dev dependencies after build
-RUN npm prune --production
-
 # Set proper permissions
 RUN chown -R www:www /var/www/html && \
     chmod -R 755 /var/www/html/storage && \
