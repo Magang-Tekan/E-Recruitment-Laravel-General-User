@@ -40,4 +40,5 @@ volumes:
 
 networks:
   erecruitment_network:
-    driver: bridge
+    external: true
+    name: e-recruitment-laravel-admin_erecruitment_network
