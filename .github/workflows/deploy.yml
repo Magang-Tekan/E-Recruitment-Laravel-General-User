@@ -1,127 +1,42 @@
-name: Deploy E-Recruitment to VPS
+name: Deploy to VPS
 
 on:
   push:
     branches:
       - main   # Auto deploy kalau ada push ke branch main
-  workflow_dispatch:  # Manual trigger
-
+ 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Copy source code to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
+          username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "."
           target: "/root/project/E-Recruitment-Laravel-General-User"
-          strip_components: 0
-          overwrite: true
 
-      - name: Deploy application on VPS
+      - name: Run docker compose on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
+          username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /root/project/E-Recruitment-Laravel-General-User
             
-            # Stop existing containers
-            docker compose down || true
+            # Stop only the app container (bukan database)
+            docker compose down app || true
             
-            # Clean up unused Docker resources
+            # Build and start only the app container
+            docker compose build --no-cache app
+            docker compose up -d app
+            
+            # Clean up unused images
             docker system prune -af
-            
-            # Build and start new containers
-            docker compose build --no-cache
-            
-            # Start services
-            docker compose up -d
-            
-            # Wait for services to be ready
-            echo "Waiting for services to start..."
-            sleep 60
-            
-            # Check if containers are running
-            docker compose ps
-            
-            # Wait for database to be ready
-            echo "Waiting for database to be ready..."
-            sleep 30
-            
-            # Run database migrations
-            docker compose exec -T app php artisan migrate --force
-            
-            # Run database seeders
-            docker compose exec -T app php artisan db:seed --force
-            
-            # Clear and cache configuration
-            docker compose exec -T app php artisan config:clear
-            docker compose exec -T app php artisan config:cache
-            docker compose exec -T app php artisan route:cache
-            docker compose exec -T app php artisan view:cache
-            
-            # Check if services are running
-            docker compose ps
-            
-            echo "Deployment completed successfully!"
-
-      - name: Verify deployment
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            cd /root/project/E-Recruitment-Laravel-General-User
-            
-            # Check container status first
-            echo "Checking container status..."
-            docker compose ps
-            
-            # Wait a bit more for application to be fully ready
-            echo "Waiting for application to be ready..."
-            sleep 30
-            
-            # Check if port 8001 is listening
-            echo "Checking if port 8001 is listening..."
-            netstat -tulpn | grep :8001 || echo "Port 8001 not found in netstat"
-            
-            # Get the VPS IP dynamically
-            VPS_IP=$(hostname -I | awk '{print $1}')
-            echo "VPS IP: $VPS_IP"
-            
-            # Check if application is accessible using VPS IP only
-            echo "Testing application accessibility on VPS IP..."
-            for i in {1..5}; do
-              echo "Attempt $i/5..."
-              if curl -f http://$VPS_IP:8001 --connect-timeout 10 --max-time 30; then
-                echo "✅ Application is accessible on $VPS_IP:8001"
-                break
-              else
-                echo "❌ Attempt $i failed, waiting 10 seconds..."
-                sleep 10
-              fi
-            done
-            
-            # Final check using VPS IP only
-            if curl -f http://$VPS_IP:8001 --connect-timeout 5 --max-time 10; then
-              echo "✅ Final verification: Application is accessible on $VPS_IP:8001!"
-            else
-              echo "❌ Final verification failed"
-              echo "Container logs:"
-              docker compose logs app
-              echo "Port status:"
-              netstat -tulpn | grep :8001
-              exit 1
-            fi
-            
-            echo "Deployment verification completed!"
