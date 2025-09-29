@@ -21,7 +21,7 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "."
-          target: "/root/project"
+          target: "/root/project/E-Recruitment-Laravel-General-User"
           strip_components: 0
           overwrite: true
 
@@ -73,10 +73,10 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /root/project
+            cd /root/project/E-Recruitment-Laravel-General-User
             
             # Check if application is accessible
-            curl -f http://localhost:8001 || exit 1
+            curl -f http://72.60.76.18:8001 || exit 1
             
             # Check container health
             docker compose ps
