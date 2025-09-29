@@ -1,0 +1,84 @@
+name: Deploy E-Recruitment to VPS
+
+on:
+  push:
+    branches:
+      - main   # Auto deploy kalau ada push ke branch main
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy source code to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "."
+          target: "/root/project"
+          strip_components: 0
+          overwrite: true
+
+      - name: Deploy application on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /root/project
+            
+            # Stop existing containers
+            docker compose down
+            
+            # Clean up unused Docker resources
+            docker system prune -af
+            
+            # Build and start new containers
+            docker compose build --no-cache
+            
+            # Start services
+            docker compose up -d
+            
+            # Wait for services to be ready
+            sleep 30
+            
+            # Run database migrations
+            docker compose exec -T app php artisan migrate --force
+            
+            # Run database seeders
+            docker compose exec -T app php artisan db:seed --force
+            
+            # Clear and cache configuration
+            docker compose exec -T app php artisan config:clear
+            docker compose exec -T app php artisan config:cache
+            docker compose exec -T app php artisan route:cache
+            docker compose exec -T app php artisan view:cache
+            
+            # Check if services are running
+            docker compose ps
+            
+            echo "Deployment completed successfully!"
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /root/project
+            
+            # Check if application is accessible
+            curl -f http://localhost:8001 || exit 1
+            
+            # Check container health
+            docker compose ps
+            
+            echo "Deployment verification completed!"
