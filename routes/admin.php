@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 // Admin route
-Route::middleware(['auth', 'verified', 'role:'.UserRole::HR->value])
+Route::middleware(['auth', 'role:'.UserRole::HR->value])
     ->prefix('dashboard')
     ->name('admin.')
     ->group(function () {

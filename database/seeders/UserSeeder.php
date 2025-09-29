@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Faker\Factory as Faker;
+use Illuminate\Support\Facades\DB;
 
 class UserSeeder extends Seeder
 {
@@ -36,7 +37,7 @@ class UserSeeder extends Seeder
         ]);
 
         // Hapus relasi candidate profile user id 1 jika ada
-        \DB::table('candidates_profiles')->where('user_id', 1)->delete();
+        DB::table('candidates_profiles')->where('user_id', 1)->delete();
 
         // Hapus candidate id 1 jika ada
         User::where('id', 1)->delete();
@@ -59,6 +60,18 @@ class UserSeeder extends Seeder
             'id' => 2,
             'name' => 'Candidate User 2',
             'email' => 'candidate2@gmail.com',
+            'password' => Hash::make('password'),
+            'role' => UserRole::CANDIDATE,
+            'no_ektp' => $this->faker->unique()->numerify('################'),
+        ]);
+
+        // Hapus user userbiasa jika sudah ada
+        User::where('email', 'userbiasa@gmail.com')->delete();
+
+        // User userbiasa dengan data lengkap
+        User::create([
+            'name' => 'userbiasa',
+            'email' => 'userbiasa@gmail.com',
             'password' => Hash::make('password'),
             'role' => UserRole::CANDIDATE,
             'no_ektp' => $this->faker->unique()->numerify('################'),

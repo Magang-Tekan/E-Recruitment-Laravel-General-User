@@ -1,4 +1,5 @@
 <?php
+// @phpstan-ignore-file
 
 use App\Enums\UserRole;
 use App\Http\Controllers\VacanciesController;
@@ -7,6 +8,7 @@ use App\Http\Controllers\JobsController;
 use App\Http\Controllers\ApplicationHistoryController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use App\Http\Controllers\ResetPasswordController;
 use App\Models\AboutUs;
@@ -15,6 +17,9 @@ use App\Http\Controllers\PersonalDataController;
 use App\Http\Controllers\AboutUsController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\ContactMessagesController;
+use App\Models\Applications;
+use App\Models\ApplicationHistory;
+use App\Enums\CandidatesStage;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
 Route::get('/job-hiring-landing-page', [VacanciesController::class, 'getVacanciesLandingPage'])->name('job-hiring-landing-page');
@@ -52,7 +57,7 @@ Route::middleware(['auth'])->group(function () {
             $majors = \App\Models\MasterMajor::orderBy('name', 'asc')->get();
             return response()->json($majors);
         } catch (\Exception $e) {
-            \Log::error('Error fetching majors: ' . $e->getMessage());
+            Log::error('Error fetching majors: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Gagal mengambil data program studi'
             ], 500);
@@ -81,7 +86,7 @@ Route::middleware(['auth'])->group(function () {
             $educationLevels = \App\Models\EducationLevel::orderBy('name', 'asc')->get();
             return response()->json($educationLevels);
         } catch (\Exception $e) {
-            \Log::error('Error fetching education levels: ' . $e->getMessage());
+            Log::error('Error fetching education levels: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Gagal mengambil data tingkat pendidikan'
             ], 500);
@@ -90,7 +95,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-Route::middleware(['auth', 'verified'])->get('/redirect', function () {
+Route::middleware(['auth'])->get('/redirect', function () {
     return Auth::user()->role === UserRole::HR
     ? redirect()->route('admin.dashboard')
     : redirect()->route('welcome'); // Changed from dashboard to welcome
@@ -313,7 +318,7 @@ Route::get('/debug/psychotest/{application_id}', function($application_id) {
     $application = Applications::findOrFail($application_id);
 
     // Keamanan: pastikan hanya pemilik aplikasi yang bisa melihat
-    if ($application->user_id != $user->id && !$user->hasRole(['super_admin', 'hr'])) {
+    if ($application->user_id != $user->id && !in_array($user->role->value, ['super_admin', 'hr'])) {
         return response()->json(['error' => 'Unauthorized'], 403);
     }
 

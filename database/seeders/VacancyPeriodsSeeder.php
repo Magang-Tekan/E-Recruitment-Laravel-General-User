@@ -33,25 +33,35 @@ class VacancyPeriodsSeeder extends Seeder
 
             // Create periods for all vacancies
             foreach ($vacancies as $index => $vacancy) {
-                // Determine which period to assign based on vacancy index
-                $periodId = ($index % 4) + 1; // This will cycle through periods 1-4
-
-                $vacancyPeriods[] = [
-                    'vacancy_id' => $vacancy->id,
-                    'period_id' => $periodId,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ];
-
-                // Optionally assign a second period to some vacancies
-                if ($index % 2 == 0) { // Every other vacancy gets a second period
-                    $secondPeriodId = (($periodId + 1) > 4) ? 1 : ($periodId + 1);
+                // Special case for Software Engineer (id 1) - assign to current period (Q4 - period id 4)
+                if ($vacancy->id == 1) {
                     $vacancyPeriods[] = [
                         'vacancy_id' => $vacancy->id,
-                        'period_id' => $secondPeriodId,
+                        'period_id' => 4, // Q4 2025 Recruitment (current period)
                         'created_at' => now(),
                         'updated_at' => now()
                     ];
+                } else {
+                    // Determine which period to assign based on vacancy index for other vacancies
+                    $periodId = ($index % 4) + 1; // This will cycle through periods 1-4
+
+                    $vacancyPeriods[] = [
+                        'vacancy_id' => $vacancy->id,
+                        'period_id' => $periodId,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ];
+
+                    // Optionally assign a second period to some vacancies
+                    if ($index % 2 == 0) { // Every other vacancy gets a second period
+                        $secondPeriodId = (($periodId + 1) > 4) ? 1 : ($periodId + 1);
+                        $vacancyPeriods[] = [
+                            'vacancy_id' => $vacancy->id,
+                            'period_id' => $secondPeriodId,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ];
+                    }
                 }
             }
 

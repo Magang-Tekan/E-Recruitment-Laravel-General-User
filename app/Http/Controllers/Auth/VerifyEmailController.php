@@ -15,17 +15,7 @@ class VerifyEmailController extends Controller
      */
     public function __invoke(EmailVerificationRequest $request): RedirectResponse
     {
-        if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->route('login');
-        }
-
-        if ($request->user()->markEmailAsVerified()) {
-            event(new Verified($request->user()));
-        }
-
-        Auth::logout();
-
-        return redirect()->route('login')
-            ->with('status', 'Email berhasil diverifikasi! Silakan login untuk melanjutkan pendaftaran Anda.');
+        // Since email verification is disabled, just redirect to dashboard
+        return redirect()->route('dashboard');
     }
 }
