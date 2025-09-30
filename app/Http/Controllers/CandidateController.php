@@ -469,7 +469,7 @@ class CandidateController extends Controller
     public function getWorkExperience($id)
     {
         $experience = CandidatesWorkExperiences::where('id', $id)
-            ->where('user_id', auth()->id())
+            ->where('user_id', Auth::id())
             ->firstOrFail();
 
         return response()->json($experience);
@@ -624,7 +624,7 @@ class CandidateController extends Controller
             }
 
             $achievement = CandidatesAchievements::create([
-                'user_id' => auth()->id(),
+                'user_id' => Auth::id(),
                 'title' => $validated['title'],
                 'level' => $validated['level'],
                 'month' => $validated['month'],
@@ -745,7 +745,7 @@ class CandidateController extends Controller
 
     public function indexSocialMedia()
     {
-        $socialMedia = CandidatesSocialMedia::where('user_id', auth()->id())->get();
+        $socialMedia = CandidatesSocialMedia::where('user_id', Auth::id())->get();
 
         return response()->json([
             'status' => 'success',
@@ -760,7 +760,7 @@ class CandidateController extends Controller
             'url' => 'required|url'
         ]);
 
-        $validated['user_id'] = auth()->id();
+        $validated['user_id'] = Auth::id();
 
         CandidatesSocialMedia::create($validated);
 
@@ -777,7 +777,7 @@ class CandidateController extends Controller
             'url' => 'required|url'
         ]);
 
-        $socialMedia = CandidatesSocialMedia::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
+        $socialMedia = CandidatesSocialMedia::where('id', $id)->where('user_id', Auth::id())->firstOrFail();
         $socialMedia->update($validated);
 
         return response()->json([
@@ -1822,7 +1822,7 @@ public function uploadProfileImage(Request $request)
         \Illuminate\Support\Facades\Log::error('Error uploading profile image: ' . $e->getMessage());
         return response()->json([
             'success' => false,
-            'message' => 'Error uploading profile image: ' . $e->getMessage()
+            'message' => 'Error uploading profile image'
         ], 500);
     }
 }
@@ -2200,7 +2200,7 @@ public function submitPsychotest(Request $request)
         \Illuminate\Support\Facades\Log::info('Received psychotest submission', [
             'application_id' => $request->input('application_id'),
             'answers_count' => is_array($request->input('answers')) ? count($request->input('answers')) : 'not array',
-            'user_id' => auth()->id()
+            'user_id' => Auth::id()
         ]);
 
         $application_id = $request->input('application_id');
@@ -2216,7 +2216,7 @@ public function submitPsychotest(Request $request)
 
         // Cari aplikasi
         $application = \App\Models\Applications::where('id', $application_id)
-            ->where('user_id', auth()->id())
+            ->where('user_id', Auth::id())
             ->first();
 
         if (!$application) {
@@ -2263,16 +2263,16 @@ public function submitPsychotest(Request $request)
             // Simpan jawaban ke tabel user_answers
             foreach ($answers as $questionId => $choiceId) {
                 \App\Models\UserAnswer::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => Auth::id(),
                     'question_id' => $questionId,
                     'choice_id' => $choiceId
                 ]);
             }
 
             // Simpan backup jawaban dalam JSON juga untuk keamanan data
-            $backupAnswersFile = 'psychotest_answers/user_' . auth()->id() . '_app_' . $application_id . '_' . date('Ymd_His') . '.json';
+            $backupAnswersFile = 'psychotest_answers/user_' . Auth::id() . '_app_' . $application_id . '_' . date('Ymd_His') . '.json';
             Storage::disk('local')->put($backupAnswersFile, json_encode([
-                'user_id' => auth()->id(),
+                'user_id' => Auth::id(),
                 'application_id' => $application_id,
                 'answers' => $answers,
                 'submitted_at' => now()->format('Y-m-d H:i:s')

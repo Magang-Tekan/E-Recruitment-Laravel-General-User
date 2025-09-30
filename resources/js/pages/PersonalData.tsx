@@ -97,50 +97,50 @@ const CustomProfileHeader = ({
 
             console.log('Uploading file:', file.name, file.type, file.size);
 
-            // Use router.post() with proper callbacks
-            router.post('/api/candidate/profile-image', formData, {
-                onSuccess: (page: any) => {
-                    console.log('Upload response:', page.props);
+            // Use axios directly for API calls
+            try {
+                const response = await axios.post('/api/candidate/profile-image', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
 
-                    if (page.props?.success) {
-                        // Gunakan URL lengkap dari respons server
-                        const imageUrl = page.props.image_url;
-                        console.log('Setting profile image to:', imageUrl);
-                        setProfileImage(imageUrl);
+                if (response.data?.success) {
+                    const imageUrl = response.data.image_url;
+                    console.log('Setting profile image to:', imageUrl);
+                    setProfileImage(imageUrl);
 
-                        // Tambahkan notifikasi sukses
-                        setMessage({
-                            type: 'success',
-                            text: 'Foto profil berhasil diperbarui!'
-                        });
+                    // Tambahkan notifikasi sukses
+                    setMessage({
+                        type: 'success',
+                        text: 'Foto profil berhasil diperbarui!'
+                    });
 
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    } else {
-                        console.error('Upload failed:', page.props?.message);
-                        setMessage({
-                            type: 'error',
-                            text: 'Gagal mengunggah foto profil: ' + page.props?.message
-                        });
-
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 5000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Upload error:', error);
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                } else {
+                    console.error('Upload failed:', response.data?.message);
                     setMessage({
                         type: 'error',
-                        text: 'Error mengunggah foto profil: ' + (error?.message || 'Unknown error')
+                        text: 'Gagal mengunggah foto profil: ' + response.data?.message
                     });
 
                     setTimeout(() => {
                         setMessage(null);
                     }, 5000);
                 }
-            });
+            } catch (error: any) {
+                console.error('Upload error:', error);
+                setMessage({
+                    type: 'error',
+                    text: 'Error mengunggah foto profil: ' + (error?.response?.data?.message || error?.message || 'Unknown error')
+                });
+
+                setTimeout(() => {
+                    setMessage(null);
+                }, 5000);
+            }
         } finally {
             setUploading(false);
         }
