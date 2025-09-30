@@ -1,4 +1,4 @@
-name: Deploy to VPS
+name: Deploy Laravel to VPS with Nginx
 
 on:
   push:
@@ -20,23 +20,38 @@ jobs:
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "."
-          target: "/root/project/E-Recruitment-Laravel-General-User"
+          target: "/var/www/e-recruitment"
 
-      - name: Run docker compose on VPS
+      - name: Deploy Laravel app
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /root/project/E-Recruitment-Laravel-General-User
+            cd /var/www/e-recruitment
             
-            # Stop only the app container (bukan database)
-            docker compose down app || true
+            # Install/update Composer dependencies
+            composer install --no-dev --optimize-autoloader
             
-            # Build and start only the app container
-            docker compose build --no-cache app
-            docker compose up -d app
+            # Run Laravel optimization commands
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan optimize
             
-            # Clean up unused images
-            docker system prune -af
+            # Set proper permissions for Laravel
+            chown -R www-data:www-data storage bootstrap/cache
+            chmod -R 775 storage bootstrap/cache
+            
+            # Set proper permissions for entire application
+            chown -R www-data:www-data /var/www/e-recruitment
+            chmod -R 755 /var/www/e-recruitment
+            
+            # Restart nginx and php-fpm
+            systemctl restart nginx
+            systemctl restart php8.3-fpm
+            
+            # Clear any existing caches
+            php artisan cache:clear
+            php artisan config:clear

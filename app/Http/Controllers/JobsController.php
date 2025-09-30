@@ -253,11 +253,7 @@ class JobsController extends Controller
                 if ($appliedVacancy->id == $id) {
                     // Sudah apply ke lowongan yang sama
                     Log::warning('User already applied to this vacancy', ['application_id' => $existingApplicationInPeriod->id]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.',
-                        'redirect' => '/candidate/application-history'
-                    ], 422);
+                    return redirect()->back()->with('error', 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.');
                 } else {
                     // Sudah apply ke lowongan lain di periode yang sama
                     Log::warning('User already applied to another vacancy in the same period', [
@@ -266,11 +262,7 @@ class JobsController extends Controller
                         'current_vacancy_id' => $id,
                         'period_name' => $currentVacancyPeriod->period_name
                     ]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.",
-                        'redirect' => '/candidate/application-history'
-                    ], 422);
+                    return redirect()->back()->with('error', "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.");
                 }
             }
 
@@ -283,21 +275,14 @@ class JobsController extends Controller
                     'candidate_education' => $educationValidation['candidate_education'],
                     'required_education' => $educationValidation['required_education']
                 ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => $educationValidation['message'],
-                    'redirect' => '/candidate/application-history'
-                ], 422);
+                return redirect()->back()->with('error', $educationValidation['message']);
             }
 
             // Ambil data status dari tabel statuses
             $status = DB::table('statuses')->where('name', 'Administrative Selection')->first();
             if (!$status) {
                 Log::error('Administrative Selection status not found');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.'
-                ], 500);
+                return redirect()->back()->with('error', 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.');
             }
 
             Log::info('Status found', ['status_id' => $status->id]);
@@ -334,11 +319,7 @@ class JobsController extends Controller
                     'period_name' => $currentVacancyPeriod->period_name
                 ]);
 
-                return response()->json([
-                    'success' => true,
-                    'message' => "Lamaran berhasil dikirim untuk periode {$currentVacancyPeriod->period_name}! Anda dapat melihat status lamaran pada menu \"Lamaran\".",
-                    'redirect' => '/candidate/application-history'
-                ]);
+                return redirect('/candidate/application-history')->with('success', "Lamaran berhasil dikirim untuk periode {$currentVacancyPeriod->period_name}! Anda dapat melihat status lamaran pada menu \"Lamaran\".");
 
             } catch (\Exception $e) {
                 DB::rollBack();
@@ -346,19 +327,13 @@ class JobsController extends Controller
                     'trace' => $e->getTraceAsString()
                 ]);
 
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.'
-                ], 500);
+                return redirect()->back()->with('error', 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.');
             }
 
         } catch (\Exception $e) {
             Log::error('Error saat apply lowongan: ' . $e->getMessage());
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan sistem. Silakan coba lagi.'
-            ], 500);
+            return redirect()->back()->with('error', 'Terjadi kesalahan sistem. Silakan coba lagi.');
         }
     }
 
@@ -605,12 +580,14 @@ class JobsController extends Controller
             'D3' => 4,
             'DIPLOMA' => 4,
             'DIPLOMA 3' => 4,
-            'S1' => 5,
-            'SARJANA' => 5,
-            'S2' => 6,
-            'MAGISTER' => 6,
-            'S3' => 7,
-            'DOKTOR' => 7
+            'D4' => 5,
+            'DIPLOMA 4' => 5,
+            'S1' => 6,
+            'SARJANA' => 6,
+            'S2' => 7,
+            'MAGISTER' => 7,
+            'S3' => 8,
+            'DOKTOR' => 8
         ];
 
         // Handle special case for 'SMA/SMK'
@@ -633,6 +610,14 @@ class JobsController extends Controller
         }
         if (strpos($requiredEducation, 'DIPLOMA') !== false || strpos($requiredEducation, 'D-3') !== false || $requiredEducation === 'D3') {
             $mappedRequired = 'D3';
+        }
+
+        // Handle D4 mapping
+        if (strpos($candidateEducation, 'D4/S1') !== false || strpos($candidateEducation, 'D-4') !== false || $candidateEducation === 'D4') {
+            $mappedCandidate = 'D4/S1';
+        }
+        if (strpos($requiredEducation, 'D4/S1') !== false || strpos($requiredEducation, 'D-4') !== false || $requiredEducation === 'D4') {
+            $mappedRequired = 'D4/S1';
         }
 
         if (strpos($candidateEducation, 'SARJANA') !== false || strpos($candidateEducation, 'S-1') !== false || $candidateEducation === 'S1') {
@@ -835,13 +820,9 @@ class JobsController extends Controller
         // Verifikasi user sudah login
         $user = Auth::user();
         if (!$user) {
-            // For AJAX requests, return JSON response
+            // For AJAX requests, return redirect
             if (request()->ajax() || request()->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Silakan login terlebih dahulu',
-                    'redirect' => '/login'
-                ], 401);
+                return redirect('/login')->with('error', 'Silakan login terlebih dahulu');
             }
 
             // For regular requests, render confirm data page with error
@@ -937,11 +918,7 @@ class JobsController extends Controller
                 ->first();
 
             if ($existingApplication) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda sudah melamar pekerjaan ini',
-                    'redirect' => '/candidate/application-history'
-                ]);
+                return redirect()->back()->with('error', 'Anda sudah melamar pekerjaan ini');
             }
 
             // VALIDASI JENJANG PENDIDIKAN: Cek apakah jenjang pendidikan candidate memenuhi syarat
@@ -953,11 +930,7 @@ class JobsController extends Controller
                     'candidate_education' => $educationValidation['candidate_education'],
                     'required_education' => $educationValidation['required_education']
                 ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => $educationValidation['message'],
-                    'redirect' => '/candidate/application-history'
-                ], 422);
+                return redirect()->back()->with('error', $educationValidation['message']);
             }
 
             // Cek kelengkapan data profil secara langsung
@@ -981,10 +954,7 @@ class JobsController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
-            ], 500);
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 
@@ -1006,11 +976,7 @@ class JobsController extends Controller
                     'candidate_education' => $educationValidation['candidate_education'],
                     'required_education' => $educationValidation['required_education']
                 ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => $educationValidation['message'],
-                    'redirect' => '/candidate/application-history'
-                ], 422);
+                return redirect()->back()->with('error', $educationValidation['message']);
             }
 
             DB::beginTransaction();
@@ -1057,10 +1023,7 @@ class JobsController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
-            ], 500);
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 
@@ -1102,9 +1065,9 @@ class JobsController extends Controller
                 'SMA' => 1,
                 'SMK' => 1,
                 'D3' => 2,
-                'S1' => 3,
+                'D4/S1' => 3,
                 'S2' => 4,
-                'S3' => 5
+                'S3' => 5,
             ];
 
             $candidateEducationName = $education->educationLevel->name;
