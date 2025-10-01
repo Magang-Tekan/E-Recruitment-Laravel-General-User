@@ -33,9 +33,30 @@ use App\Enums\CandidatesStage;
 use App\Models\Assessment;
 use App\Models\Question;
 use App\Models\UserAnswer;
+use App\Models\User;
 
 class CandidateController extends Controller
 {
+    /**
+     * Helper method to get profile data with no_ektp fallback from users table
+     */
+    private function getProfileWithEktpFallback($user)
+    {
+        $profile = CandidatesProfiles::where('user_id', $user->id)->first();
+        $profileData = $profile ? $profile->toArray() : null;
+        
+        // Jika profile ada tapi no_ektp kosong, ambil dari tabel users
+        if ($profileData && empty($profileData['no_ektp']) && !empty($user->no_ektp)) {
+            $profileData['no_ektp'] = $user->no_ektp;
+        }
+        
+        // Jika profile tidak ada, buat array dengan no_ektp dari users
+        if (!$profileData && !empty($user->no_ektp)) {
+            $profileData = ['no_ektp' => $user->no_ektp];
+        }
+        
+        return $profileData;
+    }
     public function checkApplicationDataCompleteness()
 {
     try {
@@ -112,6 +133,7 @@ class CandidateController extends Controller
     {
         $user = Auth::user();
         $education = CandidatesEducations::where('user_id', $user->id)->first();
+        $profileData = $this->getProfileWithEktpFallback($user);
 
         // Definisikan array gender secara langsung sesuai dengan yang ada di model CandidatesProfiles
         $genders = [
@@ -120,6 +142,7 @@ class CandidateController extends Controller
         ];
 
         return Inertia::render('PersonalData', [
+            'profile' => $profileData,
             'education' => $education,
             'user' => [
                 'name' => $user->name,
@@ -136,11 +159,8 @@ class CandidateController extends Controller
     public function profile()
     {
         $user = Auth::user();
-        $profile = CandidatesProfiles::where('user_id', $user->id)->first();
         $education = CandidatesEducations::where('user_id', $user->id)->first();
-
-        // Format profile data jika ada
-        $profileData = $profile ? $profile->toArray() : null;
+        $profileData = $this->getProfileWithEktpFallback($user);
 
         // Log data untuk debugging
         \Illuminate\Support\Facades\Log::info('Profile data being sent to frontend:', ['profile' => $profileData]);
@@ -162,6 +182,14 @@ class CandidateController extends Controller
     public function storeDataPribadi(Request $request)
     {
         try {
+            // Log incoming data for debugging
+            \Illuminate\Support\Facades\Log::info('Incoming data for storeDataPribadi:', [
+                'all_data' => $request->all(),
+                'gender' => $request->input('gender'),
+                'gender_type' => gettype($request->input('gender')),
+                'gender_length' => strlen($request->input('gender', ''))
+            ]);
+
             $validated = $request->validate([
                 'no_ektp' => 'required|string|max:16',
                 'gender' => 'required|in:male,female',
@@ -199,6 +227,12 @@ class CandidateController extends Controller
                 ['user_id' => Auth::id()],
                 $validated
             );
+
+            // Sinkronisasi no_ektp ke tabel users jika berbeda
+            $user = Auth::user();
+            if ($user->no_ektp !== $validated['no_ektp']) {
+                User::where('id', $user->id)->update(['no_ektp' => $validated['no_ektp']]);
+            }
 
             // Return JSON response for AJAX requests
             if ($request->expectsJson() || $request->ajax()) {
@@ -2102,12 +2136,14 @@ public function updateEducation(Request $request, $id)
 public function getProfile()
 {
     try {
-        $userId = Auth::id();
         $user = Auth::user();
-        $profile = CandidatesProfiles::where('user_id', $userId)->first();
+        $profileData = $this->getProfileWithEktpFallback($user);
+        
+        // Convert array to object for API response
+        $profile = $profileData ? (object) $profileData : null;
 
         // Add image URL if profile exists and has an image
-        if ($profile && $profile->profile_image) {
+        if ($profile && isset($profile->profile_image) && $profile->profile_image) {
             $profile->image_url = asset('storage/' . $profile->profile_image);
         }
 

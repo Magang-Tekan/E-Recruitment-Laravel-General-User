@@ -357,7 +357,7 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
         address: profile?.address || '',
         no_ektp: profile?.no_ektp || '',
         // Konversi gender dari database (male/female) ke format tampilan (Pria/Wanita)
-        gender: profile ? (profile.gender === 'male' ? 'Pria' : profile.gender === 'female' ? 'Wanita' : '') : '',
+        gender: profile ? convertGender(profile.gender) : '',
         npwp: profile?.npwp || '',
         about_me: profile?.about_me || '',
         place_of_birth: profile?.place_of_birth || '',
@@ -557,8 +557,14 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
         setMessage(null);
 
         try {
+            // Validasi gender sebelum konversi
+            if (!data.gender || (data.gender !== 'Pria' && data.gender !== 'Wanita')) {
+                setMessage('Gender harus dipilih');
+                return;
+            }
+
             // Konversi gender dari format tampilan (Pria/Wanita) ke format database (male/female)
-            const dbGender = data.gender === 'Pria' ? 'male' : data.gender === 'Wanita' ? 'female' : '';
+            const dbGender = convertGenderForDb(data.gender);
 
             // Prepare data for API
             const dataPribadi = {
@@ -578,6 +584,8 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
                 rw: data.rw
             };
 
+            console.log('Original gender from form:', data.gender);
+            console.log('Converted gender for DB:', dbGender);
             console.log('Sending data to server:', dataPribadi);
 
             // Use axios.post() for API call
@@ -597,6 +605,8 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
             }
         } catch (error: any) {
             console.error('Error saving data:', error);
+            console.error('Error response:', error?.response?.data);
+            console.error('Error status:', error?.response?.status);
 
             let errorMessage = 'Terjadi kesalahan';
 
@@ -846,7 +856,9 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
                                     name="gender"
                                     value={data.gender}
                                     onChange={handleChange}
+                                    placeholder="Pilih Gender"
                                     options={[
+                                        { value: '', label: 'Pilih Gender' },
                                         { value: 'Pria', label: 'Pria' },
                                         { value: 'Wanita', label: 'Wanita' }
                                     ]}
