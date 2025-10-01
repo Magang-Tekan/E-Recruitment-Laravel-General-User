@@ -242,17 +242,25 @@ class JobsController extends Controller
                 ->toArray();
 
             // Cek apakah user sudah pernah apply ke salah satu vacancy di periode yang sama
+            // TAPI hanya yang belum di-reject
             $existingApplicationInPeriod = Applications::where('user_id', $user->id)
                 ->whereIn('vacancy_period_id', $samePeriodsVacancyIds)
-                ->with('vacancyPeriod.vacancy:id,title')
+                ->with(['vacancyPeriod.vacancy:id,title', 'status'])
+                ->whereHas('status', function($query) {
+                    $query->where('stage', '!=', \App\Enums\CandidatesStage::REJECTED->value);
+                })
                 ->first();
 
             if ($existingApplicationInPeriod) {
                 $appliedVacancy = $existingApplicationInPeriod->vacancyPeriod->vacancy;
+                $applicationStatus = $existingApplicationInPeriod->status;
 
                 if ($appliedVacancy->id == $id) {
                     // Sudah apply ke lowongan yang sama
-                    Log::warning('User already applied to this vacancy', ['application_id' => $existingApplicationInPeriod->id]);
+                    Log::warning('User already applied to this vacancy', [
+                        'application_id' => $existingApplicationInPeriod->id,
+                        'status' => $applicationStatus ? $applicationStatus->name : 'unknown'
+                    ]);
                     return redirect()->back()->with('error', 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.');
                 } else {
                     // Sudah apply ke lowongan lain di periode yang sama
@@ -260,7 +268,8 @@ class JobsController extends Controller
                         'existing_application_id' => $existingApplicationInPeriod->id,
                         'existing_vacancy_title' => $appliedVacancy->title,
                         'current_vacancy_id' => $id,
-                        'period_name' => $currentVacancyPeriod->period_name
+                        'period_name' => $currentVacancyPeriod->period_name,
+                        'status' => $applicationStatus ? $applicationStatus->name : 'unknown'
                     ]);
                     return redirect()->back()->with('error', "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.");
                 }
@@ -912,9 +921,12 @@ class JobsController extends Controller
             // Validasi vacancy exists
             $vacancy = Vacancies::findOrFail($id);
 
-            // Cek apakah user sudah pernah apply
+            // Cek apakah user sudah pernah apply (TAPI hanya yang belum di-reject)
             $existingApplication = Applications::where('user_id', $user->id)
                 ->where('vacancies_id', $id)
+                ->whereHas('status', function($query) {
+                    $query->where('stage', '!=', \App\Enums\CandidatesStage::REJECTED->value);
+                })
                 ->first();
 
             if ($existingApplication) {
@@ -1272,15 +1284,20 @@ class JobsController extends Controller
             }
 
             // 3. Cek existing application dengan query yang lebih spesifik
+            // TAPI hanya yang belum di-reject
             $existingApplication = DB::table('applications')
                 ->join('vacancy_periods', 'applications.vacancy_period_id', '=', 'vacancy_periods.id')
                 ->join('vacancies', 'vacancy_periods.vacancy_id', '=', 'vacancies.id')
+                ->join('statuses', 'applications.status_id', '=', 'statuses.id')
                 ->where('applications.user_id', $userId)
                 ->where('vacancy_periods.period_id', $currentVacancyPeriod->period_id)
+                ->where('statuses.stage', '!=', \App\Enums\CandidatesStage::REJECTED->value)
                 ->select(
                     'applications.id',
                     'vacancies.id as vacancy_id',
-                    'vacancies.title'
+                    'vacancies.title',
+                    'statuses.name as status_name',
+                    'statuses.stage as status_stage'
                 )
                 ->first();
 

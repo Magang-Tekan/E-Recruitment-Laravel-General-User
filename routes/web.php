@@ -279,13 +279,15 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     Route::post('/candidate/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
 
 
-    // Routes untuk Psychotest
-    Route::get('/tests/psychotest/{application_id?}', [CandidateController::class, 'showPsychotest'])
-        ->name('candidate.tests.psychotest');
-
     // Route untuk submit psychotest
     Route::post('/tests/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
         ->name('candidate.tests.psychotest.submit');
+});
+
+// Routes untuk Psychotest (tanpa middleware role)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/candidate/tests/psychotest/{application_id?}', [CandidateController::class, 'showPsychotest'])
+        ->name('candidate.tests.psychotest');
 });
 
 // ApplicationHistory routes

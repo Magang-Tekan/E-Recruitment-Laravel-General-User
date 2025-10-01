@@ -52,7 +52,7 @@ export default function CandidatePsychotest() {
     const [submitError, setSubmitError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     // Pindahkan countdown state ke level atas
-    const [countdown, setCountdown] = useState(3);
+    const [countdown, setCountdown] = useState(8);
 
     // Create test info from assessment
     const testInfo: TestInfo = {
@@ -152,7 +152,7 @@ export default function CandidatePsychotest() {
             setIsSubmitting(true);
             setCurrentPhase('complete');
             setTestCompleted(true);
-            setCountdown(3);
+            setCountdown(8);
             
             console.log("Submitting data:", {
                 application_id: assessment?.id,
@@ -170,9 +170,9 @@ export default function CandidatePsychotest() {
                         
                         // Tampilkan pesan sukses sebentar
                         setTimeout(() => {
-                            // Redirect ke halaman status aplikasi
-                            router.visit('/candidate/application-history');
-                        }, 3000); // 3 detik delay untuk menampilkan pesan completion
+                            // Redirect ke halaman status aplikasi spesifik
+                            router.visit(`/candidate/application/${assessment?.id}/status`);
+                        }, 8000); // 8 detik delay untuk menampilkan pesan completion
                     },
                     onError: (errors) => {
                         console.error('Failed to submit psychotest:', errors);
@@ -199,7 +199,7 @@ export default function CandidatePsychotest() {
     };
 
     const handleBackToDashboard = () => {
-        router.visit('/candidate/application-history');
+        router.visit(`/candidate/application/${assessment?.id}/status`);
     };
 
     const getQuestionStatus = (index: number) => {

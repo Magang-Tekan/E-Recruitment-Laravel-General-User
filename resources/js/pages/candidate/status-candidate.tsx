@@ -46,6 +46,7 @@ interface ApplicationHistoryItem {
     stage: string;
     score: number | null;
     notes: string | null;
+    resource_url: string | null; // Interview URL atau meeting link
     scheduled_at: string | null;
     completed_at: string | null;
     processed_at: string;
@@ -102,6 +103,18 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
             day: 'numeric',
             month: 'short',
             year: 'numeric'
+        };
+        return new Date(dateString).toLocaleDateString('id-ID', options);
+    };
+
+    const formatDateTime = (dateString: string | null | undefined) => {
+        if (!dateString) return '';
+        const options: Intl.DateTimeFormatOptions = {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         };
         return new Date(dateString).toLocaleDateString('id-ID', options);
     };
@@ -274,7 +287,9 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                             <div className="ml-2">
                                                                 <p className="text-gray-500">Tanggal</p>
                                                                 {/* Ubah text-gray-500 menjadi text-gray-900 */}
-                                                                <p className="font-medium text-gray-900">{formatDateOnly(history.created_at)}</p>
+                                                                <p className="font-medium text-gray-900">
+                                                                    {history.scheduled_at ? formatDateTime(history.scheduled_at) : formatDateTime(history.created_at)}
+                                                                </p>
                                                             </div>
                                                         </div>
 
@@ -287,7 +302,10 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                                     {history.status_name.toLowerCase().includes('psikotes') ||
                                                                      history.status_name.toLowerCase().includes('test') ||
                                                                      history.status_name.toLowerCase().includes('psychological') ?
-                                                                     'Online via Web' : 'Kantor Pusat'}
+                                                                     'Online via Web' : 
+                                                                     (history.status_name.toLowerCase().includes('interview') ||
+                                                                      history.status_name.toLowerCase().includes('wawancara')) ?
+                                                                     (history.resource_url ? 'Online via Web' : 'Kantor Pusat') : 'Kantor Pusat'}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -301,7 +319,10 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                                     {history.status_name.toLowerCase().includes('psikotes') ||
                                                                      history.status_name.toLowerCase().includes('test') ||
                                                                      history.status_name.toLowerCase().includes('psychological') ?
-                                                                     '120 Menit' : '60 Menit'}
+                                                                     '120 Menit' : 
+                                                                     (history.status_name.toLowerCase().includes('interview') ||
+                                                                      history.status_name.toLowerCase().includes('wawancara')) ?
+                                                                     '60 Menit' : '60 Menit'}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -318,6 +339,62 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                     {history.reviewed_by && (
                                                         <div className="mt-3">
                                                             <p className="text-gray-500 text-sm">Reviewer: <span className="font-medium">{history.reviewed_by}</span></p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Stage-specific content for interview */}
+                                                    {(history.status_name.toLowerCase().includes('interview') ||
+                                                      history.status_name.toLowerCase().includes('wawancara')) && (
+                                                        <div className="mt-4">
+                                                            <h6 className="font-medium text-gray-900 mb-2">Informasi Wawancara:</h6>
+                                                            
+                                                            {/* Jam Interview */}
+                                                            {history.scheduled_at && (
+                                                                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                                    <h6 className="font-medium text-blue-800 mb-1">Jadwal Wawancara:</h6>
+                                                                    <p className="text-blue-700 font-medium">
+                                                                        {formatDateTime(history.scheduled_at)}
+                                                                    </p>
+                                                                    <p className="text-sm text-blue-600 mt-1">
+                                                                        Pastikan Anda hadir tepat waktu
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {history.resource_url && (
+                                                                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                                    <h6 className="font-medium text-green-800 mb-2">Link Wawancara:</h6>
+                                                                    <a 
+                                                                        href={history.resource_url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-green-600 hover:text-green-800 underline break-all"
+                                                                    >
+                                                                        {history.resource_url}
+                                                                    </a>
+                                                                    <p className="text-sm text-green-700 mt-2">
+                                                                        Klik link di atas untuk mengakses ruang wawancara
+                                                                    </p>
+                                                                </div>
+                                                            )}
+
+                                                            {!history.resource_url && (
+                                                                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                                                    <p className="text-yellow-800 text-sm">
+                                                                        Link wawancara akan diberikan segera. Mohon tunggu informasi lebih lanjut.
+                                                                    </p>
+                                                                </div>
+                                                            )}
+
+                                                            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                                                <h6 className="font-medium text-blue-900 mb-2">Tips Wawancara:</h6>
+                                                                <ul className="text-sm text-blue-800 space-y-1">
+                                                                    <li>• Pastikan koneksi internet stabil</li>
+                                                                    <li>• Siapkan ruangan yang tenang dan pencahayaan yang baik</li>
+                                                                    <li>• Berpakaian rapi dan profesional</li>
+                                                                    <li>• Siapkan pertanyaan untuk interviewer</li>
+                                                                </ul>
+                                                            </div>
                                                         </div>
                                                     )}
 

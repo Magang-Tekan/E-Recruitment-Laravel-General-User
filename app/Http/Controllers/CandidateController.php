@@ -407,63 +407,163 @@ class CandidateController extends Controller
 
     public function storeWorkExperience(Request $request)
     {
-        $validated = $request->validate([
-            'job_title' => 'required|string|max:255',
-            'employment_status' => 'required|string|max:255',
-            'job_description' => 'required|string|min:10', // Ubah dari 100 menjadi 10
-            'is_current_job' => 'required|boolean',
-            'start_month' => 'required|integer|min:1|max:12',
-            'start_year' => 'required|integer|min:1900|max:' . date('Y'),
-            'end_month' => 'nullable|integer|min:1|max:12',
-            'end_year' => 'nullable|integer|min:1900|max:' . date('Y'),
-        ]);
+        try {
+            $validated = $request->validate([
+                'job_title' => 'required|string|max:255',
+                'employment_status' => 'required|string|max:255',
+                'job_description' => 'required|string|min:10',
+                'is_current_job' => 'required|boolean',
+                'start_month' => 'required|integer|min:1|max:12',
+                'start_year' => 'required|integer|min:1900|max:' . date('Y'),
+                'end_month' => 'nullable|integer|min:1|max:12',
+                'end_year' => 'nullable|integer|min:1900|max:' . date('Y'),
+            ]);
 
-        $validated['user_id'] = Auth::id();
+            $validated['user_id'] = Auth::id();
+            $workExperience = CandidatesWorkExperiences::create($validated);
 
-        $workExperience = CandidatesWorkExperiences::create($validated);
+            // Return JSON response for AJAX requests
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Data berhasil disimpan!',
+                    'data' => $workExperience,
+                ], 201);
+            }
 
-        return response()->json([
-            'message' => 'Data berhasil disimpan!',
-            'data' => $workExperience,
-        ], 201);
+            // Return redirect for Inertia requests
+            return back()->with('flash', [
+                'type' => 'success',
+                'message' => 'Data pengalaman kerja berhasil disimpan!'
+            ]);
+
+        } catch (ValidationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
+            return back()->withErrors($e->errors());
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error saving work experience: ' . $e->getMessage());
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat menyimpan data'
+                ], 500);
+            }
+
+            return back()->with('flash', [
+                'type' => 'error',
+                'message' => 'Terjadi kesalahan saat menyimpan data'
+            ]);
+        }
     }
 
     public function updateWorkExperience(Request $request, $id)
     {
-        $workExperience = CandidatesWorkExperiences::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
+        try {
+            $workExperience = CandidatesWorkExperiences::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
 
-        $validated = $request->validate([
-            'job_title' => 'required|string|max:255',
-            'employment_status' => 'required|string|max:255',
-            'job_description' => 'required|string|min:10', // Ubah dari 100 menjadi 10
-            'is_current_job' => 'required|boolean',
-            'start_month' => 'required|integer|min:1|max:12',
-            'start_year' => 'required|integer|min:1900|max:' . date('Y'),
-            'end_month' => 'nullable|integer|min:1|max:12',
-            'end_year' => 'nullable|integer|min:1900|max:' . date('Y'),
-        ]);
+            $validated = $request->validate([
+                'job_title' => 'required|string|max:255',
+                'employment_status' => 'required|string|max:255',
+                'job_description' => 'required|string|min:10',
+                'is_current_job' => 'required|boolean',
+                'start_month' => 'required|integer|min:1|max:12',
+                'start_year' => 'required|integer|min:1900|max:' . date('Y'),
+                'end_month' => 'nullable|integer|min:1|max:12',
+                'end_year' => 'nullable|integer|min:1900|max:' . date('Y'),
+            ]);
 
-        $workExperience->update($validated);
+            $workExperience->update($validated);
 
-        return response()->json([
-            'message' => 'Data berhasil diperbarui!',
-            'data' => $workExperience,
-        ], 200);
+            // Return JSON response for AJAX requests
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Data berhasil diperbarui!',
+                    'data' => $workExperience,
+                ], 200);
+            }
+
+            // Return redirect for Inertia requests
+            return back()->with('flash', [
+                'type' => 'success',
+                'message' => 'Data pengalaman kerja berhasil diperbarui!'
+            ]);
+
+        } catch (ValidationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
+            return back()->withErrors($e->errors());
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error updating work experience: ' . $e->getMessage());
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat memperbarui data'
+                ], 500);
+            }
+
+            return back()->with('flash', [
+                'type' => 'error',
+                'message' => 'Terjadi kesalahan saat memperbarui data'
+            ]);
+        }
     }
 
-    public function deleteWorkExperience($id)
+    public function deleteWorkExperience(Request $request, $id)
     {
-        $workExperience = CandidatesWorkExperiences::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
+        try {
+            $workExperience = CandidatesWorkExperiences::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
 
-        $workExperience->delete();
+            $workExperience->delete();
 
-        return response()->json([
-            'message' => 'Data berhasil dihapus!',
-        ]);
+            // Return JSON response for AJAX requests
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Data berhasil dihapus!',
+                ]);
+            }
+
+            // Return redirect for Inertia requests
+            return back()->with('flash', [
+                'type' => 'success',
+                'message' => 'Data pengalaman kerja berhasil dihapus!'
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error deleting work experience: ' . $e->getMessage());
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat menghapus data'
+                ], 500);
+            }
+
+            return back()->with('flash', [
+                'type' => 'error',
+                'message' => 'Terjadi kesalahan saat menghapus data'
+            ]);
+        }
     }
 
     public function getWorkExperience($id)
@@ -516,25 +616,48 @@ class CandidateController extends Controller
             ]);
 
             $validated['user_id'] = Auth::id();
-
             $organization = CandidatesOrganizations::create($validated);
 
-            return response()->json([
-                'message' => 'Data berhasil disimpan!',
-                'data' => $organization
-            ], 201);
+            // Return JSON response for AJAX requests
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Data berhasil disimpan!',
+                    'data' => $organization
+                ], 201);
+            }
+
+            // Return redirect for Inertia requests
+            return back()->with('flash', [
+                'type' => 'success',
+                'message' => 'Data organisasi berhasil disimpan!'
+            ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Validasi gagal',
-                'errors' => $e->errors()
-            ], 422);
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
+            return back()->withErrors($e->errors());
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error saving organization: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Terjadi kesalahan saat menyimpan data',
-                'error' => $e->getMessage()
-            ], 500);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat menyimpan data',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+
+            return back()->with('flash', [
+                'type' => 'error',
+                'message' => 'Terjadi kesalahan saat menyimpan data'
+            ]);
         }
     }
 
@@ -634,22 +757,46 @@ class CandidateController extends Controller
                 'supporting_file' => $validated['supporting_file'] ?? null,
             ]);
 
-            return response()->json([
-                'message' => 'Data berhasil disimpan!',
-                'data' => $achievement
-            ], 201);
+            // Return JSON response for AJAX requests
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Data berhasil disimpan!',
+                    'data' => $achievement
+                ], 201);
+            }
+
+            // Return redirect for Inertia requests
+            return back()->with('flash', [
+                'type' => 'success',
+                'message' => 'Data prestasi berhasil disimpan!'
+            ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Validasi gagal',
-                'errors' => $e->errors()
-            ], 422);
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
+            return back()->withErrors($e->errors());
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error saving achievement: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Terjadi kesalahan saat menyimpan data',
-                'error' => $e->getMessage()
-            ], 500);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat menyimpan data',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+
+            return back()->with('flash', [
+                'type' => 'error',
+                'message' => 'Terjadi kesalahan saat menyimpan data'
+            ]);
         }
     }
 
@@ -2107,23 +2254,51 @@ public function showPsychotest($application_id = null)
                 ->with('warning', 'Anda sudah mengerjakan tes psikotes untuk aplikasi ini.');
         }
 
-        // Ambil QuestionPack untuk psikotes (atau gunakan dummy data jika tidak ada)
-        $questions = $this->getDummyPsychotestQuestions();
+        // Ambil QuestionPack untuk psikotes dari database
+        $questionPack = $this->getPsychotestQuestionPack();
+
+        if (!$questionPack) {
+            \Illuminate\Support\Facades\Log::warning('No psychotest question pack found, using dummy data');
+            // Gunakan dummy data jika tidak ada question pack di database
+            $questions = $this->getDummyPsychotestQuestions();
+            $userAnswers = [];
+            
+            $assessment = [
+                'id' => $application->id,
+                'question_pack_id' => 0,
+                'title' => 'Tes Psikotes Kepribadian dan Logika',
+                'description' => 'Pilih jawaban yang paling sesuai dengan diri Anda. Tidak ada jawaban benar atau salah. Jawablah dengan jujur dan spontan.',
+                'duration' => 60
+            ];
+            
+            \Illuminate\Support\Facades\Log::info('Using dummy psychotest data');
+            return Inertia::render('candidate/tests/candidate-psychotest', [
+                'assessment' => $assessment,
+                'questions' => $questions,
+                'userAnswers' => $userAnswers
+            ]);
+        }
+
+        // Ambil soal dari database
+        $questions = $this->getPsychotestQuestionsFromDatabase($questionPack->id);
+
+        // Ambil jawaban user yang sudah ada (jika ada)
+        $userAnswers = $this->getUserAnswers($application->id, Auth::id());
 
         // Setup data tes dari application history
         $assessment = [
             'id' => $application->id,
-            'question_pack_id' => 0, // Dummy ID
-            'title' => 'Tes Psikotes Kepribadian dan Logika',
-            'description' => 'Pilih jawaban yang paling sesuai dengan diri Anda. Tidak ada jawaban benar atau salah. Jawablah dengan jujur dan spontan.',
-            'duration' => 60 // 60 menit
+            'question_pack_id' => $questionPack->id,
+            'title' => $questionPack->pack_name,
+            'description' => $questionPack->description,
+            'duration' => $questionPack->duration
         ];
 
         \Illuminate\Support\Facades\Log::info('Rendering candidate-psychotest view');
         return Inertia::render('candidate/tests/candidate-psychotest', [
             'assessment' => $assessment,
             'questions' => $questions,
-            'userAnswers' => [] // Kosong karena belum pernah dikerjakan
+            'userAnswers' => $userAnswers // Gunakan jawaban yang sudah ada
         ]);
 
     } catch (\Exception $e) {
@@ -2194,6 +2369,101 @@ private function getDummyPsychotestQuestions()
     ];
 }
 
+/**
+ * Ambil QuestionPack untuk psikotes dari database
+ */
+private function getPsychotestQuestionPack()
+{
+    // Cari question pack untuk psikotes
+    $questionPack = \App\Models\QuestionPack::where('test_type', 'psychotest')
+        ->orWhere('pack_name', 'like', '%psikotes%')
+        ->orWhere('pack_name', 'like', '%psychological%')
+        ->orWhere('pack_name', 'like', '%kepribadian%')
+        ->first();
+    
+    // Jika tidak ada, ambil QuestionPack pertama yang ada
+    if (!$questionPack) {
+        $questionPack = \App\Models\QuestionPack::first();
+        \Illuminate\Support\Facades\Log::info('No psychotest question pack found, using first available pack', [
+            'pack_id' => $questionPack ? $questionPack->id : null,
+            'pack_name' => $questionPack ? $questionPack->pack_name : null
+        ]);
+    }
+    
+    return $questionPack;
+}
+
+/**
+ * Ambil soal psikotes dari database
+ */
+private function getPsychotestQuestionsFromDatabase($questionPackId)
+{
+    try {
+        \Illuminate\Support\Facades\Log::info('Loading questions from database', [
+            'question_pack_id' => $questionPackId
+        ]);
+        
+        $questionPack = \App\Models\QuestionPack::with(['questions.choices'])
+            ->where('id', $questionPackId)
+            ->first();
+        
+        if (!$questionPack) {
+            \Illuminate\Support\Facades\Log::warning('Question pack not found: ' . $questionPackId);
+            return $this->getDummyPsychotestQuestions(); // Fallback ke dummy data
+        }
+        
+        \Illuminate\Support\Facades\Log::info('Question pack found', [
+            'pack_id' => $questionPack->id,
+            'pack_name' => $questionPack->pack_name,
+            'questions_count' => $questionPack->questions ? $questionPack->questions->count() : 0
+        ]);
+        
+        $questions = [];
+        foreach ($questionPack->questions as $index => $question) {
+            $questions[] = [
+                'id' => $question->id,
+                'question' => $question->question_text,
+                'question_type' => $question->question_type ?? 'multiple_choice',
+                'options' => $question->choices->map(function($choice) {
+                    return [
+                        'id' => $choice->id,
+                        'text' => $choice->choice_text
+                    ];
+                })->toArray()
+            ];
+        }
+        
+        \Illuminate\Support\Facades\Log::info('Loaded questions from database', [
+            'question_pack_id' => $questionPackId,
+            'questions_count' => count($questions)
+        ]);
+        
+        return $questions;
+        
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error loading questions from database: ' . $e->getMessage());
+        return $this->getDummyPsychotestQuestions(); // Fallback ke dummy data
+    }
+}
+
+/**
+ * Ambil jawaban user yang sudah ada
+ */
+private function getUserAnswers($applicationId, $userId)
+{
+    try {
+        $userAnswers = \App\Models\UserAnswer::where('user_id', $userId)
+            ->get()
+            ->pluck('choice_id', 'question_id')
+            ->toArray();
+        
+        return $userAnswers;
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error loading user answers: ' . $e->getMessage());
+        return [];
+    }
+}
+
 public function submitPsychotest(Request $request)
 {
     try {
@@ -2208,10 +2478,11 @@ public function submitPsychotest(Request $request)
 
         // Validasi data
         if (!$application_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Application ID tidak ditemukan'
-            ], 422);
+            return redirect()->back()
+                ->with('flash', [
+                    'type' => 'error',
+                    'message' => 'Application ID tidak ditemukan'
+                ]);
         }
 
         // Cari aplikasi
@@ -2220,10 +2491,11 @@ public function submitPsychotest(Request $request)
             ->first();
 
         if (!$application) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Aplikasi tidak ditemukan atau bukan milik Anda'
-            ], 404);
+            return redirect()->back()
+                ->with('flash', [
+                    'type' => 'error',
+                    'message' => 'Aplikasi tidak ditemukan atau bukan milik Anda'
+                ]);
         }
 
         // Cari history psikotes aktif
@@ -2237,10 +2509,11 @@ public function submitPsychotest(Request $request)
             ->first();
 
         if (!$psychotestHistory) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak ada tes psikotes aktif untuk aplikasi ini'
-            ], 404);
+            return redirect()->back()
+                ->with('flash', [
+                    'type' => 'error',
+                    'message' => 'Tidak ada tes psikotes aktif untuk aplikasi ini'
+                ]);
         }
 
         // PERBAIKAN: Hanya update completed_at untuk menandakan kandidat sudah selesai test
@@ -2260,7 +2533,13 @@ public function submitPsychotest(Request $request)
         try {
             DB::beginTransaction();
 
-            // Simpan jawaban ke tabel user_answers
+            // Hapus jawaban lama jika ada untuk soal yang sama
+            $questionIds = array_keys($answers);
+            \App\Models\UserAnswer::where('user_id', Auth::id())
+                ->whereIn('question_id', $questionIds)
+                ->delete();
+
+            // Simpan jawaban baru ke tabel user_answers
             foreach ($answers as $questionId => $choiceId) {
                 \App\Models\UserAnswer::create([
                     'user_id' => Auth::id(),
@@ -2279,17 +2558,24 @@ public function submitPsychotest(Request $request)
             ]));
 
             DB::commit();
+            
+            \Illuminate\Support\Facades\Log::info('Psychotest answers saved successfully', [
+                'user_id' => Auth::id(),
+                'application_id' => $application_id,
+                'answers_count' => count($answers)
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            \Illuminate\Support\Facades\Log::warning('Gagal menyimpan jawaban psikotes: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Failed to save psychotest answers: ' . $e->getMessage());
             // Tidak mengganggu proses submit - aplikasi tetap dianggap selesai
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Tes psikotes berhasil diselesaikan. Tim rekrutmen akan segera mengevaluasi hasil tes Anda.',
-            'redirect_url' => route('candidate.application.status', ['id' => $application_id])
-        ]);
+        // Untuk Inertia request, selalu redirect dengan flash message
+        return redirect()->route('candidate.application.status', ['id' => $application_id])
+            ->with('flash', [
+                'type' => 'success',
+                'message' => 'Tes psikotes berhasil diselesaikan. Tim rekrutmen akan segera mengevaluasi hasil tes Anda.'
+            ]);
 
     } catch (\Exception $e) {
         \Illuminate\Support\Facades\Log::error('Error in submitPsychotest: ' . $e->getMessage(), [
@@ -2298,10 +2584,12 @@ public function submitPsychotest(Request $request)
             'trace' => $e->getTraceAsString()
         ]);
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Terjadi kesalahan pada server: ' . $e->getMessage()
-        ], 500);
+        // Untuk Inertia request, redirect dengan error message
+        return redirect()->back()
+            ->with('flash', [
+                'type' => 'error',
+                'message' => 'Terjadi kesalahan pada server: ' . $e->getMessage()
+            ]);
     }
 }
 
