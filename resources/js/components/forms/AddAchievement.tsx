@@ -2,6 +2,7 @@ import React, { ChangeEvent, FormEvent, useState, useEffect } from 'react';
 import InputField from '../InputField';
 import SelectField from '../SelectField';
 import { Head, Link, useForm, router } from '@inertiajs/react';
+import axios from 'axios';
 
 interface PrestasiData {
     id?: number;
@@ -135,83 +136,35 @@ const TambahPrestasiForm: React.FC<TambahPrestasiFormProps> = ({
             }
 
             if (achievementData?.id) {
-                // For update, use router.put()
-                router.put(`/candidate/achievement/${achievementData.id}`, formPayload, {
-                    onSuccess: (page: any) => {
-                        console.log('Success response:', page.props);
+                // For update, use axios.put()
+                const response = await axios.put(`/api/candidate/achievement/${achievementData.id}`, formPayload);
+                if (response.data.success) {
+                    setMessage({
+                        type: 'success',
+                        text: 'Data berhasil diperbarui!'
+                    });
 
-                        setMessage({
-                            type: 'success',
-                            text: 'Data berhasil diperbarui!'
-                        });
-
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                        setTimeout(() => {
-                            onSuccess();
-                        }, 2000);
-                    },
-                    onError: (error: any) => {
-                        console.error('Error response:', error);
-                        
-                        let errorMessage = 'Terjadi kesalahan saat memperbarui data';
-                        
-                        if (error?.errors) {
-                            // Validation errors
-                            const errorMessages = Object.values(error.errors).flat();
-                            errorMessage = errorMessages.join(', ');
-                        } else if (error?.message) {
-                            errorMessage = error.message;
-                        }
-
-                        setMessage({
-                            type: 'error',
-                            text: errorMessage
-                        });
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
-                });
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    setTimeout(() => {
+                        onSuccess();
+                    }, 2000);
+                }
+                setLoading(false);
             } else {
-                // For create, use router.post()
-                router.post('/candidate/achievement', formPayload, {
-                    onSuccess: (page: any) => {
-                        console.log('Success response:', page.props);
+                // For create, use axios.post()
+                const response = await axios.post('/api/candidate/achievement', formPayload);
+                if (response.data.success) {
+                    setMessage({
+                        type: 'success',
+                        text: 'Data berhasil disimpan!'
+                    });
 
-                        setMessage({
-                            type: 'success',
-                            text: 'Data berhasil disimpan!'
-                        });
-
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                        setTimeout(() => {
-                            onSuccess();
-                        }, 2000);
-                    },
-                    onError: (error: any) => {
-                        console.error('Error response:', error);
-                        
-                        let errorMessage = 'Terjadi kesalahan saat menyimpan data';
-                        
-                        if (error?.errors) {
-                            // Validation errors
-                            const errorMessages = Object.values(error.errors).flat();
-                            errorMessage = errorMessages.join(', ');
-                        } else if (error?.message) {
-                            errorMessage = error.message;
-                        }
-
-                        setMessage({
-                            type: 'error',
-                            text: errorMessage
-                        });
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
-                });
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    setTimeout(() => {
+                        onSuccess();
+                    }, 2000);
+                }
+                setLoading(false);
             }
 
         } catch (error: any) {

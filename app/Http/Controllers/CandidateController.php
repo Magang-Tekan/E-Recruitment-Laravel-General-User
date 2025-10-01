@@ -313,13 +313,13 @@ class CandidateController extends Controller
             \Illuminate\Support\Facades\Log::info('Storing education data. Request:', $request->all());
 
             $validated = $request->validate([
-                'education_level_id' => 'required|exists:education_levels,id', // Changed from education_level
-                'faculty' => 'required|string',
+                'education_level_id' => 'required|exists:education_levels,id',
+                'faculty' => 'required|string|max:255',
                 'major_id' => 'required|exists:master_majors,id',
-                'institution_name' => 'required|string',
-                'gpa' => 'required|numeric|between:0,4',
-                'year_in' => 'required|integer',
-                'year_out' => 'nullable|integer'
+                'institution_name' => 'required|string|max:255',
+                'gpa' => 'required|numeric|min:0',
+                'year_in' => 'required|integer|min:1900|max:' . date('Y'),
+                'year_out' => 'nullable|integer|min:1900|max:' . (date('Y') + 10)
             ]);
 
             \Illuminate\Support\Facades\Log::info('Validated data:', $validated);
@@ -421,6 +421,8 @@ class CandidateController extends Controller
         $userId = Auth::id();
         $workExperiences = CandidatesWorkExperiences::where('user_id', $userId)->get();
 
+        \Illuminate\Support\Facades\Log::info('Work experiences for user ' . $userId . ':', $workExperiences->toArray());
+
         return response()->json($workExperiences);
     }
 
@@ -457,19 +459,12 @@ class CandidateController extends Controller
             $workExperience = CandidatesWorkExperiences::create($validated);
 
             // Return JSON response for AJAX requests
-            if ($request->expectsJson() || $request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Data berhasil disimpan!',
-                    'data' => $workExperience,
-                ], 201);
-            }
-
-            // Return redirect for Inertia requests
-            return back()->with('flash', [
-                'type' => 'success',
-                'message' => 'Data pengalaman kerja berhasil disimpan!'
-            ]);
+            // Always return JSON for work experience operations
+            return response()->json([
+                'success' => true,
+                'message' => 'Data berhasil disimpan!',
+                'data' => $workExperience,
+            ], 201);
 
         } catch (ValidationException $e) {
             if ($request->expectsJson() || $request->ajax()) {
@@ -518,20 +513,12 @@ class CandidateController extends Controller
 
             $workExperience->update($validated);
 
-            // Return JSON response for AJAX requests
-            if ($request->expectsJson() || $request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Data berhasil diperbarui!',
-                    'data' => $workExperience,
-                ], 200);
-            }
-
-            // Return redirect for Inertia requests
-            return back()->with('flash', [
-                'type' => 'success',
-                'message' => 'Data pengalaman kerja berhasil diperbarui!'
-            ]);
+            // Always return JSON for work experience operations
+            return response()->json([
+                'success' => true,
+                'message' => 'Data berhasil diperbarui!',
+                'data' => $workExperience,
+            ], 200);
 
         } catch (ValidationException $e) {
             if ($request->expectsJson() || $request->ajax()) {
@@ -569,18 +556,10 @@ class CandidateController extends Controller
 
             $workExperience->delete();
 
-            // Return JSON response for AJAX requests
-            if ($request->expectsJson() || $request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Data berhasil dihapus!',
-                ]);
-            }
-
-            // Return redirect for Inertia requests
-            return back()->with('flash', [
-                'type' => 'success',
-                'message' => 'Data pengalaman kerja berhasil dihapus!'
+            // Always return JSON for work experience operations
+            return response()->json([
+                'success' => true,
+                'message' => 'Data berhasil dihapus!',
             ]);
 
         } catch (\Exception $e) {
@@ -621,6 +600,12 @@ class CandidateController extends Controller
     }
 
     public function indexOrganizations()
+    {
+        $organizations = CandidatesOrganizations::where('user_id', Auth::id())->get();
+        return response()->json($organizations);
+    }
+
+    public function getOrganizations()
     {
         $organizations = CandidatesOrganizations::where('user_id', Auth::id())->get();
         return response()->json($organizations);
@@ -697,6 +682,8 @@ class CandidateController extends Controller
 
     public function updateOrganization(Request $request, $id)
     {
+        \Illuminate\Support\Facades\Log::info('Update organization request data:', $request->all());
+        
         $organization = CandidatesOrganizations::where('id', $id)
             ->where('user_id', Auth::id())
             ->firstOrFail();
@@ -706,13 +693,18 @@ class CandidateController extends Controller
             'position' => 'required|string|max:255',
             'description' => 'required|string|min:10',
             'is_active' => 'required|boolean',
+            'start_month' => 'required|string',
             'start_year' => 'required|integer|min:1900|max:' . date('Y'),
+            'end_month' => 'nullable|string',
             'end_year' => 'nullable|integer|min:1900|max:' . date('Y'),
         ]);
 
         $organization->update($validated);
+        
+        \Illuminate\Support\Facades\Log::info('Organization updated successfully:', $organization->toArray());
 
         return response()->json([
+            'success' => true,
             'message' => 'Data berhasil diperbarui!',
             'data' => $organization,
         ], 200);
@@ -739,6 +731,12 @@ class CandidateController extends Controller
                 'message' => 'Gagal menghapus organisasi'
             ], 500);
         }
+    }
+
+    public function getAchievements()
+    {
+        $achievements = CandidatesAchievements::where('user_id', Auth::id())->get();
+        return response()->json($achievements);
     }
 
     public function storeAchievement(Request $request)
@@ -872,6 +870,7 @@ class CandidateController extends Controller
             $achievement->update($validated);
 
             return response()->json([
+                'success' => true,
                 'message' => 'Data berhasil diperbarui!',
                 'data' => $achievement
             ]);
@@ -934,6 +933,12 @@ class CandidateController extends Controller
         ]);
     }
 
+    public function getSocialMedia()
+    {
+        $socialMedia = CandidatesSocialMedia::where('user_id', Auth::id())->get();
+        return response()->json($socialMedia);
+    }
+
     public function storeSocialMedia(Request $request)
     {
         $validated = $request->validate([
@@ -962,7 +967,7 @@ class CandidateController extends Controller
         $socialMedia->update($validated);
 
         return response()->json([
-            'status' => 'success',
+            'success' => true,
             'message' => 'Social media berhasil diperbarui'
         ]);
     }
@@ -2074,13 +2079,13 @@ public function updateEducation(Request $request, $id)
             ->firstOrFail();
 
         $validated = $request->validate([
-            'education_level_id' => 'required|exists:education_levels,id', // Changed from education_level
-            'faculty' => 'required|string',
+            'education_level_id' => 'required|exists:education_levels,id',
+            'faculty' => 'required|string|max:255',
             'major_id' => 'required|exists:master_majors,id',
-            'institution_name' => 'required|string',
-            'gpa' => 'required|numeric|between:0,4',
-            'year_in' => 'required|integer',
-            'year_out' => 'nullable|integer'
+            'institution_name' => 'required|string|max:255',
+            'gpa' => 'required|numeric|min:0',
+            'year_in' => 'required|integer|min:1900|max:' . date('Y'),
+            'year_out' => 'nullable|integer|min:1900|max:' . (date('Y') + 10)
         ]);
 
         \Illuminate\Support\Facades\Log::info('Validated data for education update:', $validated);
@@ -2123,9 +2128,15 @@ public function updateEducation(Request $request, $id)
         ], 422);
     } catch (\Exception $e) {
         \Illuminate\Support\Facades\Log::error('Error updating education data: ' . $e->getMessage());
+        \Illuminate\Support\Facades\Log::error('Stack trace: ' . $e->getTraceAsString());
         return response()->json([
             'success' => false,
-            'message' => 'Error updating education data: ' . $e->getMessage()
+            'message' => 'Error updating education data: ' . $e->getMessage(),
+            'debug' => [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]
         ], 500);
     }
 }

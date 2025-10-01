@@ -3,6 +3,7 @@ import InputField from '../InputField';
 import SelectField from '../SelectField';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
+import axios from 'axios';
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
@@ -69,35 +70,25 @@ const EditPengalamanKerjaForm: React.FC<EditPengalamanKerjaFormProps> = ({
         setMessage(null);
         setLoading(true);
 
-        router.put(`/candidate/work-experience/${formData.id}`, formData, {
-            onSuccess: (page) => {
-                setMessage({
-                    type: 'success',
-                    text: 'Data berhasil diperbarui!'
-                });
+        const response = await axios.put(`/api/candidate/work-experience/${formData.id}`, formData);
+        if (response.data.success) {
+            setMessage({
+                type: 'success',
+                text: 'Data berhasil diperbarui!'
+            });
 
-                // Scroll to top
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
+            // Scroll to top
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
 
-                // Auto hide after 3 seconds and redirect
-                setTimeout(() => {
-                    setMessage(null);
-                    onUpdate(formData); // Use formData since we have the updated data
-                }, 3000);
-            },
-            onError: (errors) => {
-                console.error('Error updating experience:', errors);
-                setMessage({
-                    type: 'error',
-                    text: 'Terjadi kesalahan saat menyimpan data'
-                });
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            },
-            onFinish: () => setLoading(false)
-        });
+            // Auto hide after 3 seconds and redirect
+            setTimeout(() => {
+                setMessage(null);
+                onUpdate(formData); // Use formData since we have the updated data
+            }, 3000);
+        }
     };
 
     return (

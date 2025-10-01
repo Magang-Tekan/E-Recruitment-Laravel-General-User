@@ -80,6 +80,30 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/api/candidate/education/{id}', [CandidateController::class, 'updateEducation']);
     Route::delete('/api/candidate/education/{id}', [CandidateController::class, 'deleteEducation']);
 
+    // API routes for work experience
+    Route::get('/api/candidate/work-experience', [CandidateController::class, 'getWorkExperiences']);
+    Route::post('/api/candidate/work-experience', [CandidateController::class, 'storeWorkExperience']);
+    Route::put('/api/candidate/work-experience/{id}', [CandidateController::class, 'updateWorkExperience']);
+    Route::delete('/api/candidate/work-experience/{id}', [CandidateController::class, 'deleteWorkExperience']);
+
+    // API routes for organization
+    Route::get('/api/candidate/organization', [CandidateController::class, 'getOrganizations']);
+    Route::post('/api/candidate/organization', [CandidateController::class, 'storeOrganization']);
+    Route::put('/api/candidate/organization/{id}', [CandidateController::class, 'updateOrganization']);
+    Route::delete('/api/candidate/organization/{id}', [CandidateController::class, 'deleteOrganization']);
+
+    // API routes for achievement
+    Route::get('/api/candidate/achievement', [CandidateController::class, 'getAchievements']);
+    Route::post('/api/candidate/achievement', [CandidateController::class, 'storeAchievement']);
+    Route::put('/api/candidate/achievement/{id}', [CandidateController::class, 'updateAchievement']);
+    Route::delete('/api/candidate/achievement/{id}', [CandidateController::class, 'deleteAchievement']);
+
+    // API routes for social media
+    Route::get('/api/candidate/social-media', [CandidateController::class, 'getSocialMedia']);
+    Route::post('/api/candidate/social-media', [CandidateController::class, 'storeSocialMedia']);
+    Route::put('/api/candidate/social-media/{id}', [CandidateController::class, 'updateSocialMedia']);
+    Route::delete('/api/candidate/social-media/{id}', [CandidateController::class, 'deleteSocialMedia']);
+
     // Add this new route for education levels
     Route::get('/api/education-levels', function () {
         try {

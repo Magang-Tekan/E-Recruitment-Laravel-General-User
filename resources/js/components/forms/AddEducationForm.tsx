@@ -41,6 +41,7 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
     onSubmit,
     onBack
 }) => {
+    console.log('🔍 TambahPendidikanForm received formData:', formData);
     const [localFormData, setLocalFormData] = useState<Education>(formData);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,17 +52,25 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
+        console.log('🔍 useEffect triggered with formData:', formData);
+        console.log('🔍 formData type:', typeof formData);
+        console.log('🔍 formData keys:', Object.keys(formData));
+        
         // Ensure all values are strings, not null
-        setLocalFormData({
+        const processedFormData = {
             id: formData.id,
             education_level_id: formData.education_level_id || '', // Ubah dari education_level
+            education_level: formData.education_level || '', // Tambahkan education_level
             faculty: formData.faculty || '',
             major_id: formData.major_id || '',
             institution_name: formData.institution_name || '',
             gpa: formData.gpa || '',
             year_in: formData.year_in || '',
             year_out: formData.year_out || '',
-        });
+        };
+        
+        console.log('🔍 Processed form data:', processedFormData);
+        setLocalFormData(processedFormData);
     }, [formData]);
 
     // Fetch majors from API
@@ -128,11 +137,19 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
         }
 
         if (!localFormData.gpa) {
-            errors.gpa = 'IPK harus diisi';
+            errors.gpa = 'Nilai harus diisi';
         } else {
             const gpaNum = parseFloat(localFormData.gpa);
-            if (isNaN(gpaNum) || gpaNum < 0 || gpaNum > 4) {
-                errors.gpa = 'IPK harus antara 0-4';
+            
+            console.log('🔍 Validating GPA:', { 
+                original: localFormData.gpa, 
+                parsed: gpaNum,
+                isNaN: isNaN(gpaNum),
+                lessThan0: gpaNum < 0
+            });
+            
+            if (isNaN(gpaNum) || gpaNum < 0) {
+                errors.gpa = 'Nilai harus berupa angka positif';
             }
         }
 
@@ -198,7 +215,13 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
         setIsSubmitting(true);
 
         try {
-            console.log('📝 Form data being submitted:', localFormData);
+            // Simpan GPA persis seperti yang diinput user, tanpa konversi apapun
+            console.log(`📝 Storing GPA exactly as user input: ${localFormData.gpa}`);
+
+            // Hapus field yang tidak diperlukan untuk backend
+            const { education_level, ...cleanFormData } = localFormData;
+
+            console.log('📝 Form data being submitted:', cleanFormData);
             await onSubmit(e);
 
             // Langsung kembali tanpa menampilkan pesan success di sini
@@ -218,9 +241,28 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
     };
 
     const hasExistingData = !!formData.id;
+    
+    console.log('🔍 Rendering TambahPendidikanForm with:', {
+        hasExistingData,
+        formData,
+        localFormData,
+        educationLevels: educationLevels.length,
+        majors: majors.length
+    });
 
-    return (
-        <div className="bg-white rounded-lg shadow-sm">
+    // Add error boundary
+    try {
+        // Validate required data
+        if (!formData) {
+            throw new Error('Form data is null or undefined');
+        }
+        
+        if (!localFormData) {
+            throw new Error('Local form data is null or undefined');
+        }
+        
+        return (
+            <div className="bg-white rounded-lg shadow-sm">
             <div className="p-6 border-b">
                 <h2 className="text-2xl font-bold text-blue-600">
                     {hasExistingData ? 'Edit Pendidikan' : 'Tambah Pendidikan'}
@@ -330,17 +372,19 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
 
                     <div>
                         <InputField
-                            label="IPK/Nilai"
+                            label="Nilai/IPK"
                             name="gpa"
                             type="number"
                             step="0.01"
                             min="0"
-                            max="4"
                             value={localFormData.gpa}
                             onChange={handleChange}
                             required
-                            placeholder="Contoh: 3.75"
+                            placeholder="Contoh: 3.75 atau 85.99"
                         />
+                        <p className="text-gray-500 text-xs mt-1">
+                            💡 Nilai akan disimpan persis seperti yang Anda input, tanpa konversi apapun
+                        </p>
                         {validationErrors.gpa && (
                             <p className="text-red-500 text-sm mt-1">{validationErrors.gpa}</p>
                         )}
@@ -410,6 +454,23 @@ const TambahPendidikanForm: React.FC<TambahPendidikanFormProps> = ({
             </form>
         </div>
     );
+    } catch (error) {
+        console.error('❌ Error in TambahPendidikanForm:', error);
+        return (
+            <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+                    <p className="text-gray-600 mb-4">Terjadi kesalahan saat memuat form pendidikan.</p>
+                    <button
+                        onClick={onBack}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                        Kembali
+                    </button>
+                </div>
+            </div>
+        );
+    }
 };
 
 export default TambahPendidikanForm;

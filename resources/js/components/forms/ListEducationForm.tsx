@@ -102,6 +102,14 @@ const ListEducationForm: React.FC = () => {
         const formData = new FormData(e.currentTarget);
         const data = Object.fromEntries(formData);
 
+        // Simpan GPA persis seperti yang diinput user, tanpa konversi apapun
+        console.log(`📝 Storing GPA exactly as user input: ${data.gpa}`);
+
+        // Hapus field yang tidak diperlukan untuk backend
+        delete data.education_level;
+
+        console.log('📝 Data being sent to backend:', data);
+
         try {
             if (editingId) {
                 const response = await axios.put(`/api/candidate/education/${editingId}`, data);
@@ -168,30 +176,39 @@ const ListEducationForm: React.FC = () => {
     }
 
     if (isAdding || editingId) {
+        const editData = editingId ? educations.find(edu => edu.id === editingId) : null;
+        console.log('🔍 Edit data found:', editData);
+        console.log('🔍 All educations:', educations);
+        console.log('🔍 Editing ID:', editingId);
+        
+        // Ensure editData has all required fields
+        const formDataForEdit = editingId ? {
+            id: editData?.id || undefined,
+            education_level_id: editData?.education_level_id || '',
+            education_level: editData?.education_level || '',
+            faculty: editData?.faculty || '',
+            major_id: editData?.major_id || '',
+            major: editData?.major || '',
+            institution_name: editData?.institution_name || '',
+            gpa: editData?.gpa || '',
+            year_in: editData?.year_in || '',
+            year_out: editData?.year_out || ''
+        } : {
+            education_level_id: '',
+            education_level: '',
+            faculty: '',
+            major_id: '',
+            institution_name: '',
+            gpa: '',
+            year_in: '',
+            year_out: ''
+        };
+
+        console.log('🔍 Form data for edit:', formDataForEdit);
+
         return (
             <TambahPendidikanForm
-                formData={editingId
-                    ? educations.find(edu => edu.id === editingId) || {
-                        education_level_id: '', // Add this field
-                        education_level: '',
-                        faculty: '',
-                        major_id: '',
-                        institution_name: '',
-                        gpa: '',
-                        year_in: '',
-                        year_out: ''
-                    }
-                    : {
-                        education_level_id: '', // Add this field
-                        education_level: '',
-                        faculty: '',
-                        major_id: '',
-                        institution_name: '',
-                        gpa: '',
-                        year_in: '',
-                        year_out: ''
-                    }
-                }
+                formData={formDataForEdit}
                 onSubmit={handleSubmit}
                 onChange={() => {}}
                 onBack={() => {
@@ -211,6 +228,11 @@ const ListEducationForm: React.FC = () => {
             <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">Pendidikan</h2>
+                </div>
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-700">
+                        💡 <strong>Info:</strong> Nilai akan disimpan persis seperti yang Anda input, tanpa konversi apapun
+                    </p>
                 </div>
             </div>
 
@@ -241,7 +263,7 @@ const ListEducationForm: React.FC = () => {
                 <p className="text-gray-900">{education.institution_name}</p>
             </div>
             <div>
-                <p className="text-blue-700 font-medium">IPK</p>
+                <p className="text-blue-700 font-medium">Nilai/IPK</p>
                 <p className="text-gray-900">{education.gpa}</p>
             </div>
             <div>

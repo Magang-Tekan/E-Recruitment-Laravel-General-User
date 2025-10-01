@@ -300,35 +300,21 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            // Use router.delete()
-            router.delete(`/candidate/skills/${id}`, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            skills: prev.skills.filter(skill => skill.id !== id)
-                        }));
-                        setMessage({
-                            type: 'success',
-                            text: 'Skill berhasil dihapus!'
-                        });
+            const response = await axios.delete(`/api/candidate/skills/${id}`);
+            if (response.data.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    skills: prev.skills.filter(skill => skill.id !== id)
+                }));
+                setMessage({
+                    type: 'success',
+                    text: 'Skill berhasil dihapus!'
+                });
 
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting skill:', error);
-                    setMessage({
-                        type: 'error',
-                        text: error?.message || 'Gagal menghapus skill'
-                    });
-                },
-                onFinish: () => {
-                    setLoading(false);
-                }
-            });
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error: any) {
             console.error('Error deleting skill:', error);
             setMessage({
@@ -474,34 +460,21 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            router.delete(`/candidate/courses/${id}`, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            kursus: prev.kursus.filter(course => course.id !== id)
-                        }));
-                        setMessage({
-                            type: 'success',
-                            text: 'Kursus berhasil dihapus!'
-                        });
+            const response = await axios.delete(`/api/candidate/courses/${id}`);
+            if (response.data.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    kursus: prev.kursus.filter(course => course.id !== id)
+                }));
+                setMessage({
+                    type: 'success',
+                    text: 'Kursus berhasil dihapus!'
+                });
 
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting course:', error);
-                    setMessage({
-                        type: 'error',
-                        text: error?.message || 'Gagal menghapus kursus'
-                    });
-                },
-                onFinish: () => {
-                    setLoading(false);
-                }
-            });
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error: any) {
             console.error('Error deleting course:', error);
             setMessage({
@@ -641,34 +614,21 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            router.delete(`/candidate/certifications/${id}`, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            sertifikasi: prev.sertifikasi.filter(cert => cert.id !== id)
-                        }));
-                        setMessage({
-                            type: 'success',
-                            text: 'Sertifikasi berhasil dihapus!'
-                        });
+            const response = await axios.delete(`/api/candidate/certifications/${id}`);
+            if (response.data.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    sertifikasi: prev.sertifikasi.filter(cert => cert.id !== id)
+                }));
+                setMessage({
+                    type: 'success',
+                    text: 'Sertifikasi berhasil dihapus!'
+                });
 
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting certification:', error);
-                    setMessage({
-                        type: 'error',
-                        text: error?.message || 'Gagal menghapus sertifikasi'
-                    });
-                },
-                onFinish: () => {
-                    setLoading(false);
-                }
-            });
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error: any) {
             console.error('Error deleting certification:', error);
             setMessage({
@@ -808,34 +768,21 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            router.delete(`/candidate/languages/${id}`, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            bahasa: prev.bahasa.filter(lang => lang.id !== id)
-                        }));
-                        setMessage({
-                            type: 'success',
-                            text: 'Bahasa berhasil dihapus!'
-                        });
+            const response = await axios.delete(`/api/candidate/languages/${id}`);
+            if (response.data.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    bahasa: prev.bahasa.filter(lang => lang.id !== id)
+                }));
+                setMessage({
+                    type: 'success',
+                    text: 'Bahasa berhasil dihapus!'
+                });
 
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting language:', error);
-                    setMessage({
-                        type: 'error',
-                        text: error?.message || 'Gagal menghapus bahasa'
-                    });
-                },
-                onFinish: () => {
-                    setLoading(false);
-                }
-            });
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error: any) {
             console.error('Error deleting language:', error);
             setMessage({

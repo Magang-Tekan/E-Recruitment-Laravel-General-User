@@ -90,35 +90,22 @@ const PrestasiListForm: React.FC<PrestasiListFormProps> = ({ onAdd, onEdit }) =>
 
         try {
             // Use router.delete() with onSuccess and onError callbacks
-            router.delete(`/candidate/achievement/${id}`, {
-                onSuccess: () => {
-                    // Update local state to remove deleted item
-                    setAchievements(achievements.filter(achievement => achievement.id !== id));
-                    
-                    // Show success message
-                    setMessage({
-                        type: 'success',
-                        text: 'Prestasi berhasil dihapus!'
-                    });
+            const response = await axios.delete(`/api/candidate/achievement/${id}`);
+            if (response.data.success) {
+                // Update local state to remove deleted item
+                setAchievements(achievements.filter(achievement => achievement.id !== id));
+                
+                // Show success message
+                setMessage({
+                    type: 'success',
+                    text: 'Prestasi berhasil dihapus!'
+                });
 
-                    // Clear message after 3 seconds
-                    setTimeout(() => {
-                        setMessage(null);
-                    }, 3000);
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting achievement:', error);
-                    setMessage({
-                        type: 'error',
-                        text: 'Gagal menghapus prestasi'
-                    });
-
-                    // Clear error message after 3 seconds
-                    setTimeout(() => {
-                        setMessage(null);
-                    }, 3000);
-                }
-            });
+                // Clear message after 3 seconds
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
 
         } catch (error) {
             console.error('Error deleting achievement:', error);

@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import SelectField from '../SelectField';
 import InputField from '../InputField';
+import axios from 'axios';
 
 // Add Alert component to match the one in SocialMediaList.tsx
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
@@ -69,48 +70,34 @@ const TambahSocialMediaForm: React.FC<TambahSocialMediaFormProps> = ({
 
         if (initialData?.id) {
             // Update existing social media
-            router.put(endpoint, formData, {
-                onSuccess: () => {
-                    setMessage({
-                        type: 'success',
-                        text: 'Social media berhasil diperbarui!'
-                    });
+            const response = await axios.put(endpoint, formData);
+            if (response.data.success) {
+                setMessage({
+                    type: 'success',
+                    text: 'Social media berhasil diperbarui!'
+                });
 
-                    setTimeout(() => {
-                        setMessage(null); // Clear the message after 3 seconds
-                        onSuccess(); // Notify parent component of success
-                    }, 3000);
-                },
-                onError: (errors: any) => {
-                    setMessage({
-                        type: 'error',
-                        text: errors.message || 'Terjadi kesalahan saat menyimpan data'
-                    });
-                },
-                onFinish: () => setLoading(false)
-            });
+                setTimeout(() => {
+                    setMessage(null); // Clear the message after 3 seconds
+                    onSuccess(); // Notify parent component of success
+                }, 3000);
+            }
+            setLoading(false);
         } else {
             // Create new social media
-            router.post(endpoint, formData, {
-                onSuccess: () => {
-                    setMessage({
-                        type: 'success',
-                        text: 'Social media berhasil ditambahkan!'
-                    });
+            const response = await axios.post(endpoint, formData);
+            if (response.data.success) {
+                setMessage({
+                    type: 'success',
+                    text: 'Social media berhasil ditambahkan!'
+                });
 
-                    setTimeout(() => {
-                        setMessage(null); // Clear the message after 3 seconds
-                        onSuccess(); // Notify parent component of success
-                    }, 3000);
-                },
-                onError: (errors: any) => {
-                    setMessage({
-                        type: 'error',
-                        text: errors.message || 'Terjadi kesalahan saat menyimpan data'
-                    });
-                },
-                onFinish: () => setLoading(false)
-            });
+                setTimeout(() => {
+                    setMessage(null); // Clear the message after 3 seconds
+                    onSuccess(); // Notify parent component of success
+                }, 3000);
+            }
+            setLoading(false);
         }
     };
 

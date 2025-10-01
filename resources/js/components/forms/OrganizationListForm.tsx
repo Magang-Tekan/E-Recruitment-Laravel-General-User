@@ -47,14 +47,16 @@ interface OrganisasiListFormProps {
     onRefreshComplete?: () => void;
 }
 
-const OrganisasiListForm: React.FC<OrganisasiListFormProps> = ({ onAdd, onEdit }) => {
+const OrganisasiListForm: React.FC<OrganisasiListFormProps> = ({ onAdd, onEdit, refresh, onRefreshComplete }) => {
     const [organizations, setOrganizations] = useState<OrganisasiData[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const fetchOrganizations = async () => {
         try {
+            console.log('Fetching organizations...');
             const response = await axios.get('/candidate/organizations');
+            console.log('Fetched organizations:', response.data);
             setOrganizations(response.data || []);
             setLoading(false);
         } catch (error) {
@@ -67,29 +69,31 @@ const OrganisasiListForm: React.FC<OrganisasiListFormProps> = ({ onAdd, onEdit }
         fetchOrganizations();
     }, []);
 
-    const handleDelete = async (id: number) => {
-        router.delete(`/candidate/organization/${id}`, {
-            onSuccess: () => {
-                // Refresh data setelah delete
-                fetchOrganizations();
-                setMessage({
-                    type: 'success',
-                    text: 'Data organisasi berhasil dihapus!'
-                });
-
-                // Clear message after 3 seconds
-                setTimeout(() => {
-                    setMessage(null);
-                }, 3000);
-            },
-            onError: (errors) => {
-                console.error('Error deleting organization:', errors);
-                setMessage({
-                    type: 'error',
-                    text: 'Gagal menghapus data organisasi'
-                });
+    useEffect(() => {
+        if (refresh) {
+            console.log('Refresh triggered, fetching organizations...');
+            fetchOrganizations();
+            if (onRefreshComplete) {
+                onRefreshComplete();
             }
-        });
+        }
+    }, [refresh]);
+
+    const handleDelete = async (id: number) => {
+        const response = await axios.delete(`/api/candidate/organization/${id}`);
+        if (response.data.success) {
+            // Refresh data setelah delete
+            fetchOrganizations();
+            setMessage({
+                type: 'success',
+                text: 'Data organisasi berhasil dihapus!'
+            });
+
+            // Clear message after 3 seconds
+            setTimeout(() => {
+                setMessage(null);
+            }, 3000);
+        }
     };
 
     const getMonthName = (month: string | null): string => {
