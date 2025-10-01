@@ -21,6 +21,9 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "."
           target: "/var/www/e-recruitment"
+          rm: true
+          strip_components: 1
+          exclude: ".git,.github,.env"
 
       - name: Deploy Laravel app
         uses: appleboy/ssh-action@v1.0.3
@@ -31,14 +34,18 @@ jobs:
           script: |
             cd /var/www/e-recruitment
             
+            # Clear all caches first to ensure fresh deployment
+            php artisan cache:clear
+            php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear
+            php artisan optimize:clear
+            
+            # Remove compiled views to force recompilation
+            rm -rf storage/framework/views/*
+            
             # Install/update Composer dependencies
             composer install --no-dev --optimize-autoloader
-            
-            # Run Laravel optimization commands
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan optimize
             
             # Set proper permissions for Laravel
             chown -R www-data:www-data storage bootstrap/cache
@@ -52,6 +59,12 @@ jobs:
             systemctl restart nginx
             systemctl restart php8.3-fpm
             
-            # Clear any existing caches
-            php artisan cache:clear
-            php artisan config:clear
+            # Now create optimized caches after restart
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan optimize
+            
+            # Final verification
+            php artisan --version
+            echo "Deployment completed successfully!"
