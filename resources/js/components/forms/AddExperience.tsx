@@ -2,6 +2,7 @@ import React, { ChangeEvent, FormEvent, useState } from 'react';
 import InputField from '../InputField';
 import SelectField from '../SelectField';
 import { Head, Link, useForm, router } from '@inertiajs/react';
+import axios from 'axios';
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
@@ -68,7 +69,8 @@ const TambahPengalamanForm: React.FC<TambahPengalamanFormProps> = ({
 
         setFormData((prev) => ({
             ...prev,
-            [name]: name === 'bulanMasuk' || name === 'bulanKeluar' ? (value ? parseInt(value) : null) : value,
+            [name]: name === 'bulanMasuk' || name === 'bulanKeluar' ? (value ? parseInt(value) : null) : 
+                   name === 'tahunMasuk' || name === 'tahunKeluar' ? value.toString() : value,
         }));
 
         setErrors((prev) => ({
@@ -101,11 +103,11 @@ const TambahPengalamanForm: React.FC<TambahPengalamanFormProps> = ({
             newErrors.tahunMasuk = 'Tahun masuk wajib dipilih.';
         }
 
-        if (!formData.isCurrentJob && formData.bulanKeluar === null) {
+        if (!formData.isCurrentJob && (formData.bulanKeluar === null || formData.bulanKeluar === undefined)) {
             newErrors.bulanKeluar = 'Bulan keluar wajib dipilih jika Anda tidak sedang bekerja di tempat ini.';
         }
 
-        if (!formData.isCurrentJob && !formData.tahunKeluar.trim()) {
+        if (!formData.isCurrentJob && (!formData.tahunKeluar || formData.tahunKeluar.trim() === '')) {
             newErrors.tahunKeluar = 'Tahun keluar wajib dipilih jika Anda tidak sedang bekerja di tempat ini.';
         }
 
@@ -136,71 +138,47 @@ const TambahPengalamanForm: React.FC<TambahPengalamanFormProps> = ({
             };
 
             if (experienceData?.id) {
-                // Use router.put() for updates
-                router.put(`/candidate/work-experience/${experienceData.id}`, payload, {
-                    onSuccess: (page: any) => {
-                        setMessage({
-                            type: 'success',
-                            text: 'Data berhasil diperbarui!'
-                        });
+                // Use axios for updates
+                const response = await axios.put(`/api/candidate/work-experience/${experienceData.id}`, payload);
+                if (response.data.success) {
+                    setMessage({
+                        type: 'success',
+                        text: 'Data berhasil diperbarui!'
+                    });
 
-                        // Scroll to top
-                        window.scrollTo({
-                            top: 0,
-                            behavior: 'smooth'
-                        });
+                    // Scroll to top
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
 
-                        // Auto hide after 3 seconds and redirect
-                        setTimeout(() => {
-                            setMessage(null);
-                            onSubmit(payload);
-                        }, 3000);
-                    },
-                    onError: (error: any) => {
-                        console.error('Error:', error);
-                        setMessage({
-                            type: 'error',
-                            text: 'Terjadi kesalahan saat memperbarui data'
-                        });
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
-                });
+                    // Auto hide after 3 seconds and redirect
+                    setTimeout(() => {
+                        setMessage(null);
+                        onSubmit(response.data.data); // Use server response data with ID
+                    }, 3000);
+                }
             } else {
-                // Use router.post() for new entries
-                router.post('/candidate/work-experience', payload, {
-                    onSuccess: (page: any) => {
-                        setMessage({
-                            type: 'success',
-                            text: 'Data berhasil disimpan!'
-                        });
+                // Use axios for new entries
+                const response = await axios.post('/api/candidate/work-experience', payload);
+                if (response.data.success) {
+                    setMessage({
+                        type: 'success',
+                        text: 'Data berhasil disimpan!'
+                    });
 
-                        // Scroll to top
-                        window.scrollTo({
-                            top: 0,
-                            behavior: 'smooth'
-                        });
+                    // Scroll to top
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
 
-                        // Auto hide after 3 seconds and redirect
-                        setTimeout(() => {
-                            setMessage(null);
-                            onSubmit(payload);
-                        }, 3000);
-                    },
-                    onError: (error: any) => {
-                        console.error('Error:', error);
-                        setMessage({
-                            type: 'error',
-                            text: 'Terjadi kesalahan saat menyimpan data'
-                        });
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
-                });
+                    // Auto hide after 3 seconds and redirect
+                    setTimeout(() => {
+                        setMessage(null);
+                        onSubmit(response.data.data); // Use server response data with ID
+                    }, 3000);
+                }
             }
         } catch (err: any) {
             console.error('Client-side error:', err);

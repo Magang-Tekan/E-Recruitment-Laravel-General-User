@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import SelectField from '../SelectField';
 import InputField from '../InputField';
+import axios from 'axios';
 
 // Add Alert component to match the one in SocialMediaList.tsx
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
@@ -63,14 +64,34 @@ const TambahSocialMediaForm: React.FC<TambahSocialMediaFormProps> = ({
         setLoading(true);
         setMessage(null);
 
+        // Basic client-side validation
+        if (!formData.platform_name) {
+            setMessage({
+                type: 'error',
+                text: 'Tipe social media harus dipilih'
+            });
+            setLoading(false);
+            return;
+        }
+
+        if (!formData.url) {
+            setMessage({
+                type: 'error',
+                text: 'Link social media harus diisi'
+            });
+            setLoading(false);
+            return;
+        }
+
         const endpoint = initialData?.id
             ? `/candidate/social-media/${initialData.id}` // Update if editing
             : '/candidate/social-media'; // Create if adding
 
-        if (initialData?.id) {
-            // Update existing social media
-            router.put(endpoint, formData, {
-                onSuccess: () => {
+        try {
+            if (initialData?.id) {
+                // Update existing social media
+                const response = await axios.put(endpoint, formData);
+                if (response.data.success) {
                     setMessage({
                         type: 'success',
                         text: 'Social media berhasil diperbarui!'
@@ -80,19 +101,16 @@ const TambahSocialMediaForm: React.FC<TambahSocialMediaFormProps> = ({
                         setMessage(null); // Clear the message after 3 seconds
                         onSuccess(); // Notify parent component of success
                     }, 3000);
-                },
-                onError: (errors: any) => {
+                } else {
                     setMessage({
                         type: 'error',
-                        text: errors.message || 'Terjadi kesalahan saat menyimpan data'
+                        text: response.data.message || 'Gagal memperbarui social media'
                     });
-                },
-                onFinish: () => setLoading(false)
-            });
-        } else {
-            // Create new social media
-            router.post(endpoint, formData, {
-                onSuccess: () => {
+                }
+            } else {
+                // Create new social media
+                const response = await axios.post(endpoint, formData);
+                if (response.data.success) {
                     setMessage({
                         type: 'success',
                         text: 'Social media berhasil ditambahkan!'
@@ -102,15 +120,21 @@ const TambahSocialMediaForm: React.FC<TambahSocialMediaFormProps> = ({
                         setMessage(null); // Clear the message after 3 seconds
                         onSuccess(); // Notify parent component of success
                     }, 3000);
-                },
-                onError: (errors: any) => {
+                } else {
                     setMessage({
                         type: 'error',
-                        text: errors.message || 'Terjadi kesalahan saat menyimpan data'
+                        text: response.data.message || 'Gagal menambahkan social media'
                     });
-                },
-                onFinish: () => setLoading(false)
+                }
+            }
+        } catch (error: any) {
+            console.error('Error submitting social media:', error);
+            setMessage({
+                type: 'error',
+                text: error.response?.data?.message || 'Terjadi kesalahan saat menyimpan data'
             });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -150,7 +174,8 @@ const TambahSocialMediaForm: React.FC<TambahSocialMediaFormProps> = ({
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
                         setFormData({ ...formData, url: e.target.value })
                     }
-                    placeholder="Masukkan link social media (contoh: https://...)"
+                    placeholder="Masukkan link social media (contoh: https://github.com/username atau /page-settings/home)"
+                    type="url"
                 />
 
                 <div className="flex justify-between pt-4">

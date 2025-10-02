@@ -53,7 +53,7 @@ export default function NotFound({ error = 'Page Not Found', message = null }) {
 
                     {/* Action buttons */}
                     <div className="flex flex-col space-y-3 sm:flex-row sm:justify-center sm:space-y-0 sm:space-x-3">
-                        <Button variant="outline" onClick={() => router.visit('/')} className="w-full sm:w-auto">
+                        <Button variant="outline" onClick={() => window.history.back()} className="w-full sm:w-auto">
                             Go to Homepage
                         </Button>
                     </div>

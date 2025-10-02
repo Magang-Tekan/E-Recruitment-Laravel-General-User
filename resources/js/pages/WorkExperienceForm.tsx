@@ -59,7 +59,8 @@ const PengalamanKerjaForm: React.FC = () => {
     useEffect(() => {
         const fetchWorkExperiences = async () => {
             try {
-                const response = await axios.get('/candidate/work-experiences');
+                const response = await axios.get('/api/candidate/work-experience');
+                console.log('Fetched work experiences:', response.data);
                 setWorkExperiences(response.data || []);
             } catch (error) {
                 console.error('Error fetching work experiences:', error);
@@ -99,40 +100,37 @@ const PengalamanKerjaForm: React.FC = () => {
     };
 
     const handleDelete = async (id: number) => {
+        console.log('Attempting to delete work experience with ID:', id);
+        
+        if (!id || id === undefined) {
+            console.error('Invalid ID provided for deletion:', id);
+            setMessage({
+                type: 'error',
+                text: 'ID tidak valid untuk menghapus data'
+            });
+            return;
+        }
+
         if (!confirm('Apakah Anda yakin ingin menghapus pengalaman kerja ini?')) {
             return;
         }
 
         try {
-            // Gunakan router.delete() dari Inertia.js
-            router.delete(`/candidate/work-experience/${id}`, {
-                onSuccess: () => {
-                    setWorkExperiences((prev) => prev.filter((exp) => exp.id !== id));
-                    
-                    // Show success message
-                    setMessage({
-                        type: 'success',
-                        text: 'Data pengalaman kerja berhasil dihapus!'
-                    });
+            const response = await axios.delete(`/api/candidate/work-experience/${id}`);
+            if (response.data.success) {
+                setWorkExperiences((prev) => prev.filter((exp) => exp.id !== id));
+                
+                // Show success message
+                setMessage({
+                    type: 'success',
+                    text: 'Data pengalaman kerja berhasil dihapus!'
+                });
 
-                    // Clear message after 3 seconds
-                    setTimeout(() => {
-                        setMessage(null);
-                    }, 3000);
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting work experience:', error);
-                    setMessage({
-                        type: 'error',
-                        text: 'Gagal menghapus data pengalaman kerja'
-                    });
-
-                    // Clear error message after 3 seconds
-                    setTimeout(() => {
-                        setMessage(null);
-                    }, 3000);
-                }
-            });
+                // Clear message after 3 seconds
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error) {
             console.error('Error deleting work experience:', error);
             setMessage({

@@ -54,7 +54,7 @@ const SocialMediaList: React.FC<SocialMediaListProps> = ({ onAdd, onEdit, onSucc
     const fetchSocialMedias = async () => {
         try {
             const response = await axios.get('/candidate/social-media');
-            if (response.data?.status === 'success') {
+            if (response.data?.success) {
                 setSocialMedias(response.data.data || []);
             }
             setLoading(false);
@@ -80,7 +80,7 @@ const SocialMediaList: React.FC<SocialMediaListProps> = ({ onAdd, onEdit, onSucc
     const refreshList = async () => {
         try {
             const response = await axios.get('/candidate/social-media');
-            if (response.data?.status === 'success') {
+            if (response.data?.success) {
                 setSocialMedias(response.data.data || []);
                 setLoading(false);
             }
@@ -106,7 +106,7 @@ const SocialMediaList: React.FC<SocialMediaListProps> = ({ onAdd, onEdit, onSucc
 
         try {
             const response = await axios.delete(`/candidate/social-media/${id}`);
-            if (response.data?.status === 'success') {
+            if (response.data?.success) {
                 setSocialMedias(prev => prev.filter(item => item.id !== id));
                 showNotification('success', 'Social media berhasil dihapus!');
                 refreshList();

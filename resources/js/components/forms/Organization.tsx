@@ -30,6 +30,7 @@ const OrganisasiForm: React.FC = () => {
     };
 
     const handleBack = () => {
+        console.log('handleBack called, setting shouldRefresh to true');
         setIsAdding(false);
         setSelectedOrganization(null);
         setShouldRefresh(true);
