@@ -2,6 +2,7 @@ import React, { ChangeEvent, FormEvent, useState, useEffect } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import InputField from '../InputField';
 import SelectField from '../SelectField';
+import axios from 'axios';
 
 interface OrganisasiData {
     id?: number;
@@ -139,73 +140,45 @@ const TambahOrganisasiForm: React.FC<TambahOrganisasiFormProps> = ({
             console.log('Submitting data:', submitData); // Debug log
 
             if (organizationData?.id) {
-                // Use router.put() for updates
-                router.put(`/candidate/organization/${organizationData.id}`, submitData, {
-                    onSuccess: (page: any) => {
-                        console.log('Response:', page.props); // Debug log
-                        
-                        setMessage({
-                            type: 'success',
-                            text: 'Data berhasil diperbarui!'
-                        });
+                // Use axios for updates
+                const response = await axios.put(`/api/candidate/organization/${organizationData.id}`, submitData);
+                if (response.data.success) {
+                    setMessage({
+                        type: 'success',
+                        text: 'Data berhasil diperbarui!'
+                    });
 
-                        window.scrollTo({
-                            top: 0,
-                            behavior: 'smooth'
-                        });
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
 
-                        setTimeout(() => {
-                            setMessage(null);
-                            onSuccess();
-                        }, 3000);
-                    },
-                    onError: (error: any) => {
-                        console.error('Error updating organization:', error);
-                        const errorMessage = error?.message || 'Terjadi kesalahan saat memperbarui data';
-                        setMessage({
-                            type: 'error',
-                            text: errorMessage
-                        });
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
-                });
+                    setTimeout(() => {
+                        setMessage(null);
+                        onSuccess();
+                    }, 3000);
+                }
+                setLoading(false);
             } else {
-                // Use router.post() for new entries
-                router.post('/candidate/organization', submitData, {
-                    onSuccess: (page: any) => {
-                        console.log('Response:', page.props); // Debug log
-                        
-                        setMessage({
-                            type: 'success',
-                            text: 'Data berhasil disimpan!'
-                        });
+                // Use axios for new entries
+                const response = await axios.post('/api/candidate/organization', submitData);
+                if (response.data.success) {
+                    setMessage({
+                        type: 'success',
+                        text: 'Data berhasil disimpan!'
+                    });
 
-                        window.scrollTo({
-                            top: 0,
-                            behavior: 'smooth'
-                        });
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
 
-                        setTimeout(() => {
-                            setMessage(null);
-                            onSuccess();
-                        }, 3000);
-                    },
-                    onError: (error: any) => {
-                        console.error('Error saving organization:', error);
-                        const errorMessage = error?.message || 'Terjadi kesalahan saat menyimpan data';
-                        setMessage({
-                            type: 'error',
-                            text: errorMessage
-                        });
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
-                });
+                    setTimeout(() => {
+                        setMessage(null);
+                        onSuccess();
+                    }, 3000);
+                }
+                setLoading(false);
             }
 
         } catch (error: any) {

@@ -133,6 +133,7 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
+        
         setState(prev => ({
             ...prev,
             formData: {
@@ -177,6 +178,7 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
     const handleSkillSubmit = async () => {
         const skillData = state.formData.skills;
+        
         if (!skillData?.name) {
             setMessage({
                 type: 'error',
@@ -196,97 +198,81 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
         try {
             if (state.editingId) {
-                // Update existing skill using router.put()
-                router.put(`/candidate/skills/${state.editingId}`, formData, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success) {
-                            // Update existing skill in saved data
-                            setSavedData(prev => ({
-                                ...prev,
-                                skills: prev.skills.map(skill => 
-                                    skill.id === state.editingId ? page.props.data : skill
-                                )
-                            }));
-                            setMessage({
-                                type: 'success',
-                                text: 'Skill berhasil diupdate!'
-                            });
-
-                            // Reset form and go back
-                            setState(prev => ({
-                                ...prev,
-                                activeForm: null,
-                                editingId: null,
-                                formData: {
-                                    ...prev.formData,
-                                    skills: { name: '', file: null }
-                                }
-                            }));
-
-                            setTimeout(() => {
-                                setMessage(null);
-                            }, 3000);
-                        }
+                // For update, use POST with _method field (Laravel method spoofing)
+                formData.append('_method', 'PUT');
+                
+                const response = await axios.post(`/candidate/skills/${state.editingId}`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
                     },
-                    onError: (error: any) => {
-                        console.error('Error updating skill:', error);
-                        setMessage({
-                            type: 'error',
-                            text: error?.message || 'Gagal mengupdate skill'
-                        });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
                 });
+                if (response.data.success) {
+                    // Update existing skill in saved data
+                    setSavedData(prev => ({
+                        ...prev,
+                        skills: prev.skills.map(skill => 
+                            skill.id === state.editingId ? response.data.data : skill
+                        )
+                    }));
+                    setMessage({
+                        type: 'success',
+                        text: 'Skill berhasil diupdate!'
+                    });
+
+                    // Reset form and go back
+                    setState(prev => ({
+                        ...prev,
+                        activeForm: null,
+                        editingId: null,
+                        formData: {
+                            ...prev.formData,
+                            skills: { name: '', file: null }
+                        }
+                    }));
+
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             } else {
-                // Create new skill using router.post()
-                router.post('/candidate/skills', formData, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success) {
-                            // Add new skill to saved data
-                            setSavedData(prev => ({
-                                ...prev,
-                                skills: [...prev.skills, page.props.data]
-                            }));
-                            setMessage({
-                                type: 'success',
-                                text: 'Skill berhasil disimpan!'
-                            });
-
-                            // Reset form and go back
-                            setState(prev => ({
-                                ...prev,
-                                activeForm: null,
-                                editingId: null,
-                                formData: {
-                                    ...prev.formData,
-                                    skills: { name: '', file: null }
-                                }
-                            }));
-
-                            setTimeout(() => {
-                                setMessage(null);
-                            }, 3000);
-                        }
+                // Create new skill using axios
+                const response = await axios.post('/candidate/skills', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
                     },
-                    onError: (error: any) => {
-                        console.error('Error saving skill:', error);
-                        setMessage({
-                            type: 'error',
-                            text: error?.message || 'Gagal menyimpan skill'
-                        });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
                 });
+                if (response.data.success) {
+                    // Add new skill to saved data
+                    setSavedData(prev => ({
+                        ...prev,
+                        skills: [...prev.skills, response.data.data]
+                    }));
+                    setMessage({
+                        type: 'success',
+                        text: 'Skill berhasil disimpan!'
+                    });
+
+                    // Reset form and go back
+                    setState(prev => ({
+                        ...prev,
+                        activeForm: null,
+                        editingId: null,
+                        formData: {
+                            ...prev.formData,
+                            skills: { name: '', file: null }
+                        }
+                    }));
+
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             }
         } catch (error: any) {
             console.error('Error saving skill:', error);
             setMessage({
                 type: 'error',
-                text: 'Gagal menyimpan skill'
+                text: error?.response?.data?.message || 'Gagal menyimpan skill'
             });
             setLoading(false);
         }
@@ -300,40 +286,26 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            // Use router.delete()
-            router.delete(`/candidate/skills/${id}`, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            skills: prev.skills.filter(skill => skill.id !== id)
-                        }));
-                        setMessage({
-                            type: 'success',
-                            text: 'Skill berhasil dihapus!'
-                        });
+            const response = await axios.delete(`/candidate/skills/${id}`);
+            if (response.data.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    skills: prev.skills.filter(skill => skill.id !== id)
+                }));
+                setMessage({
+                    type: 'success',
+                    text: 'Skill berhasil dihapus!'
+                });
 
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting skill:', error);
-                    setMessage({
-                        type: 'error',
-                        text: error?.message || 'Gagal menghapus skill'
-                    });
-                },
-                onFinish: () => {
-                    setLoading(false);
-                }
-            });
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error: any) {
             console.error('Error deleting skill:', error);
             setMessage({
                 type: 'error',
-                text: 'Gagal menghapus skill'
+                text: error?.response?.data?.message || 'Gagal menghapus skill'
             });
             setLoading(false);
         }
@@ -376,91 +348,76 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
         try {
             if (state.editingId) {
-                router.put(`/candidate/courses/${state.editingId}`, formData, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success) {
-                            setSavedData(prev => ({
-                                ...prev,
-                                kursus: prev.kursus.map(course => 
-                                    course.id === state.editingId ? page.props.data : course
-                                )
-                            }));
-                            setMessage({
-                                type: 'success',
-                                text: 'Kursus berhasil diupdate!'
-                            });
-
-                            setState(prev => ({
-                                ...prev,
-                                activeForm: null,
-                                editingId: null,
-                                formData: {
-                                    ...prev.formData,
-                                    kursus: { name: '', file: null }
-                                }
-                            }));
-
-                            setTimeout(() => {
-                                setMessage(null);
-                            }, 3000);
-                        }
+                // Update existing course using method spoofing
+                formData.append('_method', 'PUT');
+                const response = await axios.post(`/candidate/courses/${state.editingId}`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
                     },
-                    onError: (error: any) => {
-                        console.error('Error updating course:', error);
-                        setMessage({
-                            type: 'error',
-                            text: error?.message || 'Gagal mengupdate kursus'
-                        });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
                 });
+                if (response.data.success) {
+                    setSavedData(prev => ({
+                        ...prev,
+                        kursus: prev.kursus.map(course => 
+                            course.id === state.editingId ? response.data.data : course
+                        )
+                    }));
+                    setMessage({
+                        type: 'success',
+                        text: 'Kursus berhasil diupdate!'
+                    });
+
+                    setState(prev => ({
+                        ...prev,
+                        activeForm: null,
+                        editingId: null,
+                        formData: {
+                            ...prev.formData,
+                            kursus: { name: '', file: null }
+                        }
+                    }));
+
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             } else {
-                router.post('/candidate/courses', formData, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success) {
-                            setSavedData(prev => ({
-                                ...prev,
-                                kursus: [...prev.kursus, page.props.data]
-                            }));
-                            setMessage({
-                                type: 'success',
-                                text: 'Kursus berhasil disimpan!'
-                            });
-
-                            setState(prev => ({
-                                ...prev,
-                                activeForm: null,
-                                editingId: null,
-                                formData: {
-                                    ...prev.formData,
-                                    kursus: { name: '', file: null }
-                                }
-                            }));
-
-                            setTimeout(() => {
-                                setMessage(null);
-                            }, 3000);
-                        }
+                // Create new course using axios
+                const response = await axios.post('/candidate/courses', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
                     },
-                    onError: (error: any) => {
-                        console.error('Error saving course:', error);
-                        setMessage({
-                            type: 'error',
-                            text: error?.message || 'Gagal menyimpan kursus'
-                        });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
                 });
+                if (response.data.success) {
+                    setSavedData(prev => ({
+                        ...prev,
+                        kursus: [...prev.kursus, response.data.data]
+                    }));
+                    setMessage({
+                        type: 'success',
+                        text: 'Kursus berhasil disimpan!'
+                    });
+
+                    setState(prev => ({
+                        ...prev,
+                        activeForm: null,
+                        editingId: null,
+                        formData: {
+                            ...prev.formData,
+                            kursus: { name: '', file: null }
+                        }
+                    }));
+
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             }
         } catch (error: any) {
             console.error('Error saving course:', error);
             setMessage({
                 type: 'error',
-                text: 'Gagal menyimpan kursus'
+                text: error?.response?.data?.message || 'Gagal menyimpan kursus'
             });
             setLoading(false);
         }
@@ -474,39 +431,32 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            router.delete(`/candidate/courses/${id}`, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            kursus: prev.kursus.filter(course => course.id !== id)
-                        }));
-                        setMessage({
-                            type: 'success',
-                            text: 'Kursus berhasil dihapus!'
-                        });
-
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting course:', error);
-                    setMessage({
-                        type: 'error',
-                        text: error?.message || 'Gagal menghapus kursus'
-                    });
-                },
-                onFinish: () => {
-                    setLoading(false);
+            // Add CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const response = await axios.delete(`/candidate/courses/${id}`, {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken
                 }
             });
+            if (response.data.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    kursus: prev.kursus.filter(course => course.id !== id)
+                }));
+                setMessage({
+                    type: 'success',
+                    text: 'Kursus berhasil dihapus!'
+                });
+
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error: any) {
             console.error('Error deleting course:', error);
             setMessage({
                 type: 'error',
-                text: 'Gagal menghapus kursus'
+                text: error?.response?.data?.message || 'Gagal menghapus kursus'
             });
             setLoading(false);
         }
@@ -549,85 +499,70 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
         try {
             if (state.editingId) {
-                router.put(`/candidate/certifications/${state.editingId}`, formData, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success) {
-                            setState(prev => ({
-                                ...prev,
-                                activeForm: null,
-                                editingId: null,
-                                formData: {
-                                    ...prev.formData,
-                                    sertifikasi: { name: '', file: null }
-                                }
-                            }));
-
-                            setMessage({
-                                type: 'success',
-                                text: 'Sertifikasi berhasil diupdate!'
-                            });
-
-                            fetchCertificationsData();
-
-                            setTimeout(() => {
-                                setMessage(null);
-                            }, 3000);
-                        }
+                // Update existing certification using method spoofing
+                formData.append('_method', 'PUT');
+                const response = await axios.post(`/candidate/certifications/${state.editingId}`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
                     },
-                    onError: (error: any) => {
-                        console.error('Error updating certification:', error);
-                        setMessage({
-                            type: 'error',
-                            text: error?.message || 'Gagal mengupdate sertifikasi'
-                        });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
                 });
+                if (response.data.success) {
+                    setState(prev => ({
+                        ...prev,
+                        activeForm: null,
+                        editingId: null,
+                        formData: {
+                            ...prev.formData,
+                            sertifikasi: { name: '', file: null }
+                        }
+                    }));
+
+                    setMessage({
+                        type: 'success',
+                        text: 'Sertifikasi berhasil diupdate!'
+                    });
+
+                    fetchCertificationsData();
+
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             } else {
-                router.post('/candidate/certifications', formData, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success) {
-                            setState(prev => ({
-                                ...prev,
-                                activeForm: null,
-                                editingId: null,
-                                formData: {
-                                    ...prev.formData,
-                                    sertifikasi: { name: '', file: null }
-                                }
-                            }));
-
-                            setMessage({
-                                type: 'success',
-                                text: 'Sertifikasi berhasil disimpan!'
-                            });
-
-                            fetchCertificationsData();
-
-                            setTimeout(() => {
-                                setMessage(null);
-                            }, 3000);
-                        }
+                // Create new certification using axios
+                const response = await axios.post('/candidate/certifications', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
                     },
-                    onError: (error: any) => {
-                        console.error('Error saving certification:', error);
-                        setMessage({
-                            type: 'error',
-                            text: error?.message || 'Gagal menyimpan sertifikasi'
-                        });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
                 });
+                if (response.data.success) {
+                    setState(prev => ({
+                        ...prev,
+                        activeForm: null,
+                        editingId: null,
+                        formData: {
+                            ...prev.formData,
+                            sertifikasi: { name: '', file: null }
+                        }
+                    }));
+
+                    setMessage({
+                        type: 'success',
+                        text: 'Sertifikasi berhasil disimpan!'
+                    });
+
+                    fetchCertificationsData();
+
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             }
         } catch (error: any) {
             console.error('Error saving certification:', error);
             setMessage({
                 type: 'error',
-                text: 'Gagal menyimpan sertifikasi'
+                text: error?.response?.data?.message || 'Gagal menyimpan sertifikasi'
             });
             setLoading(false);
         }
@@ -641,39 +576,32 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            router.delete(`/candidate/certifications/${id}`, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            sertifikasi: prev.sertifikasi.filter(cert => cert.id !== id)
-                        }));
-                        setMessage({
-                            type: 'success',
-                            text: 'Sertifikasi berhasil dihapus!'
-                        });
-
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting certification:', error);
-                    setMessage({
-                        type: 'error',
-                        text: error?.message || 'Gagal menghapus sertifikasi'
-                    });
-                },
-                onFinish: () => {
-                    setLoading(false);
+            // Add CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const response = await axios.delete(`/candidate/certifications/${id}`, {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken
                 }
             });
+            if (response.data.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    sertifikasi: prev.sertifikasi.filter(cert => cert.id !== id)
+                }));
+                setMessage({
+                    type: 'success',
+                    text: 'Sertifikasi berhasil dihapus!'
+                });
+
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error: any) {
             console.error('Error deleting certification:', error);
             setMessage({
                 type: 'error',
-                text: 'Gagal menghapus sertifikasi'
+                text: error?.response?.data?.message || 'Gagal menghapus sertifikasi'
             });
             setLoading(false);
         }
@@ -716,85 +644,70 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
 
         try {
             if (state.editingId) {
-                router.put(`/candidate/languages/${state.editingId}`, formData, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success) {
-                            setState(prev => ({
-                                ...prev,
-                                activeForm: null,
-                                editingId: null,
-                                formData: {
-                                    ...prev.formData,
-                                    bahasa: { name: '', file: null }
-                                }
-                            }));
-
-                            setMessage({
-                                type: 'success',
-                                text: 'Bahasa berhasil diupdate!'
-                            });
-
-                            fetchLanguagesData();
-
-                            setTimeout(() => {
-                                setMessage(null);
-                            }, 3000);
-                        }
+                // Update existing language using method spoofing
+                formData.append('_method', 'PUT');
+                const response = await axios.post(`/candidate/languages/${state.editingId}`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
                     },
-                    onError: (error: any) => {
-                        console.error('Error updating language:', error);
-                        setMessage({
-                            type: 'error',
-                            text: error?.message || 'Gagal mengupdate bahasa'
-                        });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
                 });
+                if (response.data.success) {
+                    setState(prev => ({
+                        ...prev,
+                        activeForm: null,
+                        editingId: null,
+                        formData: {
+                            ...prev.formData,
+                            bahasa: { name: '', file: null }
+                        }
+                    }));
+
+                    setMessage({
+                        type: 'success',
+                        text: 'Bahasa berhasil diupdate!'
+                    });
+
+                    fetchLanguagesData();
+
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             } else {
-                router.post('/candidate/languages', formData, {
-                    onSuccess: (page: any) => {
-                        if (page.props?.success) {
-                            setState(prev => ({
-                                ...prev,
-                                activeForm: null,
-                                editingId: null,
-                                formData: {
-                                    ...prev.formData,
-                                    bahasa: { name: '', file: null }
-                                }
-                            }));
-
-                            setMessage({
-                                type: 'success',
-                                text: 'Bahasa berhasil disimpan!'
-                            });
-
-                            fetchLanguagesData();
-
-                            setTimeout(() => {
-                                setMessage(null);
-                            }, 3000);
-                        }
+                // Create new language using axios
+                const response = await axios.post('/candidate/languages', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
                     },
-                    onError: (error: any) => {
-                        console.error('Error saving language:', error);
-                        setMessage({
-                            type: 'error',
-                            text: error?.message || 'Gagal menyimpan bahasa'
-                        });
-                    },
-                    onFinish: () => {
-                        setLoading(false);
-                    }
                 });
+                if (response.data.success) {
+                    setState(prev => ({
+                        ...prev,
+                        activeForm: null,
+                        editingId: null,
+                        formData: {
+                            ...prev.formData,
+                            bahasa: { name: '', file: null }
+                        }
+                    }));
+
+                    setMessage({
+                        type: 'success',
+                        text: 'Bahasa berhasil disimpan!'
+                    });
+
+                    fetchLanguagesData();
+
+                    setTimeout(() => {
+                        setMessage(null);
+                    }, 3000);
+                }
             }
         } catch (error: any) {
             console.error('Error saving language:', error);
             setMessage({
                 type: 'error',
-                text: 'Gagal menyimpan bahasa'
+                text: error?.response?.data?.message || 'Gagal menyimpan bahasa'
             });
             setLoading(false);
         }
@@ -808,39 +721,32 @@ const DataTambahanForm: React.FC<DataTambahanFormProps> = ({
         setLoading(true);
 
         try {
-            router.delete(`/candidate/languages/${id}`, {
-                onSuccess: (page: any) => {
-                    if (page.props?.success) {
-                        setSavedData(prev => ({
-                            ...prev,
-                            bahasa: prev.bahasa.filter(lang => lang.id !== id)
-                        }));
-                        setMessage({
-                            type: 'success',
-                            text: 'Bahasa berhasil dihapus!'
-                        });
-
-                        setTimeout(() => {
-                            setMessage(null);
-                        }, 3000);
-                    }
-                },
-                onError: (error: any) => {
-                    console.error('Error deleting language:', error);
-                    setMessage({
-                        type: 'error',
-                        text: error?.message || 'Gagal menghapus bahasa'
-                    });
-                },
-                onFinish: () => {
-                    setLoading(false);
+            // Add CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const response = await axios.delete(`/candidate/languages/${id}`, {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken
                 }
             });
+            if (response.data.success) {
+                setSavedData(prev => ({
+                    ...prev,
+                    bahasa: prev.bahasa.filter(lang => lang.id !== id)
+                }));
+                setMessage({
+                    type: 'success',
+                    text: 'Bahasa berhasil dihapus!'
+                });
+
+                setTimeout(() => {
+                    setMessage(null);
+                }, 3000);
+            }
         } catch (error: any) {
             console.error('Error deleting language:', error);
             setMessage({
                 type: 'error',
-                text: 'Gagal menghapus bahasa'
+                text: error?.response?.data?.message || 'Gagal menghapus bahasa'
             });
             setLoading(false);
         }

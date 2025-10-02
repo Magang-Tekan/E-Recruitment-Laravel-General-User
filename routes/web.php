@@ -1,4 +1,5 @@
 <?php
+// @phpstan-ignore-file
 
 use App\Enums\UserRole;
 use App\Http\Controllers\VacanciesController;
@@ -7,6 +8,7 @@ use App\Http\Controllers\JobsController;
 use App\Http\Controllers\ApplicationHistoryController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use App\Http\Controllers\ResetPasswordController;
 use App\Models\AboutUs;
@@ -15,6 +17,9 @@ use App\Http\Controllers\PersonalDataController;
 use App\Http\Controllers\AboutUsController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\ContactMessagesController;
+use App\Models\Applications;
+use App\Models\ApplicationHistory;
+use App\Enums\CandidatesStage;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
 Route::get('/job-hiring-landing-page', [VacanciesController::class, 'getVacanciesLandingPage'])->name('job-hiring-landing-page');
@@ -52,7 +57,7 @@ Route::middleware(['auth'])->group(function () {
             $majors = \App\Models\MasterMajor::orderBy('name', 'asc')->get();
             return response()->json($majors);
         } catch (\Exception $e) {
-            \Log::error('Error fetching majors: ' . $e->getMessage());
+            Log::error('Error fetching majors: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Gagal mengambil data program studi'
             ], 500);
@@ -75,13 +80,37 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/api/candidate/education/{id}', [CandidateController::class, 'updateEducation']);
     Route::delete('/api/candidate/education/{id}', [CandidateController::class, 'deleteEducation']);
 
+    // API routes for work experience
+    Route::get('/api/candidate/work-experience', [CandidateController::class, 'getWorkExperiences']);
+    Route::post('/api/candidate/work-experience', [CandidateController::class, 'storeWorkExperience']);
+    Route::put('/api/candidate/work-experience/{id}', [CandidateController::class, 'updateWorkExperience']);
+    Route::delete('/api/candidate/work-experience/{id}', [CandidateController::class, 'deleteWorkExperience']);
+
+    // API routes for organization
+    Route::get('/api/candidate/organization', [CandidateController::class, 'getOrganizations']);
+    Route::post('/api/candidate/organization', [CandidateController::class, 'storeOrganization']);
+    Route::put('/api/candidate/organization/{id}', [CandidateController::class, 'updateOrganization']);
+    Route::delete('/api/candidate/organization/{id}', [CandidateController::class, 'deleteOrganization']);
+
+    // API routes for achievement
+    Route::get('/api/candidate/achievement', [CandidateController::class, 'getAchievements']);
+    Route::post('/api/candidate/achievement', [CandidateController::class, 'storeAchievement']);
+    Route::put('/api/candidate/achievement/{id}', [CandidateController::class, 'updateAchievement']);
+    Route::delete('/api/candidate/achievement/{id}', [CandidateController::class, 'deleteAchievement']);
+
+    // API routes for social media
+    Route::get('/api/candidate/social-media', [CandidateController::class, 'getSocialMedia']);
+    Route::post('/api/candidate/social-media', [CandidateController::class, 'storeSocialMedia']);
+    Route::put('/api/candidate/social-media/{id}', [CandidateController::class, 'updateSocialMedia']);
+    Route::delete('/api/candidate/social-media/{id}', [CandidateController::class, 'deleteSocialMedia']);
+
     // Add this new route for education levels
     Route::get('/api/education-levels', function () {
         try {
             $educationLevels = \App\Models\EducationLevel::orderBy('name', 'asc')->get();
             return response()->json($educationLevels);
         } catch (\Exception $e) {
-            \Log::error('Error fetching education levels: ' . $e->getMessage());
+            Log::error('Error fetching education levels: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Gagal mengambil data tingkat pendidikan'
             ], 500);
@@ -90,7 +119,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-Route::middleware(['auth', 'verified'])->get('/redirect', function () {
+Route::middleware(['auth'])->get('/redirect', function () {
     return Auth::user()->role === UserRole::HR
     ? redirect()->route('admin.dashboard')
     : redirect()->route('welcome'); // Changed from dashboard to welcome
@@ -274,13 +303,21 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     Route::post('/candidate/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
 
 
-    // Routes untuk Psychotest
-    Route::get('/tests/psychotest/{application_id?}', [CandidateController::class, 'showPsychotest'])
-        ->name('candidate.tests.psychotest');
-
     // Route untuk submit psychotest
     Route::post('/tests/psychotest/submit', [CandidateController::class, 'submitPsychotest'])
         ->name('candidate.tests.psychotest.submit');
+});
+
+// Routes untuk Psychotest (tanpa middleware role)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/candidate/tests/psychotest/{application_id?}', [CandidateController::class, 'showPsychotest'])
+        ->name('candidate.tests.psychotest');
+});
+
+// Routes untuk serve achievement files
+Route::middleware(['auth'])->group(function () {
+    Route::get('/storage/achievements/{filename}', [CandidateController::class, 'serveAchievementFile'])
+        ->name('achievement.file.serve');
 });
 
 // ApplicationHistory routes
@@ -313,7 +350,7 @@ Route::get('/debug/psychotest/{application_id}', function($application_id) {
     $application = Applications::findOrFail($application_id);
 
     // Keamanan: pastikan hanya pemilik aplikasi yang bisa melihat
-    if ($application->user_id != $user->id && !$user->hasRole(['super_admin', 'hr'])) {
+    if ($application->user_id != $user->id && !in_array($user->role->value, ['super_admin', 'hr'])) {
         return response()->json(['error' => 'Unauthorized'], 403);
     }
 

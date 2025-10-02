@@ -1,5 +1,5 @@
-# Use PHP 8.4 with FPM (matching your local version)
-FROM php:8.4-fpm
+# Use PHP 8.2 with FPM
+FROM php:8.2-fpm
 
 # Set working directory
 WORKDIR /var/www/html
@@ -27,30 +27,24 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . .
 
 # Install PHP dependencies
-RUN composer install --optimize-autoloader --no-interaction
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Install Node.js dependencies (including dev dependencies for build)
 RUN npm ci
 
-# Build frontend assets for production
+# Build frontend assets
 RUN npm run build
 
-# Keep dev dependencies for development
-# RUN npm prune --production
+# Remove dev dependencies after build
+RUN npm prune --production
 
-# Create storage directories and set permissions
-RUN mkdir -p /var/www/html/storage/framework/views \
-    && mkdir -p /var/www/html/storage/framework/cache \
-    && mkdir -p /var/www/html/storage/framework/sessions \
-    && mkdir -p /var/www/html/storage/logs \
-    && mkdir -p /var/www/html/bootstrap/cache \
-    && chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 /var/www/html/storage \
-    && chmod -R 775 /var/www/html/bootstrap/cache
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html/storage \
+    && chmod -R 755 /var/www/html/bootstrap/cache
 
 # Expose port 8001
 EXPOSE 8001
 
 # Start Laravel development server
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8001"]
-
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

@@ -1,0 +1,70 @@
+name: Deploy Laravel to VPS with Nginx
+
+on:
+  push:
+    branches:
+      - main   # Auto deploy kalau ada push ke branch main
+ 
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Copy source code to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "."
+          target: "/var/www/e-recruitment"
+          rm: true
+          strip_components: 1
+          exclude: ".git,.github,.env"
+
+      - name: Deploy Laravel app
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/e-recruitment
+            
+            # Clear all caches first to ensure fresh deployment
+            php artisan cache:clear
+            php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear
+            php artisan optimize:clear
+            
+            # Remove compiled views to force recompilation
+            rm -rf storage/framework/views/*
+            
+            # Install/update Composer dependencies
+            composer install --no-dev --optimize-autoloader
+            
+            # Set proper permissions for Laravel
+            chown -R www-data:www-data storage bootstrap/cache
+            chmod -R 775 storage bootstrap/cache
+            
+            # Set proper permissions for entire application
+            chown -R www-data:www-data /var/www/e-recruitment
+            chmod -R 755 /var/www/e-recruitment
+            
+            # Restart nginx and php-fpm
+            systemctl restart nginx
+            systemctl restart php8.3-fpm
+            
+            # Now create optimized caches after restart
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan optimize
+            
+            # Final verification
+            php artisan --version
+            echo "Deployment completed successfully!"

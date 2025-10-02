@@ -40,14 +40,6 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        // Check email verification
-        if (!$request->user()->hasVerifiedEmail()) {
-            Auth::logout();
-            return back()->withErrors([
-                'email' => 'Your account is not verified. Please check your email.',
-            ]);
-        }
-
         return redirect()->intended('/candidate/profile');
     }
 

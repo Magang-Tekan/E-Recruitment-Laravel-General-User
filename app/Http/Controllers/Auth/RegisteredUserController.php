@@ -43,12 +43,11 @@ namespace App\Http\Controllers\Auth;
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => UserRole::CANDIDATE->value,
+                'email_verified_at' => now(), // Automatically verify email
             ]);
-
-            event(new Registered($user));
 
             Auth::login($user);
 
-            return redirect()->route('verification.notice');
+            return redirect()->route('dashboard');
         }
     }

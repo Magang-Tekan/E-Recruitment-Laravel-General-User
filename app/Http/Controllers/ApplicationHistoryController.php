@@ -119,6 +119,7 @@ class ApplicationHistoryController extends Controller
                         'reviewer' => $matchingHistory && $matchingHistory->reviewer ?
                                     $matchingHistory->reviewer->name : null,
                         'notes' => $matchingHistory ? $matchingHistory->notes : null,
+                        'resource_url' => $matchingHistory ? $matchingHistory->resource_url : null, // Interview URL atau meeting link
 
                         // Flag untuk frontend
                         'is_qualified' => $currentStatus &&
@@ -361,6 +362,7 @@ class ApplicationHistoryController extends Controller
                     'stage' => $status ? $status->stage : null,
                     'score' => $history->score,
                     'notes' => $history->notes,
+                    'resource_url' => $history->resource_url, // Interview URL atau meeting link
                     'scheduled_at' => $this->formatDateSafely($history->scheduled_at ?? null, 'Y-m-d H:i:s'),
                     'completed_at' => $this->formatDateSafely($history->completed_at ?? null, 'Y-m-d H:i:s'),
                     'processed_at' => $history->processed_at ? $history->processed_at->format('Y-m-d H:i:s') : $history->created_at->format('Y-m-d H:i:s'),
@@ -506,7 +508,7 @@ class ApplicationHistoryController extends Controller
             $decoded = json_decode($value, true);
             return (is_array($decoded) && json_last_error() === JSON_ERROR_NONE) ? $decoded : [];
         } catch (\Exception $e) {
-            \Log::warning('JSON decode failed: ' . $e->getMessage());
+            Log::warning('JSON decode failed: ' . $e->getMessage());
             return [];
         }
     }
@@ -526,7 +528,7 @@ class ApplicationHistoryController extends Controller
         try {
             return \Carbon\Carbon::parse($date)->format($format);
         } catch (\Exception $e) {
-            \Log::warning('Date formatting failed: ' . $e->getMessage());
+            Log::warning('Date formatting failed: ' . $e->getMessage());
             return null;
         }
     }
