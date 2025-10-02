@@ -58,22 +58,27 @@ export default function ContactPage({ contacts, companies }: PageProps) {
   `;
 
   const ContactContainer = styled.div`
-    max-width: 1200px;
+    max-width: 1400px;
     width: 100%;
     padding: 0 20px;
     margin: 0 auto;
+    
+    @media (min-width: 768px) {
+      padding: 0 40px;
+    }
   `;
 
   const CardContainer = styled.div`
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
     justify-content: center;
     gap: 20px;
     margin-top: 40px;
 
     @media (min-width: 1024px) {
       flex-direction: row;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
+      align-items: flex-start;
     }
   `;
 
@@ -81,12 +86,20 @@ export default function ContactPage({ contacts, companies }: PageProps) {
     border: 1px solid #1DA1F2;
     border-radius: 8px;
     padding: 24px;
-    min-width: 300px;
-    height: 312px;
+    width: 100%;
+    max-width: 350px;
+    min-height: 280px;
     text-align: left;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    margin: 0 auto;
+    
+    @media (min-width: 768px) {
+      margin: 0;
+      flex: 1;
+      min-width: 280px;
+    }
   `;
 
   const FormContainer = styled.div`
@@ -167,6 +180,9 @@ export default function ContactPage({ contacts, companies }: PageProps) {
     font-size: 14px;
     color: #555;
     margin: 0 0 4px 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
   `;
 
   const IconImage = styled.img`
@@ -328,128 +344,197 @@ export default function ContactPage({ contacts, companies }: PageProps) {
             <Subtitle>Let us know how we can help.</Subtitle>
 
             <CardContainer>
-              {/* Bubble di kiri */}
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                {contacts && contacts.length > 0 ? (
-                  contacts.map((contact: { id: number; email: string; phone: string; address: string }) => (
-                    <Card key={contact.id} style={{ width: '100%', maxWidth: 480 }}>
-                      <CardIconWrapper>
-                        <IconImage src="/images/chat-to-support.png" alt="Chat Icon" />
-                      </CardIconWrapper>
-                      <CardTitle>Email</CardTitle>
-                      <CardText>{contact.email}</CardText>
-                      <CardTitle>Phone</CardTitle>
-                      <CardText>{contact.phone}</CardText>
-                      <CardTitle>Address</CardTitle>
-                      <CardText>{contact.address}</CardText>
-                    </Card>
-                  ))
-                ) : (
-                  <ContactInfoCard style={{ width: '100%', maxWidth: 480, marginTop: 25 }}>
-                    <ContactInfoItem>
-                      <ContactIconWrapper>
-                        <FaRegCommentDots className="text-[#1DA1F2] text-2xl" />
-                      </ContactIconWrapper>
-                      <ContactTextWrapper>
-                        <CardTitle>Chat to support</CardTitle>
-                        <CardText>We're here to help</CardText>
-                        <a href="mailto:autentik.info@gmail.com" className="underline text-sm">
-                          autentik.info@gmail.com
-                        </a>
-                      </ContactTextWrapper>
-                    </ContactInfoItem>
+              {/* Contact Cards Section */}
+              {contacts && contacts.length > 0 ? (
+                <>
+                  {/* Multiple Contact Cards */}
+                  <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    {contacts.map((contact: { id: number; email: string; phone: string; address: string }) => (
+                      <Card key={contact.id}>
+                        <CardIconWrapper>
+                          <IconImage src="/images/chat-to-support.png" alt="Chat Icon" />
+                        </CardIconWrapper>
+                        <CardTitle>Email</CardTitle>
+                        <CardText>{contact.email}</CardText>
+                        <CardTitle>Phone</CardTitle>
+                        <CardText>{contact.phone}</CardText>
+                        <CardTitle>Address</CardTitle>
+                        <CardText style={{ fontSize: '12px', lineHeight: '1.4' }}>{contact.address}</CardText>
+                      </Card>
+                    ))}
+                  </div>
+                  
+                  {/* Contact Form */}
+                  <div className="w-full max-w-2xl mx-auto">
+                    <div className="bg-white border border-[#1DA1F2] rounded-lg p-6">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">Send us a Message</h3>
+                      <StyledForm
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          
+                          const form = e.currentTarget;
+                          const formData = new FormData(form);
+                          
+                          router.post('/contact/submit', {
+                            name: formData.get('name') as string,
+                            email: formData.get('email') as string,
+                            message: formData.get('message') as string,
+                          }, {
+                            onSuccess: () => {
+                              Swal.fire({
+                                icon: 'success',
+                                title: 'Pesan berhasil dikirim!',
+                                showConfirmButton: false,
+                                timer: 1500
+                              });
+                              form.reset();
+                            },
+                            onError: () => {
+                              Swal.fire({
+                                icon: 'error',
+                                title: 'Terjadi kesalahan',
+                                text: 'Silakan coba lagi.',
+                                confirmButtonText: 'Tutup'
+                              });
+                            }
+                          });
+                        }}
+                      >
+                        <StyledLabel>Nama Lengkap</StyledLabel>
+                        <StyledInput
+                          type="text"
+                          name="name"
+                          placeholder="Masukkan nama lengkap Anda"
+                          required
+                        />
+                        <StyledLabel>Email</StyledLabel>
+                        <StyledInput
+                          type="email"
+                          name="email"
+                          placeholder="Masukkan email Anda"
+                          required
+                        />
+                        <StyledLabel>Pesan</StyledLabel>
+                        <StyledTextarea
+                          name="message"
+                          placeholder="Masukkan pesan Anda"
+                          required
+                        />
+                        <SubmitButton type="submit">Kirim</SubmitButton>
+                      </StyledForm>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Default Layout when no contacts from database */}
+                  <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                    <ContactInfoCard style={{ width: '100%', maxWidth: 480, marginTop: 25 }}>
+                      <ContactInfoItem>
+                        <ContactIconWrapper>
+                          <FaRegCommentDots className="text-[#1DA1F2] text-2xl" />
+                        </ContactIconWrapper>
+                        <ContactTextWrapper>
+                          <CardTitle>Chat to support</CardTitle>
+                          <CardText>We're here to help</CardText>
+                          <a href="mailto:autentik.info@gmail.com" className="underline text-sm">
+                            autentik.info@gmail.com
+                          </a>
+                        </ContactTextWrapper>
+                      </ContactInfoItem>
 
-                    <ContactInfoItem>
-                      <ContactIconWrapper>
-                        <FaMapMarkerAlt className="text-[#1DA1F2] text-2xl" />
-                      </ContactIconWrapper>
-                      <ContactTextWrapper>
-                        <CardTitle>Visit us</CardTitle>
-                        <CardText>Visit our office</CardText>
-                        <a
-                          href="https://maps.app.goo.gl/5PPfwMiAQQs6HbW37"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline text-sm"
-                        >
-                          View on Google Maps
-                        </a>
-                      </ContactTextWrapper>
-                    </ContactInfoItem>
+                      <ContactInfoItem>
+                        <ContactIconWrapper>
+                          <FaMapMarkerAlt className="text-[#1DA1F2] text-2xl" />
+                        </ContactIconWrapper>
+                        <ContactTextWrapper>
+                          <CardTitle>Visit us</CardTitle>
+                          <CardText>Visit our office</CardText>
+                          <a
+                            href="https://maps.app.goo.gl/5PPfwMiAQQs6HbW37"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-sm"
+                          >
+                            View on Google Maps
+                          </a>
+                        </ContactTextWrapper>
+                      </ContactInfoItem>
 
-                    <ContactInfoItem>
-                      <ContactIconWrapper>
-                        <FaPhoneAlt className="text-[#1DA1F2] text-2xl" />
-                      </ContactIconWrapper>
-                      <ContactTextWrapper>
-                        <CardTitle>Call us</CardTitle>
-                        <CardText>Mon-Fri from 8am to 5pm</CardText>
-                        <a href="tel:+6281807700111" className="underline text-sm">
-                          +62 81-807-700-111
-                        </a>
-                      </ContactTextWrapper>
-                    </ContactInfoItem>
-                  </ContactInfoCard>
-                )}
-              </div>
+                      <ContactInfoItem>
+                        <ContactIconWrapper>
+                          <FaPhoneAlt className="text-[#1DA1F2] text-2xl" />
+                        </ContactIconWrapper>
+                        <ContactTextWrapper>
+                          <CardTitle>Call us</CardTitle>
+                          <CardText>Mon-Fri from 8am to 5pm</CardText>
+                          <a href="tel:+6281807700111" className="underline text-sm">
+                            +62 81-807-700-111
+                          </a>
+                        </ContactTextWrapper>
+                      </ContactInfoItem>
+                    </ContactInfoCard>
+                  </div>
 
-              {/* Form di kanan, ukurannya sama */}
-              <FormContainer style={{ maxWidth: 480, width: '100%' }}>
-                <StyledForm
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    
-                    const form = e.currentTarget;
-                    const formData = new FormData(form);
-                    
-                    router.post('/contact/submit', {
-                      name: formData.get('name') as string,
-                      email: formData.get('email') as string,
-                      message: formData.get('message') as string,
-                    }, {
-                      onSuccess: () => {
-                        Swal.fire({
-                          icon: 'success',
-                          title: 'Pesan berhasil dikirim!',
-                          showConfirmButton: false,
-                          timer: 1500
+                  {/* Form di kanan, ukurannya sama */}
+                  <FormContainer style={{ maxWidth: 480, width: '100%' }}>
+                    <StyledForm
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        
+                        const form = e.currentTarget;
+                        const formData = new FormData(form);
+                        
+                        router.post('/contact/submit', {
+                          name: formData.get('name') as string,
+                          email: formData.get('email') as string,
+                          message: formData.get('message') as string,
+                        }, {
+                          onSuccess: () => {
+                            Swal.fire({
+                              icon: 'success',
+                              title: 'Pesan berhasil dikirim!',
+                              showConfirmButton: false,
+                              timer: 1500
+                            });
+                            form.reset();
+                          },
+                          onError: () => {
+                            Swal.fire({
+                              icon: 'error',
+                              title: 'Terjadi kesalahan',
+                              text: 'Silakan coba lagi.',
+                              confirmButtonText: 'Tutup'
+                            });
+                          }
                         });
-                        form.reset();
-                      },
-                      onError: () => {
-                        Swal.fire({
-                          icon: 'error',
-                          title: 'Terjadi kesalahan',
-                          text: 'Silakan coba lagi.',
-                          confirmButtonText: 'Tutup'
-                        });
-                      }
-                    });
-                  }}
-                >
-                  <StyledLabel>Nama Lengkap</StyledLabel>
-                  <StyledInput
-                    type="text"
-                    name="name"
-                    placeholder="Masukkan nama lengkap Anda"
-                    required
-                  />
-                  <StyledLabel>Email</StyledLabel>
-                  <StyledInput
-                    type="email"
-                    name="email"
-                    placeholder="Masukkan email Anda"
-                    required
-                  />
-                  <StyledLabel>Pesan</StyledLabel>
-                  <StyledTextarea
-                    name="message"
-                    placeholder="Masukkan pesan Anda"
-                    required
-                  />
-                  <SubmitButton type="submit">Kirim</SubmitButton>
-                </StyledForm>
-              </FormContainer>
+                      }}
+                    >
+                      <StyledLabel>Nama Lengkap</StyledLabel>
+                      <StyledInput
+                        type="text"
+                        name="name"
+                        placeholder="Masukkan nama lengkap Anda"
+                        required
+                      />
+                      <StyledLabel>Email</StyledLabel>
+                      <StyledInput
+                        type="email"
+                        name="email"
+                        placeholder="Masukkan email Anda"
+                        required
+                      />
+                      <StyledLabel>Pesan</StyledLabel>
+                      <StyledTextarea
+                        name="message"
+                        placeholder="Masukkan pesan Anda"
+                        required
+                      />
+                      <SubmitButton type="submit">Kirim</SubmitButton>
+                    </StyledForm>
+                  </FormContainer>
+                </>
+              )}
             </CardContainer>
           </ContactContainer>
         </PageWrapper>
