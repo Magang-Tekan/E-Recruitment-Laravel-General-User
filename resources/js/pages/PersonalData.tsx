@@ -388,6 +388,7 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
     const [activeTambahanForm, setActiveTambahanForm] = useState<string | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [selectedPrestasi, setSelectedPrestasi] = useState<PrestasiData | null>(null);
+    const [shouldRefreshPrestasi, setShouldRefreshPrestasi] = useState(false);
     const [selectedSocialMedia, setSelectedSocialMedia] = useState<any>(null);
     const [completenessData, setCompletenessData] = useState<CompletenessResponse | null>(null);
     const [loadingCompleteness, setLoadingCompleteness] = useState(false);
@@ -778,8 +779,18 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
                     <TambahPrestasiForm
                         achievementData={selectedPrestasi ?? undefined}
                         onSuccess={() => {
+                            console.log('=== ACHIEVEMENT UPDATE SUCCESS ===');
+                            console.log('Closing form and triggering refresh');
                             setShowPrestasiForm(false);
                             setSelectedPrestasi(null);
+                            console.log('Setting shouldRefreshPrestasi to true');
+                            // Force immediate refresh
+                            setShouldRefreshPrestasi(true);
+                            // Force re-render after a short delay
+                            setTimeout(() => {
+                                setShouldRefreshPrestasi(false);
+                                setShouldRefreshPrestasi(true);
+                            }, 100);
                         }}
                         onBack={() => {
                             setShowPrestasiForm(false);
@@ -790,6 +801,7 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
             }
             return (
                 <PrestasiListForm
+                    key={`prestasi-${shouldRefreshPrestasi ? Date.now() : 'normal'}`}
                     onAdd={() => {
                         setSelectedPrestasi(null);
                         setShowPrestasiForm(true);
@@ -797,6 +809,11 @@ const PersonalData: React.FC<Props> = ({ profile, user }) => {
                     onEdit={(data) => {
                         setSelectedPrestasi(data);
                         setShowPrestasiForm(true);
+                    }}
+                    refresh={shouldRefreshPrestasi}
+                    onRefreshComplete={() => {
+                        console.log('=== REFRESH COMPLETE ===');
+                        setShouldRefreshPrestasi(false);
                     }}
                 />
             );

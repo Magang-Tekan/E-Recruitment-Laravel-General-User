@@ -98,23 +98,31 @@ const TambahPrestasiForm: React.FC<TambahPrestasiFormProps> = ({
         setMessage(null);
 
         try {
-            // Client-side validation
-            if (!formData.namaKompetisi.trim()) {
-                throw new Error('Nama kompetisi harus diisi');
-            }
-            if (!formData.kompetisi) {
-                throw new Error('Skala kompetisi harus dipilih');
-            }
-            if (!formData.bulan || !formData.tahun) {
-                throw new Error('Bulan dan tahun harus diisi');
-            }
-            if (!formData.deskripsi || formData.deskripsi.length < 10) {
-                throw new Error('Deskripsi minimal 10 karakter');
-            }
-            if (!achievementData?.id && !formData.fileSertifikat) {
-                throw new Error('File sertifikat harus diupload');
+            console.log('=== FORM SUBMIT START ===');
+            console.log('Form data:', formData);
+            console.log('Is edit mode:', !!achievementData?.id);
+
+            // Simple validation
+            if (!achievementData?.id) {
+                // For new achievements, require all fields
+                if (!formData.namaKompetisi.trim()) {
+                    throw new Error('Nama kompetisi harus diisi');
+                }
+                if (!formData.kompetisi) {
+                    throw new Error('Skala kompetisi harus dipilih');
+                }
+                if (!formData.bulan) {
+                    throw new Error('Bulan harus dipilih');
+                }
+                if (!formData.tahun) {
+                    throw new Error('Tahun harus diisi');
+                }
+                if (!formData.deskripsi.trim()) {
+                    throw new Error('Deskripsi harus diisi');
+                }
             }
 
+            // Prepare form data
             const formPayload = new FormData();
             formPayload.append('title', formData.namaKompetisi.trim());
             formPayload.append('level', formData.kompetisi);
@@ -129,52 +137,47 @@ const TambahPrestasiForm: React.FC<TambahPrestasiFormProps> = ({
                 formPayload.append('supporting_file', formData.filePendukung);
             }
 
-            // Debug: Log form data
-            console.log('Sending form data:');
-            for (let [key, value] of formPayload.entries()) {
-                console.log(key, value);
+            let response;
+            if (achievementData?.id) {
+                // Update existing achievement using method spoofing
+                formPayload.append('_method', 'PUT');
+                response = await axios.post(`/api/candidate/achievement/${achievementData.id}`, formPayload, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            } else {
+                // Create new achievement
+                response = await axios.post('/api/candidate/achievement', formPayload, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
             }
 
-            if (achievementData?.id) {
-                // For update, use axios.put()
-                const response = await axios.put(`/api/candidate/achievement/${achievementData.id}`, formPayload);
-                if (response.data.success) {
-                    setMessage({
-                        type: 'success',
-                        text: 'Data berhasil diperbarui!'
-                    });
+            if (response.data.success) {
+                setMessage({
+                    type: 'success',
+                    text: achievementData?.id ? 'Data berhasil diperbarui!' : 'Data berhasil disimpan!'
+                });
 
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                    setTimeout(() => {
-                        onSuccess();
-                    }, 2000);
-                }
-                setLoading(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // Force page reload to ensure data is refreshed
+                window.location.reload();
             } else {
-                // For create, use axios.post()
-                const response = await axios.post('/api/candidate/achievement', formPayload);
-                if (response.data.success) {
-                    setMessage({
-                        type: 'success',
-                        text: 'Data berhasil disimpan!'
-                    });
-
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                    setTimeout(() => {
-                        onSuccess();
-                    }, 2000);
-                }
-                setLoading(false);
+                throw new Error(response.data.message || 'Terjadi kesalahan');
             }
 
         } catch (error: any) {
-            console.error('Client-side validation error:', error);
+            console.error('Form submission error:', error);
             
             setMessage({
                 type: 'error',
-                text: error.message || 'Terjadi kesalahan saat validasi data'
+                text: error.response?.data?.message || error.message || 'Terjadi kesalahan saat menyimpan data'
             });
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        } finally {
             setLoading(false);
         }
     };
@@ -182,6 +185,7 @@ const TambahPrestasiForm: React.FC<TambahPrestasiFormProps> = ({
     useEffect(() => {
         if (achievementData) {
             // Populate the form only when editing
+            console.log('Populating form with achievement data:', achievementData);
             setFormData({
                 namaKompetisi: achievementData.title,
                 kompetisi: achievementData.level,
@@ -193,8 +197,8 @@ const TambahPrestasiForm: React.FC<TambahPrestasiFormProps> = ({
             });
 
             setExistingFiles({
-                certificate: achievementData.certificate_file || '',
-                supporting: achievementData.supporting_file || ''
+                certificate: achievementData.certificate_file ? `/storage/${achievementData.certificate_file}` : '',
+                supporting: achievementData.supporting_file ? `/storage/${achievementData.supporting_file}` : ''
             });
         } else {
             // Clear the form when adding a new achievement

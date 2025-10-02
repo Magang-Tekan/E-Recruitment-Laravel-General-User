@@ -16,6 +16,7 @@
             font-size: 12px;
             line-height: 1.4;
             color: #333;
+            page-break-inside: avoid;
         }
 
         .container {
@@ -45,6 +46,7 @@
 
         .section {
             margin-bottom: 15px; /* Reduced margin */
+            page-break-inside: avoid;
         }
 
         .section-title {
@@ -58,6 +60,7 @@
 
         .item {
             margin-bottom: 10px; /* Reduced margin */
+            page-break-inside: avoid;
         }
 
         .item-title {
@@ -83,6 +86,7 @@
             display: table;
             width: 100%;
             margin-top: -5px; /* Added negative margin to pull content up */
+            page-break-inside: avoid;
         }
 
         .left-column {
@@ -90,12 +94,14 @@
             width: 65%;
             vertical-align: top;
             padding-right: 20px;
+            page-break-inside: avoid;
         }
 
         .right-column {
             display: table-cell;
             width: 35%;
             vertical-align: top;
+            page-break-inside: avoid;
         }
 
         .skills-list {
@@ -134,6 +140,28 @@
             border-radius: 50%;
             object-fit: cover;
             margin-right: 15px;
+        }
+
+        /* Page break controls */
+        .page-break-before {
+            page-break-before: always;
+        }
+
+        .page-break-after {
+            page-break-after: always;
+        }
+
+        .no-page-break {
+            page-break-inside: avoid;
+        }
+
+        /* Optimize spacing for better page flow */
+        .header {
+            margin-bottom: 15px; /* Further reduced margin */
+        }
+
+        .container {
+            padding: 5px 15px; /* Further reduced padding */
         }
     </style>
 </head>

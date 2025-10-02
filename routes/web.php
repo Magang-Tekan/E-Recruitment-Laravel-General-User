@@ -314,6 +314,12 @@ Route::middleware(['auth'])->group(function () {
         ->name('candidate.tests.psychotest');
 });
 
+// Routes untuk serve achievement files
+Route::middleware(['auth'])->group(function () {
+    Route::get('/storage/achievements/{filename}', [CandidateController::class, 'serveAchievementFile'])
+        ->name('achievement.file.serve');
+});
+
 // ApplicationHistory routes
 Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(function () {
     Route::get('/application-history', [ApplicationHistoryController::class, 'index'])

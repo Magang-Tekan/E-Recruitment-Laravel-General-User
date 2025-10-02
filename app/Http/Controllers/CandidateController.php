@@ -735,8 +735,22 @@ class CandidateController extends Controller
 
     public function getAchievements()
     {
-        $achievements = CandidatesAchievements::where('user_id', Auth::id())->get();
-        return response()->json($achievements);
+        try {
+            $achievements = CandidatesAchievements::where('user_id', Auth::id())
+                ->orderBy('created_at', 'desc')
+                ->get();
+            
+            return response()->json([
+                'success' => true,
+                'data' => $achievements
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error fetching achievements: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data prestasi'
+            ], 500);
+        }
     }
 
     public function storeAchievement(Request $request)
@@ -841,45 +855,65 @@ class CandidateController extends Controller
 
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
-                'level' => 'required|string|in:Internasional,Nasional,Regional,Lokal',
-                'month' => 'required|string',
-                'year' => 'required|string',
-                'description' => 'required|string|min:10',
-                'certificate_file' => 'nullable|file|mimes:pdf,jpg,jpeg,doc,docx|max:500',
-                'supporting_file' => 'nullable|file|mimes:pdf,jpg,jpeg,doc,docx|max:500',
+                'level' => 'required|string|max:100',
+                'month' => 'required|string|max:20',
+                'year' => 'required|integer|min:1900|max:' . date('Y'),
+                'description' => 'nullable|string',
+                'certificate_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048',
+                'supporting_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:2048',
+            ], [
+                'title.required' => 'Judul prestasi harus diisi',
+                'level.required' => 'Tingkat prestasi harus diisi',
+                'month.required' => 'Bulan harus diisi',
+                'year.required' => 'Tahun harus diisi',
+                'year.integer' => 'Tahun harus berupa angka',
+                'year.min' => 'Tahun tidak valid',
+                'year.max' => 'Tahun tidak boleh lebih dari tahun ini',
+                'certificate_file.mimes' => 'Format file sertifikat harus pdf, jpg, jpeg, png, doc, atau docx',
+                'certificate_file.max' => 'Ukuran file sertifikat maksimal 2MB',
+                'supporting_file.mimes' => 'Format file pendukung harus pdf, jpg, jpeg, png, doc, atau docx',
+                'supporting_file.max' => 'Ukuran file pendukung maksimal 2MB',
             ]);
 
+            // Update basic fields
+            $achievement->title = $validated['title'];
+            $achievement->level = $validated['level'];
+            $achievement->month = $validated['month'];
+            $achievement->year = $validated['year'];
+            $achievement->description = $validated['description'] ?? null;
+
+            // Handle file uploads
             if ($request->hasFile('certificate_file')) {
-                // Delete old file
+                // Delete old file if exists
                 if ($achievement->certificate_file) {
                     Storage::disk('public')->delete($achievement->certificate_file);
                 }
                 $certificatePath = $request->file('certificate_file')->store('achievements', 'public');
-                $validated['certificate_file'] = $certificatePath;
+                $achievement->certificate_file = $certificatePath;
             }
 
             if ($request->hasFile('supporting_file')) {
-                // Delete old file
+                // Delete old file if exists
                 if ($achievement->supporting_file) {
                     Storage::disk('public')->delete($achievement->supporting_file);
                 }
                 $supportingPath = $request->file('supporting_file')->store('achievements', 'public');
-                $validated['supporting_file'] = $supportingPath;
+                $achievement->supporting_file = $supportingPath;
             }
 
-            $achievement->update($validated);
-
+            $achievement->save();
+            
             return response()->json([
                 'success' => true,
-                'message' => 'Data berhasil diperbarui!',
+                'message' => 'Prestasi berhasil diperbarui!',
                 'data' => $achievement
             ]);
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error updating achievement: ' . $e->getMessage());
             return response()->json([
-                'message' => 'Terjadi kesalahan saat memperbarui data',
-                'error' => $e->getMessage()
+                'success' => false,
+                'message' => 'Gagal memperbarui prestasi: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -892,13 +926,13 @@ class CandidateController extends Controller
                 ->get();
 
             return response()->json([
-                'status' => 'success',
+                'success' => true,
                 'data' => $achievements
             ]);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error fetching achievements: ' . $e->getMessage());
             return response()->json([
-                'status' => 'error',
+                'success' => false,
                 'message' => 'Terjadi kesalahan saat mengambil data prestasi'
             ], 500);
         }
@@ -925,51 +959,113 @@ class CandidateController extends Controller
 
     public function indexSocialMedia()
     {
-        $socialMedia = CandidatesSocialMedia::where('user_id', Auth::id())->get();
+        try {
+            $socialMedia = CandidatesSocialMedia::where('user_id', Auth::id())->get();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $socialMedia
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => $socialMedia
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error fetching social media: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data social media',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function getSocialMedia()
     {
-        $socialMedia = CandidatesSocialMedia::where('user_id', Auth::id())->get();
-        return response()->json($socialMedia);
+        try {
+            $socialMedia = CandidatesSocialMedia::where('user_id', Auth::id())->get();
+            return response()->json([
+                'success' => true,
+                'data' => $socialMedia
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error fetching social media: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data social media',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function storeSocialMedia(Request $request)
     {
-        $validated = $request->validate([
-            'platform_name' => 'required|string',
-            'url' => 'required|url'
-        ]);
+        try {
+            $validated = $request->validate([
+                'platform_name' => 'required|string|max:255',
+                'url' => 'required|string|max:500'
+            ]);
 
-        $validated['user_id'] = Auth::id();
+            // Basic URL format validation
+            if (!filter_var($validated['url'], FILTER_VALIDATE_URL) && !str_starts_with($validated['url'], '/')) {
+                // If it's not a valid URL and doesn't start with /, add https://
+                if (!str_starts_with($validated['url'], 'http://') && !str_starts_with($validated['url'], 'https://')) {
+                    $validated['url'] = 'https://' . $validated['url'];
+                }
+            }
 
-        CandidatesSocialMedia::create($validated);
+            $validated['user_id'] = Auth::id();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Social media berhasil ditambahkan'
-        ]);
+            $socialMedia = CandidatesSocialMedia::create($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Social media berhasil ditambahkan',
+                'data' => $socialMedia
+            ], 201);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error storing social media: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat menyimpan data social media',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function updateSocialMedia(Request $request, $id)
     {
-        $validated = $request->validate([
-            'platform_name' => 'required|string',
-            'url' => 'required|url'
-        ]);
+        try {
+            $validated = $request->validate([
+                'platform_name' => 'required|string|max:255',
+                'url' => 'required|string|max:500'
+            ]);
 
-        $socialMedia = CandidatesSocialMedia::where('id', $id)->where('user_id', Auth::id())->firstOrFail();
-        $socialMedia->update($validated);
+            // Basic URL format validation
+            if (!filter_var($validated['url'], FILTER_VALIDATE_URL) && !str_starts_with($validated['url'], '/')) {
+                // If it's not a valid URL and doesn't start with /, add https://
+                if (!str_starts_with($validated['url'], 'http://') && !str_starts_with($validated['url'], 'https://')) {
+                    $validated['url'] = 'https://' . $validated['url'];
+                }
+            }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Social media berhasil diperbarui'
-        ]);
+            $socialMedia = CandidatesSocialMedia::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+            
+            $socialMedia->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Social media berhasil diperbarui',
+                'data' => $socialMedia
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error updating social media: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memperbarui data social media',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function deleteSocialMedia($id)
@@ -983,15 +1079,16 @@ class CandidateController extends Controller
             $socialMedia->delete();
 
             return response()->json([
-                'status' => 'success',
+                'success' => true,
                 'message' => 'Social media berhasil dihapus'
             ]);
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error deleting social media: ' . $e->getMessage());
             return response()->json([
-                'status' => 'error',
-                'message' => 'Gagal menghapus social media'
+                'success' => false,
+                'message' => 'Gagal menghapus social media',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1130,6 +1227,26 @@ class CandidateController extends Controller
             // Create PDF
             $pdf = PDF::loadView('cv.template', $data);
             $pdf->setPaper('a4', 'portrait');
+            $pdf->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'defaultFont' => 'Arial',
+                'dpi' => 150,
+                'isPhpEnabled' => true,
+                'isJavascriptEnabled' => false,
+                'isFontSubsettingEnabled' => true,
+                'debugKeepTemp' => false,
+                'debugCss' => false,
+                'debugLayout' => false,
+                'debugLayoutLines' => false,
+                'debugLayoutBlocks' => false,
+                'debugLayoutInline' => false,
+                'debugLayoutPaddingBox' => false,
+                'margin_top' => 10,
+                'margin_right' => 10,
+                'margin_bottom' => 10,
+                'margin_left' => 10,
+            ]);
 
             // Create a unique filename
             $filename = 'CV_' . $user->name . '_' . date('Y-m-d_His') . '.pdf';
@@ -1418,7 +1535,6 @@ class CandidateController extends Controller
 public function updateSkill(Request $request, $id)
 {
     try {
-        // Change from Skills to CandidatesSkills
         $skill = CandidatesSkills::where('id', $id)
             ->where('user_id', Auth::id())
             ->firstOrFail();
@@ -1463,6 +1579,26 @@ public function updateSkill(Request $request, $id)
         return response()->json([
             'success' => false,
             'message' => 'Gagal memperbarui skill'
+        ], 500);
+    }
+}
+
+public function showSkill($id)
+{
+    try {
+        $skill = CandidatesSkills::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        return response()->json([
+            'success' => true,
+            'data' => $skill
+        ]);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error fetching skill: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal mengambil data skill'
         ], 500);
     }
 }
@@ -1889,6 +2025,34 @@ public function updateCertification(Request $request, $id)
         return response()->json([
             'success' => false,
             'message' => 'Gagal memperbarui sertifikasi'
+        ], 500);
+    }
+}
+
+public function deleteCertification($id)
+{
+    try {
+        $certification = CandidatesCertifications::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Delete file if exists
+        if ($certification->certificate_file) {
+            Storage::disk('public')->delete($certification->certificate_file);
+        }
+
+        $certification->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sertifikasi berhasil dihapus!'
+        ]);
+
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error deleting certification: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal menghapus sertifikasi'
         ], 500);
     }
 }
@@ -2672,5 +2836,26 @@ public function dashboard()
 public function beranda()
 {
     return redirect()->route('welcome');
+}
+
+public function serveAchievementFile($filename)
+{
+    try {
+        $filePath = storage_path('app/public/achievements/' . $filename);
+        
+        if (!file_exists($filePath)) {
+            abort(404, 'File not found');
+        }
+        
+        $mimeType = mime_content_type($filePath);
+        
+        return response()->file($filePath, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline'
+        ]);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error serving achievement file: ' . $e->getMessage());
+        abort(404, 'File not found');
+    }
 }
 }

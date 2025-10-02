@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import axios from 'axios';
+import AchievementCard from './AchievementCard';
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
@@ -39,36 +40,51 @@ interface PrestasiData {
 interface PrestasiListFormProps {
     onAdd: () => void;
     onEdit: (prestasi: PrestasiData) => void;
+    refresh?: boolean;
+    onRefreshComplete?: () => void;
 }
 
-const PrestasiListForm: React.FC<PrestasiListFormProps> = ({ onAdd, onEdit }) => {
+const PrestasiListForm: React.FC<PrestasiListFormProps> = ({ onAdd, onEdit, refresh, onRefreshComplete }) => {
     const [achievements, setAchievements] = useState<PrestasiData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-    useEffect(() => {
-        const fetchAchievements = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                
-                const response = await axios.get('/candidate/achievements');
-                if (response.data?.status === 'success') {
-                    setAchievements(response.data.data);
-                } else {
-                    throw new Error('Failed to fetch achievements');
-                }
-            } catch (error: any) {
-                console.error('Error fetching achievements:', error);
-                setError('Terjadi kesalahan saat mengambil data');
-            } finally {
-                setLoading(false);
+    const fetchAchievements = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            
+            const response = await axios.get('/api/candidate/achievement');
+            
+            if (response.data?.success) {
+                const newAchievements = response.data.data;
+                setAchievements(newAchievements);
+            } else {
+                throw new Error('Failed to fetch achievements');
             }
-        };
+        } catch (error: any) {
+            console.error('Error fetching achievements:', error);
+            setError('Terjadi kesalahan saat mengambil data');
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    // Initial load
+    useEffect(() => {
         fetchAchievements();
     }, []);
+
+    // Handle refresh
+    useEffect(() => {
+        if (refresh) {
+            fetchAchievements();
+            if (onRefreshComplete) {
+                onRefreshComplete();
+            }
+        }
+    }, [refresh]);
 
     const handleEdit = (achievement: PrestasiData) => {
         onEdit({
@@ -137,28 +153,12 @@ const PrestasiListForm: React.FC<PrestasiListFormProps> = ({ onAdd, onEdit }) =>
                         {achievements.length > 0 ? (
                             <ul className="space-y-4">
                                 {achievements.map((achievement) => (
-                                    <li key={achievement.id} className="p-4 border rounded shadow-sm">
-                                        <h4 className="text-blue-600 font-bold">{achievement.title}</h4>
-                                        <p className="text-sm text-gray-600">{achievement.level}</p>
-                                        <p className="text-sm text-gray-600">
-                                            {achievement.month} {achievement.year}
-                                        </p>
-                                        <p className="text-sm text-gray-600">{achievement.description}</p>
-                                        <div className="mt-2 space-x-4">
-                                            <button
-                                                onClick={() => handleEdit(achievement)}
-                                                className="text-blue-600 hover:text-blue-700"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(achievement.id)}
-                                                className="text-red-600 hover:text-red-700"
-                                            >
-                                                Hapus
-                                            </button>
-                                        </div>
-                                    </li>
+                                    <AchievementCard
+                                        key={achievement.id}
+                                        achievement={achievement}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
                                 ))}
                             </ul>
                         ) : (
