@@ -1,4 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 // === Icons SVG ===
 const BriefcaseIcon = () => (
@@ -37,6 +38,225 @@ const MapPinIcon = () => (
     </svg>
 );
 
+const InfoIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+    </svg>
+);
+
+const XIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+);
+
+// Modal component untuk pemberitahuan jadwal ujian
+const TestScheduleModal = ({ isOpen, onClose, scheduling, completedAt }: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    scheduling: PsychotestScheduling | null;
+    completedAt?: string | null;
+}) => {
+    console.log('TestScheduleModal render:', { isOpen, scheduling, completedAt });
+    
+    if (!isOpen) return null;
+    
+    if (!scheduling) {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center">
+                            <InfoIcon />
+                            <h3 className="text-lg font-semibold text-gray-900 ml-2">Informasi Jadwal Ujian</h3>
+                        </div>
+                        <button 
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-gray-600"
+                        >
+                            <XIcon />
+                        </button>
+                    </div>
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                            Informasi jadwal ujian belum tersedia. Silakan hubungi tim rekrutmen untuk informasi lebih lanjut.
+                        </p>
+                    </div>
+                    <div className="mt-6 flex justify-end">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                        >
+                            Mengerti
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const formatDateTime = (dateString: string | null | undefined) => {
+        if (!dateString) return '';
+        const options: Intl.DateTimeFormatOptions = {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        };
+        return new Date(dateString).toLocaleDateString('id-ID', options);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                        <InfoIcon />
+                        <h3 className="text-lg font-semibold text-gray-900 ml-2">Informasi Jadwal Ujian</h3>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600"
+                    >
+                        <XIcon />
+                    </button>
+                </div>
+
+                <div className="space-y-4">
+                    {scheduling.is_upcoming && (
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center mb-2">
+                                <ClockIcon />
+                                <h4 className="font-medium text-blue-800 ml-2">Ujian Belum Dimulai</h4>
+                            </div>
+                            <p className="text-sm text-blue-700">
+                                Ujian akan dimulai pada <strong>{scheduling.formatted_opens_at}</strong>
+                            </p>
+                            {scheduling.time_until_start && (
+                                <p className="text-xs text-blue-600 mt-1">
+                                    Tinggal {scheduling.time_until_start} lagi
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {scheduling.is_available && !completedAt && (
+                        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center mb-2">
+                                <CheckIcon />
+                                <h4 className="font-medium text-green-800 ml-2">Ujian Tersedia</h4>
+                            </div>
+                            <p className="text-sm text-green-700">
+                                Anda dapat mengerjakan ujian sampai <strong>{scheduling.formatted_closes_at}</strong>
+                            </p>
+                            {scheduling.time_until_end && (
+                                <p className="text-xs text-green-600 mt-1">
+                                    Waktu tersisa: {scheduling.time_until_end}
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {scheduling.is_expired && (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-center mb-2">
+                                <ClockIcon />
+                                <h4 className="font-medium text-red-800 ml-2">Ujian Sudah Berakhir</h4>
+                            </div>
+                            <p className="text-sm text-red-700">
+                                Ujian telah berakhir pada <strong>{scheduling.formatted_closes_at}</strong>
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Informasi kapan user terakhir mengerjakan */}
+                    {completedAt && (
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center mb-2">
+                                <CheckIcon />
+                                <h4 className="font-medium text-blue-800 ml-2">Status Pengerjaan</h4>
+                            </div>
+                            <p className="text-sm text-blue-700">
+                                Anda telah menyelesaikan ujian pada:
+                            </p>
+                            <p className="text-sm text-blue-900 font-semibold mt-1">
+                                {formatDateTime(completedAt)}
+                            </p>
+                            <p className="text-xs text-blue-600 mt-2">
+                                Hasil ujian sedang dalam proses review oleh tim rekrutmen.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="border-t pt-4">
+                        <h5 className="font-semibold text-gray-900 mb-3">Informasi Jadwal Ujian:</h5>
+                        <div className="space-y-3">
+                            {/* Kapan Bisa Mulai Mengerjakan */}
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-start">
+                                    <CalendarIcon />
+                                    <div className="ml-2 flex-1">
+                                        <p className="text-xs text-green-700 font-medium mb-1">
+                                            Kapan Bisa Mulai Mengerjakan:
+                                        </p>
+                                        <p className="text-sm font-semibold text-green-900">
+                                            {scheduling.formatted_opens_at}
+                                        </p>
+                                        {scheduling.is_upcoming && scheduling.time_until_start && (
+                                            <p className="text-xs text-green-600 mt-1">
+                                                Tinggal {scheduling.time_until_start} lagi
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Kapan Terakhir Bisa Mengerjakan */}
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-start">
+                                    <ClockIcon />
+                                    <div className="ml-2 flex-1">
+                                        <p className="text-xs text-red-700 font-medium mb-1">
+                                            Kapan Terakhir Bisa Mengerjakan:
+                                        </p>
+                                        <p className="text-sm font-semibold text-red-900">
+                                            {scheduling.formatted_closes_at}
+                                        </p>
+                                        {scheduling.is_available && scheduling.time_until_end && (
+                                            <p className="text-xs text-red-600 mt-1">
+                                                Tersisa {scheduling.time_until_end}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Durasi Pengerjaan */}
+                            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <span className="text-sm text-blue-700 font-medium">Durasi Pengerjaan:</span>
+                                <span className="text-sm font-semibold text-blue-900">{scheduling.duration_minutes} menit</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                    >
+                        Mengerti
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // Define the props interface for the component matching backend data structure
 interface ApplicationHistoryItem {
     id: number;
@@ -57,6 +277,19 @@ interface ApplicationHistoryItem {
     created_at: string;
 }
 
+interface PsychotestScheduling {
+    opens_at: string;
+    closes_at: string;
+    duration_minutes: number;
+    is_available: boolean;
+    is_upcoming: boolean;
+    is_expired: boolean;
+    time_until_start: string | null;
+    time_until_end: string | null;
+    formatted_opens_at: string;
+    formatted_closes_at: string;
+}
+
 interface Application {
     id: number;
     status_id: number;
@@ -64,6 +297,7 @@ interface Application {
     status_color: string;
     current_score: number | null;
     current_reviewer: string | null;
+    psychotest_scheduling: PsychotestScheduling | null;
     job: {
         id: number;
         title: string;
@@ -83,6 +317,24 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
     // Get the auth user data from Inertia shared props
     const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
     const user = auth?.user;
+
+    // State untuk modal
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+
+    // Get psychotest history untuk mendapatkan completed_at
+    const psychotestHistory = application.histories.find(h => 
+        h.is_active && 
+        (h.status_name.toLowerCase().includes('psikotes') ||
+         h.status_name.toLowerCase().includes('test') ||
+         h.status_name.toLowerCase().includes('psychological'))
+    );
+
+    console.log('StatusCandidatePage state:', {
+        showScheduleModal,
+        psychotestScheduling: application.psychotest_scheduling,
+        psychotestHistory,
+        completedAt: psychotestHistory?.completed_at
+    });
 
     // Get all histories sorted by created_at (ascending order - oldest first)
     const sortedHistories = [...application.histories].sort((a, b) => {
@@ -418,51 +670,122 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                                 </ul>
                                                             </div>
 
-                                                            <div className="mt-4 text-right">
-                                                                {/* Button logic moved here without console.log in JSX */}
-                                                                {(() => {
-                                                                    // Debug info for troubleshooting
-                                                                    console.log('Psychotest button debug:', {
-                                                                        history_id: history.id,
-                                                                        status_name: history.status_name,
-                                                                        is_active: isActive,
-                                                                        completed_at: history.completed_at,
-                                                                        completed_at_type: typeof history.completed_at,
-                                                                        completed_at_is_null: history.completed_at === null,
-                                                                        notes: history.notes
-                                                                    });
+                                                            {/* Psychotest Scheduling Information */}
+                                                            {application.psychotest_scheduling && (
+                                                                <div className="mt-4">
+                                                                    <h6 className="font-medium text-gray-900 mb-2">Jadwal Ujian:</h6>
+                                                                    
+                                                                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                                                                        <div className="flex justify-between text-sm">
+                                                                            <span className="text-gray-600">Mulai:</span>
+                                                                            <span className="font-medium text-gray-900">
+                                                                                {application.psychotest_scheduling.formatted_opens_at}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex justify-between text-sm">
+                                                                            <span className="text-gray-600">Berakhir:</span>
+                                                                            <span className="font-medium text-gray-900">
+                                                                                {application.psychotest_scheduling.formatted_closes_at}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex justify-between text-sm">
+                                                                            <span className="text-gray-600">Durasi:</span>
+                                                                            <span className="font-medium text-gray-900">
+                                                                                {application.psychotest_scheduling.duration_minutes} menit
+                                                                            </span>
+                                                                        </div>
+                                                                        
+                                                                        {application.psychotest_scheduling.is_upcoming && application.psychotest_scheduling.time_until_start && (
+                                                                            <div className="pt-2 border-t border-gray-300">
+                                                                                <p className="text-xs text-orange-600 font-medium">
+                                                                                    🕒 Mulai dalam {application.psychotest_scheduling.time_until_start}
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                        
+                                                                        {application.psychotest_scheduling.is_available && (
+                                                                            <div className="pt-2 border-t border-gray-300">
+                                                                                <p className="text-xs text-green-600 font-medium">
+                                                                                    ✅ Ujian sedang berlangsung
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                        
+                                                                        {application.psychotest_scheduling.is_expired && (
+                                                                            <div className="pt-2 border-t border-gray-300">
+                                                                                <p className="text-xs text-red-600 font-medium">
+                                                                                    ❌ Ujian sudah berakhir
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
 
-                                                                    return null; // Return null to not render anything for the debug
-                                                                })()}
+                                                            {/* Psychotest Scheduling Notification */}
+                                                            {application.psychotest_scheduling && (
+                                                                <div className="mt-4">
+                                                                    {application.psychotest_scheduling.is_upcoming && (
+                                                                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                                                            <div className="flex items-start">
+                                                                                <ClockIcon />
+                                                                                <div className="ml-2">
+                                                                                    <h6 className="font-medium text-yellow-800">Tes Belum Tersedia</h6>
+                                                                                    <p className="text-sm text-yellow-700 mt-1">
+                                                                                        Tes psikologi akan tersedia pada <strong>{application.psychotest_scheduling.formatted_opens_at}</strong>
+                                                                                    </p>
+                                                                                    {application.psychotest_scheduling.time_until_start && (
+                                                                                        <p className="text-xs text-yellow-600 mt-1">
+                                                                                            Waktu tersisa: {application.psychotest_scheduling.time_until_start}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
 
-                                                                {/* Kondisi yang lebih sederhana dan jelas */}
-                                                                {isActive ? (
-                                                                    // Jika tahap aktif dan completed_at null atau empty string
-                                                                    (!history.completed_at || history.completed_at === null || history.completed_at === '') ? (
-                                                                        <a
-                                                                            href={`/candidate/tests/psychotest/${application.id}`}
-                                                                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-                                                                            onClick={() => {
-                                                                                console.log('Navigating to psychotest page', {
-                                                                                    application_id: application.id,
-                                                                                    url: `/candidate/tests/psychotest/${application.id}`
-                                                                                });
-                                                                            }}
-                                                                        >
-                                                                            Lanjut ke Persiapan Tes
-                                                                        </a>
-                                                                    ) : (
-                                                                        // Jika sudah ada completed_at, berarti sudah dikerjakan
-                                                                        <button
-                                                                            disabled
-                                                                            className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg opacity-90 cursor-not-allowed"
-                                                                        >
-                                                                            Sudah Dikerjakan
-                                                                        </button>
-                                                                    )
-                                                                ) : null}
-                                                            </div>
+                                                                    {application.psychotest_scheduling.is_available && (
+                                                                        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                                                            <div className="flex items-start">
+                                                                                <CheckIcon />
+                                                                                <div className="ml-2">
+                                                                                    <h6 className="font-medium text-green-800">Tes Tersedia</h6>
+                                                                                    <p className="text-sm text-green-700 mt-1">
+                                                                                        Tes psikologi tersedia sampai <strong>{application.psychotest_scheduling.formatted_closes_at}</strong>
+                                                                                    </p>
+                                                                                    <p className="text-sm text-green-600 mt-1">
+                                                                                        Durasi: {application.psychotest_scheduling.duration_minutes} menit
+                                                                                    </p>
+                                                                                    {application.psychotest_scheduling.time_until_end && (
+                                                                                        <p className="text-xs text-green-600 mt-1">
+                                                                                            Waktu tersisa: {application.psychotest_scheduling.time_until_end}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
 
+                                                                    {application.psychotest_scheduling.is_expired && (
+                                                                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                                                            <div className="flex items-start">
+                                                                                <ClockIcon />
+                                                                                <div className="ml-2">
+                                                                                    <h6 className="font-medium text-red-800">Tes Sudah Berakhir</h6>
+                                                                                    <p className="text-sm text-red-700 mt-1">
+                                                                                        Periode tes psikologi telah berakhir pada <strong>{application.psychotest_scheduling.formatted_closes_at}</strong>
+                                                                                    </p>
+                                                                                    <p className="text-xs text-red-600 mt-1">
+                                                                                        Silakan hubungi tim rekrutmen untuk informasi lebih lanjut.
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
+                                                         
                                                             {/* Jika psikotes sudah dikerjakan, tampilkan catatan - HANYA TAMPILKAN DI SINI */}
                                                             {history.completed_at && history.notes && (
                                                                 <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -514,6 +837,14 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
 )}
                 </div>
             </div>
+
+            {/* Render Modal untuk Informasi Jadwal */}
+            <TestScheduleModal 
+                isOpen={showScheduleModal}
+                onClose={() => setShowScheduleModal(false)}
+                scheduling={application.psychotest_scheduling}
+                completedAt={psychotestHistory?.completed_at || null}
+            />
         </div>
     );
 }

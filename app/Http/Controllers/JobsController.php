@@ -46,9 +46,9 @@ class JobsController extends Controller
                     $majorName = $major ? $major->name : null;
                 }
 
-                // Format requirements and benefits
-                $requirements = is_array($job->requirements) ? $job->requirements : json_decode($job->requirements ?: '[]');
-                $benefits = is_array($job->benefits) ? $job->benefits : json_decode($job->benefits ?: '[]');
+                // Format requirements and benefits with improved parsing
+                $requirements = $this->parseJobData($job->requirements);
+                $benefits = $this->parseJobData($job->benefits);
 
                 return [
                     'id' => $job->id,
@@ -241,6 +241,22 @@ class JobsController extends Controller
                 ->pluck('id')
                 ->toArray();
 
+            // Cek apakah user sudah pernah apply ke lowongan yang sama (termasuk yang di-reject)
+            $existingApplicationToSameVacancy = Applications::where('user_id', $user->id)
+                ->where('vacancy_period_id', $currentVacancyPeriod->vacancy_period_id)
+                ->with(['status'])
+                ->first();
+
+            if ($existingApplicationToSameVacancy) {
+                $applicationStatus = $existingApplicationToSameVacancy->status;
+                Log::warning('User already applied to this specific vacancy', [
+                    'application_id' => $existingApplicationToSameVacancy->id,
+                    'status' => $applicationStatus ? $applicationStatus->name : 'unknown',
+                    'stage' => $applicationStatus ? $applicationStatus->stage : 'unknown'
+                ]);
+                return redirect()->back()->with('error', 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.');
+            }
+
             // Cek apakah user sudah pernah apply ke salah satu vacancy di periode yang sama
             // TAPI hanya yang belum di-reject
             $existingApplicationInPeriod = Applications::where('user_id', $user->id)
@@ -255,24 +271,17 @@ class JobsController extends Controller
                 $appliedVacancy = $existingApplicationInPeriod->vacancyPeriod->vacancy;
                 $applicationStatus = $existingApplicationInPeriod->status;
 
-                if ($appliedVacancy->id == $id) {
-                    // Sudah apply ke lowongan yang sama
-                    Log::warning('User already applied to this vacancy', [
-                        'application_id' => $existingApplicationInPeriod->id,
-                        'status' => $applicationStatus ? $applicationStatus->name : 'unknown'
-                    ]);
-                    return redirect()->back()->with('error', 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.');
-                } else {
-                    // Sudah apply ke lowongan lain di periode yang sama
-                    Log::warning('User already applied to another vacancy in the same period', [
-                        'existing_application_id' => $existingApplicationInPeriod->id,
-                        'existing_vacancy_title' => $appliedVacancy->title,
-                        'current_vacancy_id' => $id,
-                        'period_name' => $currentVacancyPeriod->period_name,
-                        'status' => $applicationStatus ? $applicationStatus->name : 'unknown'
-                    ]);
-                    return redirect()->back()->with('error', "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.");
-                }
+                // This check is now handled above, so we can remove this condition
+                // and just handle the case where they applied to a different vacancy in the same period
+                // Sudah apply ke lowongan lain di periode yang sama
+                Log::warning('User already applied to another vacancy in the same period', [
+                    'existing_application_id' => $existingApplicationInPeriod->id,
+                    'existing_vacancy_title' => $appliedVacancy->title,
+                    'current_vacancy_id' => $id,
+                    'period_name' => $currentVacancyPeriod->period_name,
+                    'status' => $applicationStatus ? $applicationStatus->name : 'unknown'
+                ]);
+                return redirect()->back()->with('error', "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.");
             }
 
             // VALIDASI JENJANG PENDIDIKAN: Cek apakah jenjang pendidikan candidate memenuhi syarat
@@ -362,14 +371,9 @@ class JobsController extends Controller
             $majorName = $major ? $major->name : null;
         }
 
-        // Convert requirements & benefits to array if they are JSON strings
-        $requirements = is_string($vacancy->requirements)
-            ? json_decode($vacancy->requirements)
-            : $vacancy->requirements;
-
-        $benefits = is_string($vacancy->benefits)
-            ? json_decode($vacancy->benefits)
-            : $vacancy->benefits;
+        // Parse requirements & benefits data with proper handling for nested JSON
+        $requirements = $this->parseJobData($vacancy->requirements);
+        $benefits = $this->parseJobData($vacancy->benefits);
 
         // Get user's major if authenticated
         $userMajor = null;
@@ -559,6 +563,32 @@ class JobsController extends Controller
     }
 
     // applicationHistory method has been removed and replaced with a dedicated ApplicationHistoryController
+
+    /**
+     * Parse job data that might be stored as nested JSON
+     * 
+     * @param mixed $data
+     * @return array
+     */
+    private function parseJobData($data)
+    {
+        if (is_array($data)) {
+            // If it's an array with a single JSON string element
+            if (count($data) === 1 && is_string($data[0])) {
+                $decoded = json_decode($data[0], true);
+                return is_array($decoded) ? $decoded : [];
+            }
+            // If it's already a proper array
+            return $data;
+        }
+        
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+        
+        return [];
+    }
 
     /**
      * Metode untuk memvalidasi jenjang pendidikan kandidat dengan persyaratan lowongan
@@ -822,33 +852,15 @@ class JobsController extends Controller
      * Halaman konfirmasi data sebelum melamar
      *
      * @param string|null $job_id
-     * @return \Inertia\Response
+     * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
      */
     public function confirmData($job_id = null)
     {
         // Verifikasi user sudah login
         $user = Auth::user();
         if (!$user) {
-            // For AJAX requests, return redirect
-            if (request()->ajax() || request()->wantsJson()) {
-                return redirect('/login')->with('error', 'Silakan login terlebih dahulu');
-            }
-
-            // For regular requests, render confirm data page with error
-            return \Inertia\Inertia::render('candidate/confirm-data', [
-                'error' => 'Silakan login terlebih dahulu',
-                'completeness' => [
-                    'profile' => false,
-                    'education' => false,
-                    'skills' => false,
-                    'work_experience' => false,
-                    'organization' => false,
-                    'achievements' => false,
-                    'social_media' => false,
-                    'additional_data' => false,
-                    'overall_complete' => false
-                ]
-            ]);
+            // Always redirect to login for unauthenticated users
+            return redirect('/login')->with('error', 'Silakan login terlebih dahulu');
         }
 
         // Cek kelengkapan profil
@@ -922,8 +934,21 @@ class JobsController extends Controller
             $vacancy = Vacancies::findOrFail($id);
 
             // Cek apakah user sudah pernah apply (TAPI hanya yang belum di-reject)
+            // Pertama, cari vacancy_period_id yang aktif
+            $currentVacancyPeriod = DB::table('vacancy_periods')
+                ->join('periods', 'vacancy_periods.period_id', '=', 'periods.id')
+                ->where('vacancy_periods.vacancy_id', $id)
+                ->where('periods.start_time', '<=', now())
+                ->where('periods.end_time', '>=', now())
+                ->select('vacancy_periods.id as vacancy_period_id')
+                ->first();
+
+            if (!$currentVacancyPeriod) {
+                return redirect()->back()->with('error', 'Periode perekrutan untuk lowongan ini tidak aktif.');
+            }
+
             $existingApplication = Applications::where('user_id', $user->id)
-                ->where('vacancies_id', $id)
+                ->where('vacancy_period_id', $currentVacancyPeriod->vacancy_period_id)
                 ->whereHas('status', function($query) {
                     $query->where('stage', '!=', \App\Enums\CandidatesStage::REJECTED->value);
                 })
@@ -1003,22 +1028,33 @@ class JobsController extends Controller
                 $status = DB::table('statuses')->first(); // Ambil status pertama
             }
 
+            // Ambil vacancy_period_id yang aktif
+            $currentVacancyPeriod = DB::table('vacancy_periods')
+                ->join('periods', 'vacancy_periods.period_id', '=', 'periods.id')
+                ->where('vacancy_periods.vacancy_id', $id)
+                ->where('periods.start_time', '<=', now())
+                ->where('periods.end_time', '>=', now())
+                ->select('vacancy_periods.id as vacancy_period_id', 'periods.name as period_name')
+                ->first();
+
+            if (!$currentVacancyPeriod) {
+                throw new \Exception('Periode perekrutan untuk lowongan ini tidak aktif.');
+            }
+
             // Buat aplikasi baru
             $application = Applications::create([
                 'user_id' => $user->id,
-                'vacancies_id' => $id,
+                'vacancy_period_id' => $currentVacancyPeriod->vacancy_period_id,
                 'status_id' => $status->id,
             ]);
 
             // Buat history aplikasi
-            DB::table('application_history')->insert([
+            ApplicationHistory::create([
                 'application_id' => $application->id,
                 'status_id' => $status->id,
                 'processed_at' => now(),
                 'is_active' => true,
-                'notes' => 'Lamaran dikirim pada ' . now()->format('d M Y H:i'),
-                'created_at' => now(),
-                'updated_at' => now(),
+                'notes' => "Lamaran dikirim pada " . now()->format('d M Y H:i') . " untuk periode {$currentVacancyPeriod->period_name}",
             ]);
 
             DB::commit();
@@ -1026,7 +1062,7 @@ class JobsController extends Controller
             // Return Inertia redirect with flash message
             return redirect('/candidate/application-history')->with('flash', [
                 'type' => 'success',
-                'message' => 'Lamaran berhasil dikirim untuk periode Q3 2025 Recruitment! Anda dapat melihat status lamaran pada menu "Lamaran".'
+                'message' => "Lamaran berhasil dikirim untuk periode {$currentVacancyPeriod->period_name}! Anda dapat melihat status lamaran pada menu \"Lamaran\"."
             ]);
 
         } catch (\Exception $e) {

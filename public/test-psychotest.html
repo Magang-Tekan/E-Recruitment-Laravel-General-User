@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Psychotest Access</title>
+</head>
+<body>
+    <h1>Test Psychotest Access</h1>
+    
+    <h2>1. Login sebagai Candidate User</h2>
+    <form action="http://localhost:8001/login" method="POST">
+        <input type="hidden" name="_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="email" value="candidate@example.com">
+        <input type="hidden" name="password" value="password123">
+        <button type="submit">Login as Candidate</button>
+    </form>
+    
+    <h2>2. Access Psychotest</h2>
+    <a href="http://localhost:8001/candidate/tests/psychotest" target="_blank">Access Psychotest (Auto-detect)</a><br>
+    <a href="http://localhost:8001/candidate/tests/psychotest/1" target="_blank">Access Psychotest (Application ID 1)</a>
+    
+    <h2>3. Check Application History</h2>
+    <a href="http://localhost:8001/candidate/application-history" target="_blank">View Application History</a>
+</body>
+</html>

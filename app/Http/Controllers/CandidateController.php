@@ -2402,30 +2402,28 @@ public function showPsychotest($application_id = null)
 
         // Jika tidak ada application_id, cari aplikasi user yang sedang dalam tahap psikotes
         if (!$application_id) {
-            // Cari aplikasi user yang sedang dalam tahap psikotes
+            // PERBAIKAN: Cari aplikasi dengan status psikotes yang aktif
             $application = Applications::where('user_id', $user->id)
-                ->whereHas('applicationHistories', function ($query) {
-                    $query->where('is_active', true)
-                        ->whereHas('status', function ($q) {
-                            $q->where('stage', \App\Enums\CandidatesStage::PSYCHOTEST->value)
-                                ->orWhere('name', 'like', '%Psiko%')
-                                ->orWhere('name', 'like', '%Psychological%');
-                        });
+                ->whereHas('status', function($q) {
+                    $q->where('stage', \App\Enums\CandidatesStage::PSYCHOTEST->value);
                 })
+                ->orderBy('created_at', 'desc') // Ambil yang terbaru
                 ->first();
 
             if ($application) {
                 $application_id = $application->id;
+                \Illuminate\Support\Facades\Log::info('Found psychotest application: ' . $application_id);
             } else {
-                \Illuminate\Support\Facades\Log::warning('No active psychotest found for user: ' . $user->id);
+                \Illuminate\Support\Facades\Log::warning('No psychotest application found for user: ' . $user->id);
                 return redirect()->route('candidate.application-history')
-                    ->with('error', 'Anda tidak memiliki tes psikotes yang aktif saat ini.');
+                    ->with('error', 'Anda tidak memiliki tes psikotes yang tersedia saat ini.');
             }
         }
 
         // Validasi application_id (apakah ini milik user yang login & dalam tahap psikotes)
         $application = Applications::where('id', $application_id)
             ->where('user_id', $user->id)
+            ->with(['vacancyPeriod.vacancy'])  // Load vacancy data
             ->first();
 
         if (!$application) {
@@ -2434,35 +2432,102 @@ public function showPsychotest($application_id = null)
                 ->with('error', 'Data aplikasi tidak ditemukan atau bukan milik Anda.');
         }
 
-        // Cek apakah aplikasi ini sedang dalam tahap psikotes
+        // Get vacancy data for psychotest_name
+        $vacancy = $application->vacancy;
+
+        // Debug: Log semua status yang tersedia
+        $allStatuses = Statuses::all();
+        \Illuminate\Support\Facades\Log::info('All available statuses', [
+            'statuses' => $allStatuses->map(function($status) {
+                return [
+                    'id' => $status->id,
+                    'name' => $status->name,
+                    'stage' => $status->stage instanceof \App\Enums\CandidatesStage ? $status->stage->value : (string)$status->stage,
+                    'is_active' => $status->is_active
+                ];
+            })
+        ]);
+
+        // Debug: Log semua application histories untuk aplikasi ini
+        $appHistories = ApplicationHistory::where('application_id', $application->id)
+            ->with('status')
+            ->get();
+        \Illuminate\Support\Facades\Log::info('Application histories for application ' . $application->id, [
+            'histories' => $appHistories->map(function($history) {
+                return [
+                    'id' => $history->id,
+                    'status_id' => $history->status_id,
+                    'status_name' => $history->status ? $history->status->name : 'null',
+                    'status_stage' => $history->status && $history->status->stage ? 
+                        ($history->status->stage instanceof \App\Enums\CandidatesStage ? $history->status->stage->value : (string)$history->status->stage) : 'null',
+                    'is_active' => $history->is_active,
+                    'completed_at' => $history->completed_at
+                ];
+            })
+        ]);
+
+        // Cek apakah aplikasi ini sedang dalam tahap psikotes dengan kriteria yang lebih fleksibel
         $activePsychoTest = ApplicationHistory::where('application_id', $application->id)
             ->where('is_active', true)
             ->whereHas('status', function ($query) {
-                               $query->where('stage', \App\Enums\CandidatesStage::PSYCHOTEST->value)
+                $query->where('stage', \App\Enums\CandidatesStage::PSYCHOTEST->value)
                     ->orWhere('name', 'like', '%Psiko%')
                     ->orWhere('name', 'like', '%Psychological%');
             })
             ->first();
 
         if (!$activePsychoTest) {
-            \Illuminate\Support\Facades\Log::warning('No active psychotest stage for application_id: ' . $application_id);
-            return redirect()->route('candidate.application-history')
-                ->with('error', 'Aplikasi ini tidak sedang dalam tahap psikotes.');
+            // PERBAIKAN: Jika tidak ada history yang aktif, cek apakah aplikasi dalam status psikotes
+            $applicationStatus = $application->status;
+            if ($applicationStatus && $applicationStatus->stage === \App\Enums\CandidatesStage::PSYCHOTEST->value) {
+                \Illuminate\Support\Facades\Log::info('Application in psychotest stage, allowing access even without active history');
+                // Buat active history jika belum ada
+                $activePsychoTest = ApplicationHistory::create([
+                    'application_id' => $application->id,
+                    'status_id' => $applicationStatus->id,
+                    'processed_at' => now(),
+                    'is_active' => true,
+                    'notes' => 'Auto-created for psychotest access'
+                ]);
+            } else {
+                \Illuminate\Support\Facades\Log::warning('No active psychotest stage for application_id: ' . $application_id);
+                return redirect()->route('candidate.application-history')
+                    ->with('error', 'Aplikasi ini tidak sedang dalam tahap psikotes.');
+            }
         }
 
-        // Debug info untuk membantu troubleshooting
+        // Debug info untuk membantu troubleshooting (simplified logging)
         \Illuminate\Support\Facades\Log::info('Active psychotest record found', [
             'application_id' => $application->id,
-                       'completed_at' => $activePsychoTest->completed_at,
+            'psychotest_id' => $activePsychoTest->id,
+            'completed_at' => $activePsychoTest->completed_at,
             'is_active' => $activePsychoTest->is_active,
             'status_id' => $activePsychoTest->status_id
         ]);
 
-        // Cek apakah psikotes sudah dikerjakan
+        // Cek apakah psikotes sudah dikerjakan - PREVENT RETAKES for security
         if ($activePsychoTest->completed_at) {
-            \Illuminate\Support\Facades\Log::info('Psychotest already completed for application_id: ' . $application_id);
-            return redirect()->route('candidate.application-status', ['id' => $application->id])
-                ->with('warning', 'Anda sudah mengerjakan tes psikotes untuk aplikasi ini.');
+            \Illuminate\Support\Facades\Log::warning('Psychotest already completed for application_id: ' . $application_id . ' - Access denied');
+            return redirect()->route('candidate.application.status', ['id' => $application->id])
+                ->with('error', 'Anda sudah menyelesaikan tes psikotes pada ' . $activePsychoTest->completed_at->format('d M Y H:i') . '. Tidak dapat mengerjakan ulang.');
+        }
+
+        // PERBAIKAN: Cek existing answers yang lebih tepat - hanya blokir jika sudah submit final
+        $existingAnswers = \App\Models\UserAnswer::where('user_id', Auth::id())
+            ->whereExists(function($query) use ($application_id) {
+                $query->select(\Illuminate\Support\Facades\DB::raw(1))
+                      ->from('questions')
+                      ->whereColumn('questions.id', 'user_answers.question_id');
+            })
+            ->count();
+
+        // Allow access if test is not yet completed, even if there are some answers
+        if ($existingAnswers > 0 && $activePsychoTest->completed_at) {
+            \Illuminate\Support\Facades\Log::warning('User has existing answers and test is completed for application_id: ' . $application_id . ' - Access denied');
+            return redirect()->route('candidate.application.status', ['id' => $application->id])
+                ->with('error', 'Anda sudah menyelesaikan tes psikotes. Tidak dapat mengerjakan ulang.');
+        } elseif ($existingAnswers > 0 && !$activePsychoTest->completed_at) {
+            \Illuminate\Support\Facades\Log::info('User has partial answers but test not completed - allowing continuation');
         }
 
         // Ambil QuestionPack untuk psikotes dari database
@@ -2474,20 +2539,65 @@ public function showPsychotest($application_id = null)
             $questions = $this->getDummyPsychotestQuestions();
             $userAnswers = [];
             
+            // Use psychotest_name from vacancy if available, otherwise use default
+            $psychotestTitle = ($vacancy && $vacancy->psychotest_name) 
+                ? $vacancy->psychotest_name 
+                : 'Tes Psikotes Kepribadian dan Logika';
+            
             $assessment = [
                 'id' => $application->id,
                 'question_pack_id' => 0,
-                'title' => 'Tes Psikotes Kepribadian dan Logika',
+                'title' => $psychotestTitle,
                 'description' => 'Pilih jawaban yang paling sesuai dengan diri Anda. Tidak ada jawaban benar atau salah. Jawablah dengan jujur dan spontan.',
                 'duration' => 60
             ];
             
             \Illuminate\Support\Facades\Log::info('Using dummy psychotest data');
-            return Inertia::render('candidate/tests/candidate-psychotest', [
+            
+            // Set cache-control headers using response macro
+            $response = Inertia::render('candidate/tests/candidate-psychotest', [
                 'assessment' => $assessment,
                 'questions' => $questions,
                 'userAnswers' => $userAnswers
             ]);
+            
+            return response($response->toResponse(request())->getContent())
+                ->withHeaders([
+                    'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                    'Pragma' => 'no-cache',
+                    'Expires' => '0',
+                    'Content-Type' => 'text/html; charset=UTF-8'
+                ]);
+        }
+
+        // Check if test is currently available based on scheduling
+        $now = now();
+        \Illuminate\Support\Facades\Log::info('Time validation check', [
+            'current_time' => $now->format('Y-m-d H:i:s'),
+            'opens_at' => $questionPack->opens_at,
+            'closes_at' => $questionPack->closes_at,
+            'question_pack_id' => $questionPack->id,
+            'question_pack_name' => $questionPack->pack_name
+        ]);
+        
+        if ($questionPack->opens_at && $now->lt($questionPack->opens_at)) {
+            $opensAt = $questionPack->opens_at->format('d M Y H:i');
+            \Illuminate\Support\Facades\Log::warning('Test access denied - not yet open', [
+                'current_time' => $now->format('Y-m-d H:i:s'),
+                'opens_at' => $questionPack->opens_at->format('Y-m-d H:i:s')
+            ]);
+            return redirect()->route('candidate.application.status', ['id' => $application->id])
+                ->with('error', "Tes psikotes belum dibuka. Tes akan tersedia mulai {$opensAt}.");
+        }
+        
+        if ($questionPack->closes_at && $now->gt($questionPack->closes_at)) {
+            $closesAt = $questionPack->closes_at->format('d M Y H:i');
+            \Illuminate\Support\Facades\Log::warning('Test access denied - already closed', [
+                'current_time' => $now->format('Y-m-d H:i:s'),
+                'closes_at' => $questionPack->closes_at->format('Y-m-d H:i:s')
+            ]);
+            return redirect()->route('candidate.application.status', ['id' => $application->id])
+                ->with('error', "Tes psikotes sudah ditutup. Tes ditutup pada {$closesAt}.");
         }
 
         // Ambil soal dari database
@@ -2496,21 +2606,50 @@ public function showPsychotest($application_id = null)
         // Ambil jawaban user yang sudah ada (jika ada)
         $userAnswers = $this->getUserAnswers($application->id, Auth::id());
 
-        // Setup data tes dari application history
+        // Setup data tes dari question pack yang tepat
+        // Use psychotest_name from vacancy if available, otherwise use pack_name
+        $psychotestTitle = ($vacancy && $vacancy->psychotest_name) 
+            ? $vacancy->psychotest_name 
+            : $questionPack->pack_name;
+        
         $assessment = [
             'id' => $application->id,
             'question_pack_id' => $questionPack->id,
-            'title' => $questionPack->pack_name,
+            'title' => $psychotestTitle,
             'description' => $questionPack->description,
-            'duration' => $questionPack->duration
+            'duration' => $questionPack->duration,
+            'opens_at' => $questionPack->opens_at,
+            'closes_at' => $questionPack->closes_at,
+            'formatted_opens_at' => $questionPack->opens_at ? \Carbon\Carbon::parse($questionPack->opens_at)->format('d M Y H:i') : null,
+            'formatted_closes_at' => $questionPack->closes_at ? \Carbon\Carbon::parse($questionPack->closes_at)->format('d M Y H:i') : null,
         ];
 
+        \Illuminate\Support\Facades\Log::info('Assessment data prepared', [
+            'question_pack_id' => $questionPack->id,
+            'pack_name' => $questionPack->pack_name,
+            'title' => $psychotestTitle,
+            'description' => $questionPack->description,
+            'duration' => $questionPack->duration,
+            'opens_at' => $questionPack->opens_at,
+            'closes_at' => $questionPack->closes_at
+        ]);
+
         \Illuminate\Support\Facades\Log::info('Rendering candidate-psychotest view');
-        return Inertia::render('candidate/tests/candidate-psychotest', [
+        
+        // Add anti-cache headers to prevent browser back button access after submit
+        $response = Inertia::render('candidate/tests/candidate-psychotest', [
             'assessment' => $assessment,
             'questions' => $questions,
             'userAnswers' => $userAnswers // Gunakan jawaban yang sudah ada
         ]);
+        
+        return response($response->toResponse(request())->getContent())
+            ->withHeaders([
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+                'Content-Type' => 'text/html; charset=UTF-8'
+            ]);
 
     } catch (\Exception $e) {
         \Illuminate\Support\Facades\Log::error('Error in showPsychotest: ' . $e->getMessage(), [
@@ -2585,17 +2724,40 @@ private function getDummyPsychotestQuestions()
  */
 private function getPsychotestQuestionPack()
 {
-    // Cari question pack untuk psikotes
-    $questionPack = \App\Models\QuestionPack::where('test_type', 'psychotest')
-        ->orWhere('pack_name', 'like', '%psikotes%')
-        ->orWhere('pack_name', 'like', '%psychological%')
-        ->orWhere('pack_name', 'like', '%kepribadian%')
+    // PERBAIKAN: Cari question pack berdasarkan prioritas:
+    // 1. Technical Assessment untuk psychotest teknis
+    // 2. Psychotest yang spesifik 
+    // 3. General Assessment sebagai fallback
+    
+    $questionPack = \App\Models\QuestionPack::where('pack_name', 'Technical Assessment')
+        ->orWhere('test_type', 'Technical')
         ->first();
     
-    // Jika tidak ada, ambil QuestionPack pertama yang ada
+    // Jika tidak ada Technical Assessment, cari psychotest
+    if (!$questionPack) {
+        $questionPack = \App\Models\QuestionPack::where('test_type', 'psychotest')
+            ->orWhere('pack_name', 'like', '%psikotes%')
+            ->orWhere('pack_name', 'like', '%psychological%')
+            ->orWhere('pack_name', 'like', '%kepribadian%')
+            ->first();
+    }
+    
+    // Jika tidak ada, gunakan "General Assessment" sebagai default untuk psychotest
+    if (!$questionPack) {
+        $questionPack = \App\Models\QuestionPack::where('pack_name', 'General Assessment')
+            ->orWhere('test_type', 'general')
+            ->first();
+        
+        \Illuminate\Support\Facades\Log::info('No specific psychotest question pack found, using General Assessment', [
+            'pack_id' => $questionPack ? $questionPack->id : null,
+            'pack_name' => $questionPack ? $questionPack->pack_name : null
+        ]);
+    }
+    
+    // Jika masih tidak ada, ambil QuestionPack pertama yang ada
     if (!$questionPack) {
         $questionPack = \App\Models\QuestionPack::first();
-        \Illuminate\Support\Facades\Log::info('No psychotest question pack found, using first available pack', [
+        \Illuminate\Support\Facades\Log::warning('No suitable question pack found, using first available', [
             'pack_id' => $questionPack ? $questionPack->id : null,
             'pack_name' => $questionPack ? $questionPack->pack_name : null
         ]);
@@ -2678,14 +2840,21 @@ private function getUserAnswers($applicationId, $userId)
 public function submitPsychotest(Request $request)
 {
     try {
+        $answers = $request->input('answers', []);
+        $answeredCount = is_array($answers) ? count($answers) : 0;
+        $isCheating = $request->input('is_cheating', false);
+        $cheatingReason = $request->input('cheating_reason', '');
+        
         \Illuminate\Support\Facades\Log::info('Received psychotest submission', [
             'application_id' => $request->input('application_id'),
-            'answers_count' => is_array($request->input('answers')) ? count($request->input('answers')) : 'not array',
-            'user_id' => Auth::id()
+            'answers_count' => $answeredCount,
+            'user_id' => Auth::id(),
+            'is_cheating' => $isCheating,
+            'cheating_reason' => $cheatingReason,
+            'answers' => $answers
         ]);
 
         $application_id = $request->input('application_id');
-        $answers = $request->input('answers', []);
 
         // Validasi data
         if (!$application_id) {
@@ -2730,7 +2899,97 @@ public function submitPsychotest(Request $request)
         // PERBAIKAN: Hanya update completed_at untuk menandakan kandidat sudah selesai test
         // JANGAN set reviewed_by di sini - ini harus diisi oleh admin saat mengevaluasi
         $psychotestHistory->completed_at = now();
-        $psychotestHistory->notes = 'Tes psikotes telah dikerjakan oleh kandidat pada ' . now()->format('Y-m-d H:i') . '. Menunggu evaluasi dari tim rekrutmen.';
+        
+        // Get total questions count for better reporting
+        $questionPack = $this->getPsychotestQuestionPack();
+        $totalQuestions = 0;
+        if ($questionPack) {
+            $totalQuestions = $questionPack->questions()->count();
+        }
+        
+        // Handle cheating case
+        if ($isCheating) {
+            // Auto-reject for cheating
+            $rejectedStatus = \App\Models\Statuses::where('stage', \App\Enums\CandidatesStage::REJECTED->value)
+                ->first();
+            
+            if ($rejectedStatus) {
+                // Update application status to rejected
+                $application->status_id = $rejectedStatus->id;
+                $application->save();
+                
+                // Update current psychotest history to inactive
+                $psychotestHistory->is_active = false;
+                $psychotestHistory->completed_at = now();
+                $psychotestHistory->score = 0;
+                $psychotestHistory->notes = "DITOLAK KARENA KECURANGAN: {$cheatingReason}. " .
+                    "Kandidat terdeteksi melakukan pelanggaran saat ujian pada " . now()->format('Y-m-d H:i') . ". " .
+                    "Jawaban yang sempat diberikan: {$answeredCount}";
+                if ($totalQuestions > 0) {
+                    $psychotestHistory->notes .= " dari {$totalQuestions} pertanyaan";
+                }
+                $psychotestHistory->notes .= '.';
+                $psychotestHistory->save();
+                
+                // Create new rejected history
+                \App\Models\ApplicationHistory::create([
+                    'application_id' => $application_id,
+                    'status_id' => $rejectedStatus->id,
+                    'is_active' => true,
+                    'score' => 0,
+                    'notes' => "Aplikasi ditolak karena pelanggaran saat ujian psikotes: {$cheatingReason}",
+                    'completed_at' => now(),
+                    'processed_at' => now(),
+                ]);
+                
+                \Illuminate\Support\Facades\Log::warning('Application auto-rejected due to cheating', [
+                    'application_id' => $application_id,
+                    'user_id' => Auth::id(),
+                    'cheating_reason' => $cheatingReason
+                ]);
+                
+                return redirect()->route('candidate.application.status', ['id' => $application_id])
+                    ->with('flash', [
+                        'type' => 'error',
+                        'message' => 'Ujian telah dihentikan karena pelanggaran. Aplikasi Anda telah ditolak.'
+                    ]);
+            }
+        }
+        
+        // Get all questions from the question pack untuk aplikasi ini (dipindahkan ke atas)
+        $questionPack = $this->getPsychotestQuestionPack();
+        $allQuestions = [];
+        
+        if ($questionPack) {
+            // Fix ambiguous column issue dengan spesifik table name
+            $allQuestions = $questionPack->questions()->pluck('questions.id')->toArray();
+        }
+        
+        // Jika tidak ada question pack, gunakan questions dari dummy data
+        if (empty($allQuestions)) {
+            // Fallback ke dummy questions (ID 1-5)
+            $allQuestions = [1, 2, 3, 4, 5];
+        }
+        
+        $notes = 'Tes psikotes telah dikerjakan oleh kandidat pada ' . now()->format('Y-m-d H:i') . '. ';
+        
+        // Update notes dengan informasi lengkap
+        if (!empty($allQuestions)) {
+            $totalQuestionsFromPack = count($allQuestions);
+            $notes .= "Jawaban yang diberikan: {$answeredCount} dari {$totalQuestionsFromPack} pertanyaan";
+            $unansweredCount = $totalQuestionsFromPack - $answeredCount;
+            if ($unansweredCount > 0) {
+                $notes .= " ({$unansweredCount} soal tidak dijawab)";
+            }
+        } else {
+            $notes .= "Jawaban yang diberikan: {$answeredCount}";
+            if ($totalQuestions > 0) {
+                $notes .= " dari {$totalQuestions} pertanyaan";
+            }
+        }
+        $notes .= '. Semua soal telah tersimpan (termasuk yang tidak dijawab dengan nilai null). Menunggu evaluasi dari tim rekrutmen.';
+        
+        $psychotestHistory->notes = $notes;
 
         // Pastikan field ini TIDAK diisi saat kandidat submit
         // $psychotestHistory->processed_at = now();  // HAPUS - ini untuk admin saat proses evaluasi
@@ -2744,27 +3003,42 @@ public function submitPsychotest(Request $request)
         try {
             DB::beginTransaction();
 
-            // Hapus jawaban lama jika ada untuk soal yang sama
-            $questionIds = array_keys($answers);
+            // Hapus jawaban lama jika ada untuk semua soal dalam question pack ini
             \App\Models\UserAnswer::where('user_id', Auth::id())
-                ->whereIn('question_id', $questionIds)
+                ->whereIn('question_id', $allQuestions)
                 ->delete();
 
-            // Simpan jawaban baru ke tabel user_answers
-            foreach ($answers as $questionId => $choiceId) {
+            // Simpan SEMUA soal - termasuk yang tidak dijawab (choice_id = null)
+            $savedCount = 0;
+            foreach ($allQuestions as $questionId) {
+                $choiceId = isset($answers[$questionId]) ? $answers[$questionId] : null;
+                
                 \App\Models\UserAnswer::create([
                     'user_id' => Auth::id(),
                     'question_id' => $questionId,
-                    'choice_id' => $choiceId
+                    'choice_id' => $choiceId // null jika tidak dijawab
                 ]);
+                $savedCount++;
             }
 
             // Simpan backup jawaban dalam JSON juga untuk keamanan data
+            $allAnswersForBackup = [];
+            foreach ($allQuestions as $questionId) {
+                $allAnswersForBackup[$questionId] = isset($answers[$questionId]) ? $answers[$questionId] : null;
+            }
+            
             $backupAnswersFile = 'psychotest_answers/user_' . Auth::id() . '_app_' . $application_id . '_' . date('Ymd_His') . '.json';
             Storage::disk('local')->put($backupAnswersFile, json_encode([
                 'user_id' => Auth::id(),
                 'application_id' => $application_id,
-                'answers' => $answers,
+                'total_questions_available' => count($allQuestions),
+                'answered_questions' => count($answers),
+                'saved_records_count' => $savedCount, // Semua soal tersimpan
+                'unanswered_questions' => count($allQuestions) - count($answers),
+                'question_pack_used' => $questionPack ? $questionPack->pack_name : 'Unknown',
+                'all_question_ids' => $allQuestions,
+                'user_provided_answers' => $answers, // Hanya jawaban yang user berikan
+                'complete_saved_data' => $allAnswersForBackup, // Semua soal termasuk null
                 'submitted_at' => now()->format('Y-m-d H:i:s')
             ]));
 
@@ -2773,7 +3047,10 @@ public function submitPsychotest(Request $request)
             \Illuminate\Support\Facades\Log::info('Psychotest answers saved successfully', [
                 'user_id' => Auth::id(),
                 'application_id' => $application_id,
-                'answers_count' => count($answers)
+                'total_questions_available' => count($allQuestions),
+                'answered_questions' => count($answers),
+                'saved_records_count' => $savedCount, // Semua soal tersimpan (termasuk null)
+                'unanswered_questions' => count($allQuestions) - count($answers),
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -2785,7 +3062,7 @@ public function submitPsychotest(Request $request)
         return redirect()->route('candidate.application.status', ['id' => $application_id])
             ->with('flash', [
                 'type' => 'success',
-                'message' => 'Tes psikotes berhasil diselesaikan. Tim rekrutmen akan segera mengevaluasi hasil tes Anda.'
+                'message' => 'Tes psikotes berhasil diselesaikan. Tim rekrutmen akan segera mengevaluasi hasil tes Anda. Anda dapat mengerjakan ulang tes ini kapan saja.'
             ]);
 
     } catch (\Exception $e) {
@@ -2808,7 +3085,7 @@ public function applicationStatus($id)
 {
     try {
         $application = Applications::with([
-            'applicationHistories' => function($query) {
+            'applicationHistory' => function($query) {
                 $query->with('status');
                 // Pastikan completed_at terbawa
             }

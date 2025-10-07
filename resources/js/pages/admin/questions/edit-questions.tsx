@@ -33,6 +33,8 @@ interface Assessment {
     description: string;
     test_type: string;
     duration: string;
+    opens_at: string | null;
+    closes_at: string | null;
     questions: Question[];
 }
 
@@ -64,6 +66,8 @@ export default function EditQuestions({ assessment }: EditQuestionsProps) {
     const [questions, setQuestions] = useState<Question[]>(assessment.questions || []);
     const [selectedTestType, setSelectedTestType] = useState(assessment.test_type);
     const [selectedDuration, setSelectedDuration] = useState(assessment.duration);
+    const [opensAt, setOpensAt] = useState(assessment.opens_at ? new Date(assessment.opens_at).toISOString().slice(0, 16) : '');
+    const [closesAt, setClosesAt] = useState(assessment.closes_at ? new Date(assessment.closes_at).toISOString().slice(0, 16) : '');
     const [isFormDirty, setIsFormDirty] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [showNavigationWarning, setShowNavigationWarning] = useState(false);
@@ -77,6 +81,8 @@ export default function EditQuestions({ assessment }: EditQuestionsProps) {
             description !== assessment.description ||
             selectedTestType !== assessment.test_type ||
             selectedDuration !== assessment.duration ||
+            opensAt !== (assessment.opens_at ? new Date(assessment.opens_at).toISOString().slice(0, 16) : '') ||
+            closesAt !== (assessment.closes_at ? new Date(assessment.closes_at).toISOString().slice(0, 16) : '') ||
             JSON.stringify(questions) !== JSON.stringify(assessment.questions)
         ) {
             handleFormChange();
@@ -206,6 +212,8 @@ export default function EditQuestions({ assessment }: EditQuestionsProps) {
                 description,
                 test_type: selectedTestType,
                 duration: selectedDuration,
+                opens_at: opensAt || null,
+                closes_at: closesAt || null,
                 questions: JSON.stringify(preparedQuestions),
             },
             {
@@ -284,6 +292,32 @@ export default function EditQuestions({ assessment }: EditQuestionsProps) {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        
+                        <div className="mb-6">
+                            <h3 className="mb-4 text-lg font-semibold">Test Schedule (Optional)</h3>
+                            <div className="flex gap-4">
+                                <div className="w-1/2">
+                                    <label className="mb-2 block text-sm font-medium">Opens At</label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={opensAt}
+                                        onChange={(e) => setOpensAt(e.target.value)}
+                                        placeholder="Test start time"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">Leave empty to allow immediate access</p>
+                                </div>
+                                <div className="w-1/2">
+                                    <label className="mb-2 block text-sm font-medium">Closes At</label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={closesAt}
+                                        onChange={(e) => setClosesAt(e.target.value)}
+                                        placeholder="Test end time"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">Leave empty for no end time</p>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="mb-6 flex items-center gap-2">

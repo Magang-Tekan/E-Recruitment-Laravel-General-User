@@ -15,18 +15,32 @@ class WelcomeController extends Controller
     public function index()
     {
         try {
-            // Get all companies for the main content
-            $allCompanies = Company::select('id', 'name', 'description', 'logo')
+            // Get featured companies for the main content, fallback to all companies if none are featured
+            $featuredCompanies = Company::select('id', 'name', 'description', 'logo', 'website', 'email', 'phone', 'address', 'featured', 'display_order')
+                ->where('featured', true)
+                ->orderBy('display_order')
                 ->orderBy('id')
-                ->get()
-                ->map(function($company) {
-                    return [
-                        'id' => $company->id,
-                        'name' => $company->name,
-                        'description' => $company->description,
-                        'logo' => asset('storage/' . $company->logo)
-                    ];
-                });
+                ->get();
+
+            // If no featured companies, get all companies
+            if ($featuredCompanies->isEmpty()) {
+                $featuredCompanies = Company::select('id', 'name', 'description', 'logo', 'website', 'email', 'phone', 'address', 'featured', 'display_order')
+                    ->orderBy('id')
+                    ->get();
+            }
+
+            $featuredCompanies = $featuredCompanies->map(function($company) {
+                return [
+                    'id' => $company->id,
+                    'name' => $company->name,
+                    'description' => $company->description,
+                    'logo' => $company->logo ? asset('storage/' . $company->logo) : asset('images/default-company-logo.png'),
+                    'website' => $company->website,
+                    'email' => $company->email,
+                    'phone' => $company->phone,
+                    'address' => $company->address
+                ];
+            });
 
             // Get companies with ID 2 for the footer first column
             $mainCompany = Company::select('id', 'name', 'description')
@@ -46,8 +60,12 @@ class WelcomeController extends Controller
 
             $contacts = Contacts::select('email', 'phone', 'address')->first();
 
+            // Log the data being sent
+            Log::info('WelcomeController - Companies count: ' . $featuredCompanies->count());
+            Log::info('WelcomeController - Companies data: ' . json_encode($featuredCompanies->toArray()));
+
             return Inertia::render('welcome', [
-                'companies' => $allCompanies,
+                'companies' => $featuredCompanies,
                 'mainCompany' => $mainCompany,
                 'footerCompanies' => $footerCompanies,
                 'vacancies' => $this->getFormattedVacancies(),
@@ -56,6 +74,7 @@ class WelcomeController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Error in WelcomeController: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return Inertia::render('welcome', [
                 'companies' => [],
                 'footerCompanies' => [],
