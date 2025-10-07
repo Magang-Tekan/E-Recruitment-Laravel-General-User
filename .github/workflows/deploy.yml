@@ -1,10 +1,10 @@
-name: Deploy Laravel to VPS with Nginx
+name: Deploy to VPS
 
 on:
   push:
     branches:
-      - main   # Auto deploy kalau ada push ke branch main
- 
+      - main # Auto deploy kalau ada push ke branch main
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -19,11 +19,11 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "."
-          target: "/var/www/e-recruitment"
+          source: '.'
+          target: '/var/www/e-recruitment'
           rm: true
           strip_components: 1
-          exclude: ".git,.github,.env"
+          exclude: '.git,.github,node_modules,vendor'
 
       - name: Deploy Laravel app
         uses: appleboy/ssh-action@v1.0.3
@@ -33,38 +33,105 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /var/www/e-recruitment
-            
+
+            # Create .env file if it doesn't exist
+            if [ ! -f .env ]; then
+              echo "Creating .env file from example..."
+              cp .env.example .env
+            fi
+
+            # Generate APP_KEY if not exists
+            if ! grep -q "APP_KEY=base64:" .env; then
+              echo "Generating application key..."
+              php artisan key:generate --force
+            fi
+
+            # Set production environment
+            sed -i 's/APP_ENV=local/APP_ENV=production/' .env
+            sed -i 's/APP_DEBUG=true/APP_DEBUG=false/' .env
+            sed -i 's|APP_URL=http://localhost|APP_URL=https://rekruitmen.tekna.id|' .env
+
+            # Backup database before deployment (optional but recommended)
+            echo "Creating database backup..."
+            php artisan db:backup --backup-name=backup_$(date +%Y%m%d_%H%M%S).sql || echo "Backup skipped (command not available)"
+
+            # Alternative backup method using mysqldump directly
+            if [ -f .env ]; then
+              DB_DATABASE=$(grep DB_DATABASE .env | cut -d '=' -f2)
+              DB_USERNAME=$(grep DB_USERNAME .env | cut -d '=' -f2)
+              DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d '=' -f2)
+              
+              if [ ! -z "$DB_DATABASE" ]; then
+                echo "Creating database backup using mysqldump..."
+                mysqldump -u "$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" > backup_$(date +%Y%m%d_%H%M%S).sql 2>/dev/null || echo "Backup completed or skipped"
+              fi
+            fi
+
             # Clear all caches first to ensure fresh deployment
             php artisan cache:clear
             php artisan config:clear
             php artisan route:clear
             php artisan view:clear
             php artisan optimize:clear
-            
+
             # Remove compiled views to force recompilation
             rm -rf storage/framework/views/*
-            
+
             # Install/update Composer dependencies
-            composer install --no-dev --optimize-autoloader
-            
+            echo "Installing Composer dependencies..."
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+            # Install/update NPM dependencies and build frontend assets
+            echo "Building frontend assets..."
+            npm ci --prefer-offline --no-audit
+            npm run build
+
+            # Run migrations safely (won't delete existing data)
+            echo "Running database migrations..."
+            php artisan migrate --force
+
             # Set proper permissions for Laravel
+            echo "Setting proper permissions..."
             chown -R www-data:www-data storage bootstrap/cache
             chmod -R 775 storage bootstrap/cache
-            
+
             # Set proper permissions for entire application
             chown -R www-data:www-data /var/www/e-recruitment
             chmod -R 755 /var/www/e-recruitment
-            
+
+            # Clear Laravel caches
+            php artisan config:clear
+            php artisan cache:clear
+            php artisan view:clear
+            php artisan route:clear
+
             # Restart nginx and php-fpm
-            systemctl restart nginx
+            echo "Restarting services..."
             systemctl restart php8.3-fpm
-            
+            systemctl restart nginx
+
+            # Wait for services to be ready
+            sleep 5
+
             # Now create optimized caches after restart
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
             php artisan optimize
-            
+
             # Final verification
             php artisan --version
+            
+            # Check if Laravel is working
+            echo "Testing Laravel configuration..."
+            php artisan config:show app.env app.debug app.key | head -10
+            
+            # Test database connection
+            echo "Testing database connection..."
+            php artisan tinker --execute="try { DB::connection()->getPdo(); echo 'Database: Connected successfully'; } catch(Exception \$e) { echo 'Database Error: ' . \$e->getMessage(); }"
+            
+            # Check critical directories and permissions
+            echo "Checking permissions..."
+            ls -la storage/ bootstrap/cache/
+            
             echo "Deployment completed successfully!"
