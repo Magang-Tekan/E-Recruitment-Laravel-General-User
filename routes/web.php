@@ -299,8 +299,7 @@ Route::middleware(['auth', 'role:candidate'])->prefix('candidate')->group(functi
     // API untuk apply job dari frontend
     Route::post('/api/jobs/{id}/apply', [JobsController::class, 'applyJob']);
 
-    // Endpoint untuk proses apply setelah confirm data
-    Route::post('/candidate/apply/{id}', [JobsController::class, 'apply'])->name('candidate.apply');
+    // Endpoint untuk proses apply setelah confirm data - moved to candidate.php
 
 
     // Route untuk submit psychotest

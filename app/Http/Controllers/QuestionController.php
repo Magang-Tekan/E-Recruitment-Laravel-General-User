@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\QuestionPacks;
+use App\Models\QuestionPack;
 use App\Models\Question;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +13,9 @@ class QuestionController extends Controller
 {
     public function store()
     {
-        $questionPacks = QuestionPacks::withCount('questions')->get();
+        $questionPacks = QuestionPack::withCount('questions')
+            ->select('id', 'pack_name as title', 'description', 'duration', 'test_type', 'opens_at', 'closes_at', 'created_at', 'updated_at')
+            ->get();
 
         return Inertia::render('admin/questions/question-management', [
             'tests' => $questionPacks,
@@ -25,7 +27,7 @@ class QuestionController extends Controller
         return Inertia::render('admin/questions/add-questions');
     }
 
-    public function edit(QuestionPacks $questionPack)
+    public function edit(QuestionPack $questionPack)
     {
         $questionPack->load('questions');
         Log::info('Question pack questions: '.$questionPack->questions);
@@ -35,7 +37,7 @@ class QuestionController extends Controller
         ]);
     }
 
-    public function update(Request $request, QuestionPacks $questionPack)
+    public function update(Request $request, QuestionPack $questionPack)
     {
         try {
             DB::beginTransaction();
@@ -45,6 +47,8 @@ class QuestionController extends Controller
                 'description' => $request->description,
                 'test_type' => $request->test_type,
                 'duration' => $request->duration,
+                'opens_at' => $request->opens_at ? \Carbon\Carbon::parse($request->opens_at) : null,
+                'closes_at' => $request->closes_at ? \Carbon\Carbon::parse($request->closes_at) : null,
             ]);
 
             $questions = json_decode($request->questions, true);
@@ -78,7 +82,9 @@ class QuestionController extends Controller
 
     public function index()
     {
-        $questionPacks = QuestionPacks::withCount('questions')->get();
+        $questionPacks = QuestionPack::withCount('questions')
+            ->select('id', 'pack_name as title', 'description', 'duration', 'test_type', 'opens_at', 'closes_at', 'created_at', 'updated_at')
+            ->get();
 
         return Inertia::render('admin/questions/question-management', [
             'tests' => $questionPacks,

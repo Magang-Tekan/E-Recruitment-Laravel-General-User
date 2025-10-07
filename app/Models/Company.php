@@ -16,7 +16,10 @@ class Company extends Model
         'description',
         'email',
         'phone',
-        'address'
+        'address',
+        'website',
+        'featured',
+        'display_order'
     ];
 
     /**

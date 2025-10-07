@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Applications;
 use App\Models\ApplicationHistory;
 use App\Models\Vacancies;
+use App\Models\QuestionPack;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,7 @@ class ApplicationHistoryController extends Controller
             // Ambil data aplikasi user yang sedang login dengan relasi yang diperlukan
             $applications = Applications::where('user_id', Auth::id())
                 ->with([
-                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id',
+                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,psychotest_name',
                     'vacancyPeriod.vacancy.company:id,name',
                     'vacancyPeriod.vacancy.vacancyType:id,name',
                     'status:id,name,description,stage' // PRIMARY: Status dari tabel applications
@@ -50,7 +51,24 @@ class ApplicationHistoryController extends Controller
 
                     // PRIMARY: Gunakan status dari applications table sebagai current status
                     $currentStatus = $application->status;
+                    
+                    // Use psychotest_name from vacancy if this is a psychological test
                     $currentStage = $currentStatus ? $currentStatus->name : 'Status tidak diketahui';
+                    if ($currentStatus && 
+                        (stripos($currentStatus->name, 'psychological') !== false || 
+                         stripos($currentStatus->name, 'psikologi') !== false || 
+                         stripos($currentStatus->name, 'psikotes') !== false) && 
+                        $vacancy && $vacancy->psychotest_name) {
+                        $currentStage = $vacancy->psychotest_name;
+                        
+                        Log::info('Using psychotest_name for status', [
+                            'application_id' => $application->id,
+                            'original_status' => $currentStatus->name,
+                            'psychotest_name' => $vacancy->psychotest_name,
+                            'final_stage' => $currentStage
+                        ]);
+                    }
+                    
                     $statusColor = $currentStatus ? $this->getStageColor($currentStatus->stage, null) : '#6c757d';
                     $stageInfo = $currentStatus ? $this->getStageInfo($currentStatus) : 'Dalam proses';
 
@@ -279,7 +297,7 @@ class ApplicationHistoryController extends Controller
             $application = Applications::where('id', $id)
                 ->where('user_id', Auth::id())
                 ->with([
-                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,requirements,benefits,job_description',
+                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,requirements,benefits,job_description,psychotest_name',
                     'vacancyPeriod.vacancy.company:id,name',
                     'vacancyPeriod.vacancy.vacancyType:id,name',
                     'status:id,name,description,stage'
@@ -318,6 +336,23 @@ class ApplicationHistoryController extends Controller
             // PRIMARY: Gunakan status dari applications table seperti di index method
             $currentStatus = $application->status;
             $currentStage = $currentStatus ? $currentStatus->name : 'Status tidak diketahui';
+            
+            // Use psychotest_name from vacancy if this is a psychological test (SINKRON dengan index method)
+            if ($currentStatus && 
+                (stripos($currentStatus->name, 'psychological') !== false || 
+                 stripos($currentStatus->name, 'psikologi') !== false || 
+                 stripos($currentStatus->name, 'psikotes') !== false) && 
+                $vacancy && $vacancy->psychotest_name) {
+                $currentStage = $vacancy->psychotest_name;
+                
+                Log::info('Using psychotest_name for applicationStatus', [
+                    'application_id' => $application->id,
+                    'original_status' => $currentStatus->name,
+                    'psychotest_name' => $vacancy->psychotest_name,
+                    'final_stage' => $currentStage
+                ]);
+            }
+            
             $statusColor = $currentStatus ? $this->getStageColor($currentStatus->stage, null) : '#6c757d';
 
             // SECONDARY: Cari application history yang match dengan current status untuk data tambahan
@@ -348,16 +383,26 @@ class ApplicationHistoryController extends Controller
             ]);
 
             // Format histories dengan semua detail - SINKRON dengan logika index
-            $formattedHistories = $applicationHistories->map(function ($history) use ($application) {
+            $formattedHistories = $applicationHistories->map(function ($history) use ($application, $vacancy) {
                 $status = $history->status;
 
                 // Tentukan apakah ini adalah current active status berdasarkan applications.status_id
                 $isCurrentActive = ($history->status_id == $application->status_id);
 
+                // Use psychotest_name from vacancy if this is a psychological test
+                $statusName = $status ? $status->name : 'Unknown Status';
+                if ($status && 
+                    (stripos($status->name, 'psychological') !== false || 
+                     stripos($status->name, 'psikologi') !== false || 
+                     stripos($status->name, 'psikotes') !== false) && 
+                    $vacancy && $vacancy->psychotest_name) {
+                    $statusName = $vacancy->psychotest_name;
+                }
+
                 return [
                     'id' => $history->id,
                     'status_id' => $history->status_id,
-                    'status_name' => $status ? $status->name : 'Unknown Status', // Sama dengan index
+                    'status_name' => $statusName, // Gunakan psychotest_name jika tersedia
                     'status_color' => $status ? $this->getStageColor($status->stage, null) : '#6c757d', // Sama dengan index
                     'stage' => $status ? $status->stage : null,
                     'score' => $history->score,
@@ -376,8 +421,8 @@ class ApplicationHistoryController extends Controller
             })->toArray();
 
             // PRIMARY: Gunakan status dari applications table seperti di index method
-            $currentStatus = $application->status;
-            $currentStage = $currentStatus ? $currentStatus->name : 'Status tidak diketahui';
+            // CATATAN: $currentStage sudah didefinisikan dengan logic psychotest_name di atas (line 340-350)
+            // Jangan redefinisi ulang di sini untuk mempertahankan psychotest_name
             $statusColor = $currentStatus ? $this->getStageColor($currentStatus->stage, null) : '#6c757d';
 
             // SECONDARY: Cari application history yang match dengan current status untuk data tambahan
@@ -401,6 +446,76 @@ class ApplicationHistoryController extends Controller
                 }
             }
 
+            // Get psychotest scheduling information
+            $psychotestScheduling = null;
+            
+            // Cek apakah ada history dengan status psychological test (aktif atau tidak)
+            $hasPsychoTest = ApplicationHistory::where('application_id', $application->id)
+                ->whereHas('status', function ($query) {
+                    $query->where('stage', 'psychological_test');
+                })
+                ->exists();
+            
+            Log::info('Checking psychotest scheduling', [
+                'application_id' => $application->id,
+                'current_status' => $currentStatus ? $currentStatus->stage : null,
+                'has_psycho_test' => $hasPsychoTest
+            ]);
+            
+            // Kirim scheduling jika status saat ini adalah psychological_test ATAU pernah ada history psychological test
+            if (($currentStatus && $currentStatus->stage === 'psychological_test') || $hasPsychoTest) {
+                // PERBAIKAN: Gunakan logic yang sama seperti di CandidateController
+                $questionPack = \App\Models\QuestionPack::where('pack_name', 'Technical Assessment')
+                    ->orWhere('test_type', 'Technical')
+                    ->first();
+                
+                if (!$questionPack) {
+                    $questionPack = \App\Models\QuestionPack::where('test_type', 'psychotest')
+                        ->orWhere('pack_name', 'like', '%psikotes%')
+                        ->orWhere('pack_name', 'like', '%psychological%')
+                        ->orWhere('pack_name', 'like', '%kepribadian%')
+                        ->first();
+                }
+                
+                if (!$questionPack) {
+                    $questionPack = \App\Models\QuestionPack::where('pack_name', 'General Assessment')
+                        ->orWhere('test_type', 'general')
+                        ->first();
+                }
+                
+                // Fallback: ambil question pack pertama yang ada
+                if (!$questionPack) {
+                    $questionPack = \App\Models\QuestionPack::first();
+                }
+                
+                Log::info('Question pack found', [
+                    'pack_name' => $questionPack ? $questionPack->pack_name : null,
+                    'opens_at' => $questionPack ? $questionPack->opens_at : null,
+                    'closes_at' => $questionPack ? $questionPack->closes_at : null,
+                ]);
+                
+                if ($questionPack) {
+                    $now = now();
+                    $opensAt = $questionPack->opens_at ? \Carbon\Carbon::parse($questionPack->opens_at) : null;
+                    $closesAt = $questionPack->closes_at ? \Carbon\Carbon::parse($questionPack->closes_at) : null;
+                    
+                    $psychotestScheduling = [
+                        'opens_at' => $questionPack->opens_at,
+                        'closes_at' => $questionPack->closes_at,
+                        'duration_minutes' => $questionPack->duration,
+                        'is_available' => $opensAt && $closesAt ? $now->between($opensAt, $closesAt) : false,
+                        'is_upcoming' => $opensAt ? $now->lt($opensAt) : false,
+                        'is_expired' => $closesAt ? $now->gt($closesAt) : false,
+                        'time_until_start' => $opensAt && $now->lt($opensAt) ? $now->diffForHumans($opensAt, true) : null,
+                        'time_until_end' => $closesAt && $now->lt($closesAt) ? $now->diffForHumans($closesAt, true) : null,
+                        'formatted_opens_at' => $opensAt ? $opensAt->format('d M Y H:i') : null,
+                        'formatted_closes_at' => $closesAt ? $closesAt->format('d M Y H:i') : null,
+                    ];
+                    
+                    Log::info('Psychotest scheduling created', $psychotestScheduling);
+                }
+            }
+
             // Format data aplikasi untuk tampilan - SINKRON dengan index
             $formattedApplication = [
                 'id' => $application->id,
@@ -409,6 +524,7 @@ class ApplicationHistoryController extends Controller
                 'status_color' => $statusColor, // PRIMARY: berdasarkan applications.status
                 'current_score' => $matchingHistory ? $matchingHistory->score : null, // SECONDARY: dari application_history
                 'current_reviewer' => $matchingHistory && $matchingHistory->reviewer ? $matchingHistory->reviewer->name : null, // SECONDARY
+                'psychotest_scheduling' => $psychotestScheduling, // NEW: scheduling information
                 'job' => [
                     'id' => $vacancy->id,
                     'title' => $vacancy->title,

@@ -58,41 +58,56 @@ const CompanyTitle = styled.h2`
 `;
 
 const InfoSection = styled.section`
-    margin: 40px 0;
+    margin: 30px 0;
     background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #f0f0f0;
 `;
 
 const SectionHeading = styled.h3`
-    font-size: 1.8rem;
+    font-size: 1.5rem;
     margin-bottom: 20px;
-    color: #222;
+    color: #1a73e8;
+    font-weight: 600;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 8px;
 `;
 
-const JobDescription = styled.p`
-    line-height: 1.6;
-    margin-bottom: 15px;
-    color: #333;
+const JobDescription = styled.div`
+    line-height: 1.8;
+    margin-bottom: 20px;
+    color: #444;
+    font-size: 1rem;
+    text-align: justify;
+    
+    p {
+        margin-bottom: 12px;
+    }
 `;
 
 const List = styled.ul`
     list-style-type: none;
     padding: 0;
+    margin: 0;
 `;
 
 const ListItem = styled.li`
-    margin-bottom: 10px;
-    padding-left: 20px;
+    margin-bottom: 12px;
+    padding: 8px 0 8px 24px;
     position: relative;
-    color: #222;
+    color: #333;
+    line-height: 1.6;
+    font-size: 0.95rem;
 
     &:before {
         content: "•";
         position: absolute;
         left: 0;
         color: #1a73e8;
+        font-weight: bold;
+        font-size: 1.2rem;
     }
 `;
 
@@ -162,6 +177,30 @@ const ApplicationIcon = styled.span`
 
 const JobDetailPage: React.FC = () => {
     const { job, userMajor, isMajorMatched, canApply, applicationMessage, flash } = usePage<JobDetailProps>().props;
+
+// Helper function to parse job data (requirements/benefits)
+const parseArrayData = (data: string | string[] | null | undefined): string[] => {
+    if (!data) return [];
+    
+    // If it's already an array, return it
+    if (Array.isArray(data)) {
+        return data;
+    }
+    
+    // If it's a string, try to parse as JSON
+    if (typeof data === 'string') {
+        try {
+            const parsed = JSON.parse(data);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [data]; // If parsing fails, return as single item array
+        }
+    }
+    
+    return [];
+};    // Parse requirements and benefits
+    const requirements = parseArrayData(job?.requirements);
+    const benefits = parseArrayData(job?.benefits);
 
     React.useEffect(() => {
         // Tampilkan flash messages dari backend
@@ -291,6 +330,22 @@ const JobDetailPage: React.FC = () => {
                 <HeroSection>
                     <JobTitle>{job?.title}</JobTitle>
                     <CompanyTitle>{job?.company?.name}</CompanyTitle>
+                    <div className="flex items-center gap-4 mt-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                            <i className="fas fa-graduation-cap text-blue-500"></i>
+                            <span>Pendidikan Minimal</span>
+                        </div>
+                        {job?.major_name && (
+                            <div className="flex items-center gap-1">
+                                <i className="fas fa-book text-green-500"></i>
+                                <span>{job.major_name}</span>
+                            </div>
+                        )}
+                        <div className="flex items-center gap-1">
+                            <i className="fas fa-building text-purple-500"></i>
+                            <span>{job?.company?.name}</span>
+                        </div>
+                    </div>
                 </HeroSection>
                 <ContentContainer>
                     {/* Tampilkan peringatan kesesuaian jurusan */}
@@ -298,24 +353,24 @@ const JobDetailPage: React.FC = () => {
                         <MajorWarning>
                             <WarningIcon>⚠️</WarningIcon>
                             <div>
-                                <strong>Data jurusan belum lengkap!</strong> Mohon lengkapi data pendidikan Anda terlebih dahulu
-                                untuk dapat melamar lowongan ini.
+                                <strong>Data jurusan belum lengkap!</strong>
+                                <p className="mt-1 text-sm">Mohon lengkapi data pendidikan Anda terlebih dahulu untuk dapat melamar lowongan ini.</p>
                             </div>
                         </MajorWarning>
                     ) : isMajorMatched ? (
                         <MajorMatch>
-                            <MatchIcon>✓</MatchIcon>
+                            <MatchIcon>✅</MatchIcon>
                             <div>
-                                <strong>Jurusan Anda cocok!</strong> Lowongan ini membutuhkan jurusan {job?.major_name}
-                                yang sesuai dengan jurusan Anda.
+                                <strong>Jurusan Anda cocok!</strong>
+                                <p className="mt-1 text-sm">Lowongan ini membutuhkan jurusan {job?.major_name} yang sesuai dengan jurusan Anda.</p>
                             </div>
                         </MajorMatch>
                     ) : (
                         <MajorWarning>
-                            <WarningIcon>⚠️</WarningIcon>
+                            <WarningIcon>❌</WarningIcon>
                             <div>
-                                <strong>Jurusan tidak sesuai!</strong> Lowongan ini membutuhkan jurusan {job?.major_name}
-                                yang tidak sesuai dengan jurusan Anda.
+                                <strong>Jurusan tidak sesuai!</strong>
+                                <p className="mt-1 text-sm">Lowongan ini membutuhkan jurusan {job?.major_name} yang tidak sesuai dengan jurusan Anda.</p>
                             </div>
                         </MajorWarning>
                     )}
@@ -325,48 +380,89 @@ const JobDetailPage: React.FC = () => {
                         <ApplicationAlert>
                             <ApplicationIcon>🚫</ApplicationIcon>
                             <div>
-                                <strong>Tidak dapat melamar!</strong> {applicationMessage}
+                                <strong>Tidak dapat melamar!</strong>
+                                <p className="mt-1 text-sm">{applicationMessage}</p>
                             </div>
                         </ApplicationAlert>
                     )}
 
                     <InfoSection>
-                        <SectionHeading>Job Description</SectionHeading>
-                        <JobDescription>{job?.job_description}</JobDescription>
+                        <SectionHeading>📋 Deskripsi Pekerjaan</SectionHeading>
+                        <JobDescription>
+                            {job?.job_description ? (
+                                <div dangerouslySetInnerHTML={{ 
+                                    __html: job.job_description.replace(/\n/g, '<br />') 
+                                }} />
+                            ) : (
+                                <p className="text-gray-500 italic">Deskripsi pekerjaan tidak tersedia.</p>
+                            )}
+                        </JobDescription>
                     </InfoSection>
+                    
                     <InfoSection>
-                        <SectionHeading>Requirements</SectionHeading>
-                        <List>
-                            {job?.requirements?.map((requirement, index) => (
-                                <ListItem key={index}>{requirement}</ListItem>
-                            ))}
-                        </List>
+                        <SectionHeading>📌 Persyaratan</SectionHeading>
+                        {requirements.length > 0 ? (
+                            <List>
+                                {requirements.map((requirement, index) => (
+                                    <ListItem key={index}>
+                                        <span className="font-medium">•</span> {requirement}
+                                    </ListItem>
+                                ))}
+                            </List>
+                        ) : (
+                            <p className="text-gray-500 italic">
+                                Persyaratan tidak tersedia.
+                            </p>
+                        )}
                     </InfoSection>
+                    
                     <InfoSection>
-                        <SectionHeading>Benefits</SectionHeading>
-                        <List>
-                            {job?.benefits?.map((benefit, index) => (
-                                <ListItem key={index}>{benefit}</ListItem>
-                            ))}
-                        </List>
+                        <SectionHeading>🎁 Fasilitas & Tunjangan</SectionHeading>
+                        {benefits.length > 0 ? (
+                            <List>
+                                {benefits.map((benefit, index) => (
+                                    <ListItem key={index}>
+                                        <span className="font-medium">•</span> {benefit}
+                                    </ListItem>
+                                ))}
+                            </List>
+                        ) : (
+                            <p className="text-gray-500 italic">
+                                Fasilitas dan tunjangan tidak tersedia.
+                            </p>
+                        )}
                     </InfoSection>
 
-                    {/* Button Apply dengan kondisi */}
-                    <ApplyButton
-                        onClick={handleApply}
-                        disabled={!isMajorMatched || !canApply}
-                        style={{
-                            backgroundColor: (!isMajorMatched || !canApply) ? '#cccccc' : '#1a73e8',
-                            cursor: (!isMajorMatched || !canApply) ? 'not-allowed' : 'pointer'
-                        }}
-                    >
-                        {!isMajorMatched
-                            ? 'Tidak Dapat Apply (Jurusan Tidak Sesuai)'
-                            : !canApply
-                                ? 'Tidak Dapat Apply (Sudah Pernah Melamar)'
-                                : 'Lamar Sekarang'
-                        }
-                    </ApplyButton>
+                    {/* Button Apply dengan kondisi dan styling yang lebih baik */}
+                    <div className="mt-8 text-center">
+                        <ApplyButton
+                            onClick={handleApply}
+                            disabled={!isMajorMatched || !canApply}
+                            style={{
+                                backgroundColor: (!isMajorMatched || !canApply) ? '#e5e7eb' : '#1d4ed8',
+                                color: (!isMajorMatched || !canApply) ? '#6b7280' : 'white',
+                                cursor: (!isMajorMatched || !canApply) ? 'not-allowed' : 'pointer',
+                                boxShadow: (!isMajorMatched || !canApply) ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                transition: 'all 0.2s ease-in-out'
+                            }}
+                        >
+                            {!isMajorMatched
+                                ? '❌ Tidak Dapat Apply - Jurusan Tidak Sesuai'
+                                : !canApply
+                                    ? '🚫 Tidak Dapat Apply - Sudah Pernah Melamar'
+                                    : '📝 Lamar Sekarang'
+                            }
+                        </ApplyButton>
+                        
+                        {(!isMajorMatched || !canApply) && (
+                            <p className="mt-3 text-sm text-gray-500 italic">
+                                {!isMajorMatched
+                                    ? 'Silakan periksa kesesuaian jurusan Anda dengan persyaratan lowongan.'
+                                    : 'Anda sudah memiliki aplikasi aktif untuk periode ini.'
+                                }
+                            </p>
+                        )}
+                    </div>
                 </ContentContainer>
             </PageWrapper>
             {/* Footer */}

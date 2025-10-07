@@ -48,8 +48,12 @@ interface Company {
     name: string;
     description: string;
     logo: string;
+    website?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
 }
-
+    
 const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 };
@@ -57,6 +61,10 @@ const scrollToSection = (id: string) => {
 export default function Welcome(props: WelcomeProps) {
     // Get auth data from Inertia shared props
     const { auth } = usePage<SharedData>().props;
+
+    // Debug logging
+    console.log('Welcome props:', props);
+    console.log('Companies data:', props.companies);
 
     const backgroundImages = [
         "/images/slider1.png",
@@ -440,35 +448,73 @@ export default function Welcome(props: WelcomeProps) {
                 <section className="py-[60px] sm:py-[80px] text-center">
                     <div className="container mx-auto px-4 sm:px-6">
                         <h2 className="mb-[32px] sm:mb-[40px] text-[20px] sm:text-[24px] md:text-[32px] font-bold">Perusahaan Kami</h2>
-                        <div className="mb-[32px] sm:mb-[40px] flex flex-col justify-center gap-[40px] sm:gap-[60px] md:flex-row">
+                        <div className="mb-[32px] sm:mb-[40px] grid grid-cols-1 md:grid-cols-2 gap-[40px] sm:gap-[60px]">
                             {props.companies && props.companies.length > 0 ? (
-                                props.companies
-                                    .filter(company => [2, 3].includes(company.id)) // Filter only ID 2 and 3
-                                    .map((company) => (
+                                props.companies.map((company) => (
                                         <div
                                             key={company.id}
-                                            className="mx-auto flex w-full max-w-[400px] sm:max-w-[528px] items-start gap-3 sm:gap-4 text-left hover:shadow-lg transition-all duration-300 rounded-lg p-3 sm:p-4"
+                                            className="mx-auto flex w-full max-w-[400px] sm:max-w-[528px] items-start gap-3 sm:gap-4 text-left hover:shadow-lg transition-all duration-300 rounded-lg p-3 sm:p-4 border border-gray-200 bg-white"
                                         >
-                                            <img
-                                                src={company.logo}
-                                                alt={company.name}
-                                                className="mt-1 h-[48px] w-[48px] sm:h-[60px] sm:w-[60px] object-contain"
-                                                onError={(e) => {
-                                                    const target = e.target as HTMLImageElement;
-                                                    target.src = '/images/default-company-logo.png';
-                                                }}
-                                            />
-                                            <div>
-                                                <h3 className="mb-1 text-sm sm:text-base font-semibold">{company.name}</h3>
-                                                <p className="text-xs sm:text-sm text-gray-600">
-                                                    {company.description}
+                                            <div className="flex-shrink-0">
+                                                <img
+                                                    src={company.logo}
+                                                    alt={company.name}
+                                                    className="mt-1 h-[48px] w-[48px] sm:h-[60px] sm:w-[60px] object-contain rounded-full border border-gray-200"
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.src = '/images/default-company-logo.png';
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className="mb-2 text-sm sm:text-base font-semibold text-gray-900">{company.name}</h3>
+                                                <p className="text-xs sm:text-sm text-gray-600 mb-3 line-clamp-3">
+                                                    {company.description || 'Deskripsi perusahaan tidak tersedia'}
                                                 </p>
+                                                
+                                                {/* Contact Information */}
+                                                <div className="space-y-1 mb-3">
+                                                    {company.email && (
+                                                        <div className="flex items-center text-xs text-gray-600">
+                                                            <i className="fas fa-envelope mr-2 text-blue-600"></i>
+                                                            <span>{company.email}</span>
+                                                        </div>
+                                                    )}
+                                                    {company.phone && (
+                                                        <div className="flex items-center text-xs text-gray-600">
+                                                            <i className="fas fa-phone mr-2 text-blue-600"></i>
+                                                            <span>{company.phone}</span>
+                                                        </div>
+                                                    )}
+                                                    {company.address && (
+                                                        <div className="flex items-start text-xs text-gray-600">
+                                                            <i className="fas fa-map-marker-alt mr-2 mt-0.5 text-blue-600"></i>
+                                                            <span className="line-clamp-2">{company.address}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                {company.website && (
+                                                    <a
+                                                        href={company.website}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                                    >
+                                                        <i className="fas fa-external-link-alt mr-1"></i>
+                                                        Kunjungi Website
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
                                     ))
                             ) : (
-                                <div className="text-center text-gray-500">
-                                    Tidak ada perusahaan untuk ditampilkan
+                                <div className="col-span-full text-center text-gray-500">
+                                    <div className="flex flex-col items-center justify-center py-8">
+                                        <i className="fas fa-building text-4xl text-gray-300 mb-4"></i>
+                                        <p className="text-lg font-medium">Tidak ada perusahaan untuk ditampilkan</p>
+                                        <p className="text-sm text-gray-400">Silakan hubungi administrator untuk menambahkan data perusahaan</p>
+                                    </div>
                                 </div>
                             )}
                         </div>

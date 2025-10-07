@@ -12,6 +12,8 @@ interface Test {
     duration: string;
     test_type: string;
     questions_count: number;
+    opens_at: string | null;
+    closes_at: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -73,6 +75,20 @@ export default function QuestionManagement(props: TestsProps) {
                                 <CardContent>
                                     <p className="text-gray-700 dark:text-gray-200">{test.description}</p>
                                     <p className="mt-2 text-gray-500 dark:text-gray-400">Type: {test.test_type}</p>
+                                    {(test.opens_at || test.closes_at) && (
+                                        <div className="mt-3 space-y-1">
+                                            {test.opens_at && (
+                                                <p className="text-sm text-blue-600">
+                                                    Opens: {new Date(test.opens_at).toLocaleString()}
+                                                </p>
+                                            )}
+                                            {test.closes_at && (
+                                                <p className="text-sm text-red-600">
+                                                    Closes: {new Date(test.closes_at).toLocaleString()}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                 </CardContent>
                                 <CardFooter className="flex justify-end">
                                     <Button variant="outline" onClick={() => handleEditTest(test.id)}>

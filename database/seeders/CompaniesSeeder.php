@@ -23,21 +23,29 @@ Kami percaya pada pentingnya inovasi, kualitas sumber daya manusia, dan kontribu
         ]);
 
         Company::create([
+            'id' => 2,
             'name' => 'PT MITRA KARYA ANALITIKA',
             'description' => 'Bergerak dibidang Distribusi Kebutuhan Laboratorium, Cleanroom, Water and Waste Water Treatment Plant.',
             'logo' => 'companies/mitra-logo.png',
             'email' => 'mitra@example.com',
             'phone' => '081807700111',
-            'address' => 'Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo'
+            'address' => 'Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo',
+            'website' => 'https://www.mitrakarya.co.id',
+            'featured' => true,
+            'display_order' => 1
         ]);
 
         Company::create([
+            'id' => 3,
             'name' => 'PT AUTENTIK KARYA ANALITIKA',
             'description' => 'Adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan',
             'logo' => 'companies/autentik-logo.png',
             'email' => 'autentik.info@gmail.com',
             'phone' => '082137384029',
-            'address' => 'Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo'
+            'address' => 'Jl. Klipang Ruko Amsterdam No.9E, Sendangmulyo',
+            'website' => 'https://www.autentik.co.id',
+            'featured' => true,
+            'display_order' => 2
         ]);
 
         Schema::enableForeignKeyConstraints();
