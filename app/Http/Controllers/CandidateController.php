@@ -2530,8 +2530,8 @@ public function showPsychotest($application_id = null)
             \Illuminate\Support\Facades\Log::info('User has partial answers but test not completed - allowing continuation');
         }
 
-        // Ambil QuestionPack untuk psikotes dari database
-        $questionPack = $this->getPsychotestQuestionPack();
+        // PERBAIKAN: Gunakan question pack dari vacancy jika tersedia, bukan hardcode
+        $questionPack = $this->getPsychotestQuestionPack($application);
 
         if (!$questionPack) {
             \Illuminate\Support\Facades\Log::warning('No psychotest question pack found, using dummy data');
@@ -2722,36 +2722,75 @@ private function getDummyPsychotestQuestions()
 /**
  * Ambil QuestionPack untuk psikotes dari database
  */
-private function getPsychotestQuestionPack()
+private function getPsychotestQuestionPack($application = null)
 {
-    // PERBAIKAN: Cari question pack berdasarkan prioritas:
-    // 1. Technical Assessment untuk psychotest teknis
-    // 2. Psychotest yang spesifik 
-    // 3. General Assessment sebagai fallback
+    // PERBAIKAN: Gunakan question pack yang sudah ditentukan untuk vacancy ini
+    $questionPack = null;
     
-    $questionPack = \App\Models\QuestionPack::where('pack_name', 'Technical Assessment')
-        ->orWhere('test_type', 'Technical')
-        ->first();
-    
-    // Jika tidak ada Technical Assessment, cari psychotest
-    if (!$questionPack) {
-        $questionPack = \App\Models\QuestionPack::where('test_type', 'psychotest')
-            ->orWhere('pack_name', 'like', '%psikotes%')
-            ->orWhere('pack_name', 'like', '%psychological%')
-            ->orWhere('pack_name', 'like', '%kepribadian%')
-            ->first();
+    // First priority: Use question pack assigned to this vacancy
+    if ($application && $application->vacancyPeriod && $application->vacancyPeriod->vacancy) {
+        $vacancy = $application->vacancyPeriod->vacancy;
+        if ($vacancy->question_pack_id) {
+            $questionPack = \App\Models\QuestionPack::find($vacancy->question_pack_id);
+            \Illuminate\Support\Facades\Log::info('Using vacancy-specific question pack in showPsychotest', [
+                'vacancy_id' => $vacancy->id,
+                'vacancy_title' => $vacancy->title,
+                'question_pack_id' => $vacancy->question_pack_id,
+                'pack_name' => $questionPack ? $questionPack->pack_name : null,
+                'pack_test_type' => $questionPack ? $questionPack->test_type : null
+            ]);
+        }
     }
     
-    // Jika tidak ada, gunakan "General Assessment" sebagai default untuk psychotest
+    // Fallback: Prioritas pencarian berdasarkan jenis tes
     if (!$questionPack) {
-        $questionPack = \App\Models\QuestionPack::where('pack_name', 'General Assessment')
-            ->orWhere('test_type', 'general')
-            ->first();
+        // PERBAIKAN: Tentukan jenis tes berdasarkan status aplikasi
+        $testType = 'general';
         
-        \Illuminate\Support\Facades\Log::info('No specific psychotest question pack found, using General Assessment', [
-            'pack_id' => $questionPack ? $questionPack->id : null,
-            'pack_name' => $questionPack ? $questionPack->pack_name : null
+        if ($application && $application->status) {
+            $statusName = strtolower($application->status->name);
+            
+            if (stripos($statusName, 'teknis') !== false || stripos($statusName, 'technical') !== false) {
+                $testType = 'technical';
+            } elseif (stripos($statusName, 'psiko') !== false || stripos($statusName, 'psychological') !== false) {
+                $testType = 'psychotest';
+            }
+        }
+        
+        \Illuminate\Support\Facades\Log::info('Determining test type for fallback', [
+            'application_id' => $application ? $application->id : null,
+            'status_name' => $application && $application->status ? $application->status->name : null,
+            'determined_test_type' => $testType
         ]);
+        
+        // Cari question pack berdasarkan jenis tes
+        if ($testType === 'technical') {
+            // Prioritas untuk tes teknis
+            $questionPack = \App\Models\QuestionPack::where('pack_name', 'Technical Assessment - IT')
+                ->orWhere('pack_name', 'Technical Assessment')
+                ->orWhere('test_type', 'technical')
+                ->first();
+        } elseif ($testType === 'psychotest') {
+            // Prioritas untuk tes psikologi
+            $questionPack = \App\Models\QuestionPack::where('test_type', 'psychological')
+                ->orWhere('pack_name', 'like', '%psikotes%')
+                ->orWhere('pack_name', 'like', '%psychological%')
+                ->orWhere('pack_name', 'like', '%kepribadian%')
+                ->first();
+        }
+        
+        // Fallback: gunakan "General Assessment" sebagai default
+        if (!$questionPack) {
+            $questionPack = \App\Models\QuestionPack::where('pack_name', 'General Assessment')
+                ->orWhere('test_type', 'general')
+                ->first();
+                
+            \Illuminate\Support\Facades\Log::info('No specific question pack found, using General Assessment', [
+                'requested_test_type' => $testType,
+                'pack_id' => $questionPack ? $questionPack->id : null,
+                'pack_name' => $questionPack ? $questionPack->pack_name : null
+            ]);
+        }
     }
     
     // Jika masih tidak ada, ambil QuestionPack pertama yang ada

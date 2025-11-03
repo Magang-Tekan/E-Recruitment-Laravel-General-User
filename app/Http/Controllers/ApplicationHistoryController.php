@@ -22,7 +22,7 @@ class ApplicationHistoryController extends Controller
             // Ambil data aplikasi user yang sedang login dengan relasi yang diperlukan
             $applications = Applications::where('user_id', Auth::id())
                 ->with([
-                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,psychotest_name',
+                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,psychotest_name,question_pack_id',
                     'vacancyPeriod.vacancy.company:id,name',
                     'vacancyPeriod.vacancy.vacancyType:id,name',
                     'status:id,name,description,stage' // PRIMARY: Status dari tabel applications
@@ -297,7 +297,7 @@ class ApplicationHistoryController extends Controller
             $application = Applications::where('id', $id)
                 ->where('user_id', Auth::id())
                 ->with([
-                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,requirements,benefits,job_description,psychotest_name',
+                    'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,requirements,benefits,job_description,psychotest_name,question_pack_id',
                     'vacancyPeriod.vacancy.company:id,name',
                     'vacancyPeriod.vacancy.vacancyType:id,name',
                     'status:id,name,description,stage'
@@ -464,28 +464,79 @@ class ApplicationHistoryController extends Controller
             
             // Kirim scheduling jika status saat ini adalah psychological_test ATAU pernah ada history psychological test
             if (($currentStatus && $currentStatus->stage === 'psychological_test') || $hasPsychoTest) {
-                // PERBAIKAN: Gunakan logic yang sama seperti di CandidateController
-                $questionPack = \App\Models\QuestionPack::where('pack_name', 'Technical Assessment')
-                    ->orWhere('test_type', 'Technical')
-                    ->first();
+                // PERBAIKAN: Gunakan logic yang sama seperti di CandidateController - prioritas vacancy question_pack_id
+                $questionPack = null;
                 
-                if (!$questionPack) {
-                    $questionPack = \App\Models\QuestionPack::where('test_type', 'psychotest')
-                        ->orWhere('pack_name', 'like', '%psikotes%')
-                        ->orWhere('pack_name', 'like', '%psychological%')
-                        ->orWhere('pack_name', 'like', '%kepribadian%')
-                        ->first();
+                // First priority: Use question pack assigned to this vacancy
+                if ($vacancy && $vacancy->question_pack_id) {
+                    $questionPack = \App\Models\QuestionPack::find($vacancy->question_pack_id);
+                    Log::info('Using vacancy-specific question pack', [
+                        'vacancy_id' => $vacancy->id,
+                        'vacancy_title' => $vacancy->title,
+                        'question_pack_id' => $vacancy->question_pack_id,
+                        'pack_name' => $questionPack ? $questionPack->pack_name : null,
+                        'pack_test_type' => $questionPack ? $questionPack->test_type : null
+                    ]);
                 }
                 
+                // Fallback: Prioritas pencarian berdasarkan jenis tes
                 if (!$questionPack) {
-                    $questionPack = \App\Models\QuestionPack::where('pack_name', 'General Assessment')
-                        ->orWhere('test_type', 'general')
-                        ->first();
+                    // Tentukan jenis tes berdasarkan status aplikasi
+                    $testType = 'general';
+                    
+                    if ($currentStatus) {
+                        $statusName = strtolower($currentStatus->name);
+                        
+                        if (stripos($statusName, 'teknis') !== false || stripos($statusName, 'technical') !== false) {
+                            $testType = 'technical';
+                        } elseif (stripos($statusName, 'psiko') !== false || stripos($statusName, 'psychological') !== false) {
+                            $testType = 'psychotest';
+                        }
+                    }
+                    
+                    Log::info('Determining test type for fallback', [
+                        'application_id' => $application->id,
+                        'status_name' => $currentStatus ? $currentStatus->name : null,
+                        'determined_test_type' => $testType
+                    ]);
+                    
+                    // Cari question pack berdasarkan jenis tes
+                    if ($testType === 'technical') {
+                        // Prioritas untuk tes teknis
+                        $questionPack = \App\Models\QuestionPack::where('pack_name', 'Technical Assessment - IT')
+                            ->orWhere('pack_name', 'Technical Assessment')
+                            ->orWhere('test_type', 'technical')
+                            ->first();
+                    } elseif ($testType === 'psychotest') {
+                        // Prioritas untuk tes psikologi
+                        $questionPack = \App\Models\QuestionPack::where('test_type', 'psychological')
+                            ->orWhere('pack_name', 'like', '%psikotes%')
+                            ->orWhere('pack_name', 'like', '%psychological%')
+                            ->orWhere('pack_name', 'like', '%kepribadian%')
+                            ->first();
+                    }
+                    
+                    // Fallback: gunakan "General Assessment" sebagai default
+                    if (!$questionPack) {
+                        $questionPack = \App\Models\QuestionPack::where('pack_name', 'General Assessment')
+                            ->orWhere('test_type', 'general')
+                            ->first();
+                            
+                        Log::info('No specific question pack found, using General Assessment', [
+                            'requested_test_type' => $testType,
+                            'pack_id' => $questionPack ? $questionPack->id : null,
+                            'pack_name' => $questionPack ? $questionPack->pack_name : null
+                        ]);
+                    }
                 }
                 
-                // Fallback: ambil question pack pertama yang ada
+                // Jika masih tidak ada, ambil QuestionPack pertama yang ada
                 if (!$questionPack) {
                     $questionPack = \App\Models\QuestionPack::first();
+                    Log::warning('No suitable question pack found, using first available', [
+                        'pack_id' => $questionPack ? $questionPack->id : null,
+                        'pack_name' => $questionPack ? $questionPack->pack_name : null
+                    ]);
                 }
                 
                 Log::info('Question pack found', [
@@ -503,6 +554,7 @@ class ApplicationHistoryController extends Controller
                         'opens_at' => $questionPack->opens_at,
                         'closes_at' => $questionPack->closes_at,
                         'duration_minutes' => $questionPack->duration,
+                        'question_pack_name' => $questionPack->pack_name, // NEW: nama question pack
                         'is_available' => $opensAt && $closesAt ? $now->between($opensAt, $closesAt) : false,
                         'is_upcoming' => $opensAt ? $now->lt($opensAt) : false,
                         'is_expired' => $closesAt ? $now->gt($closesAt) : false,
