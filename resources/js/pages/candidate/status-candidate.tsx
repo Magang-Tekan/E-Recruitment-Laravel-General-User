@@ -326,6 +326,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
         h.is_active && 
         (h.status_name.toLowerCase().includes('psikotes') ||
          h.status_name.toLowerCase().includes('test') ||
+         h.status_name.toLowerCase().includes('tes') ||  // Added: untuk "Tes Teknis"
          h.status_name.toLowerCase().includes('psychological'))
     );
 
@@ -528,10 +529,9 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                 </span>
                                             </div>
 
-                                            {/* Stage Details - Show for active and completed stages */}
-                                            {(isActive || isCompleted) && (
-                                                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                                    <h5 className="font-medium text-gray-900 mb-3">Detail:</h5>
+                                            {/* Stage Details - Show for ALL stages (active, completed, and pending) */}
+                                            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                                <h5 className="font-medium text-gray-900 mb-3">Detail:</h5>
 
                                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                                         <div className="flex items-center">
@@ -653,6 +653,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                     {/* Stage-specific content for tests */}
                                                     {(history.status_name.toLowerCase().includes('psikotes') ||
                                                       history.status_name.toLowerCase().includes('test') ||
+                                                      history.status_name.toLowerCase().includes('tes') ||  // Added: untuk "Tes Teknis"
                                                       history.status_name.toLowerCase().includes('psychological')) && (
                                                         <div className="mt-4">
                                                             <h6 className="font-medium text-gray-900 mb-2">Jenis Tes:</h6>
@@ -748,7 +749,7 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                                         <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                                                                             <div className="flex items-start">
                                                                                 <CheckIcon />
-                                                                                <div className="ml-2">
+                                                                                <div className="ml-2 flex-1">
                                                                                     <h6 className="font-medium text-green-800">Tes Tersedia</h6>
                                                                                     <p className="text-sm text-green-700 mt-1">
                                                                                         Tes psikologi tersedia sampai <strong>{application.psychotest_scheduling.formatted_closes_at}</strong>
@@ -760,6 +761,31 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                                                         <p className="text-xs text-green-600 mt-1">
                                                                                             Waktu tersisa: {application.psychotest_scheduling.time_until_end}
                                                                                         </p>
+                                                                                    )}
+                                                                                    
+                                                                                    {/* Tombol Mulai Mengerjakan - tampil jika belum completed */}
+                                                                                    {!history.completed_at && (
+                                                                                        <div className="mt-3">
+                                                                                            <a
+                                                                                                href={`/candidate/tests/psychotest/${application.id}`}
+                                                                                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                                                                                                onClick={(e) => {
+                                                                                                    e.preventDefault();
+                                                                                                    window.location.href = `/candidate/tests/psychotest/${application.id}`;
+                                                                                                }}
+                                                                                            >
+                                                                                                🚀 Mulai Mengerjakan
+                                                                                            </a>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    
+                                                                                    {/* Pesan jika sudah completed */}
+                                                                                    {history.completed_at && (
+                                                                                        <div className="mt-3 p-2 bg-blue-100 rounded border border-blue-200">
+                                                                                            <p className="text-sm font-semibold text-blue-800">
+                                                                                                ✅ Anda sudah menyelesaikan tes ini
+                                                                                            </p>
+                                                                                        </div>
                                                                                     )}
                                                                                 </div>
                                                                             </div>
@@ -810,31 +836,12 @@ export default function StatusCandidatePage({ application }: ApplicationStatusPa
                                                         </div>
                                                     )}
                                                 </div>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-
-                    {/* Hanya tampilkan sebagai fallback jika tidak ada tombol dalam detail tahap */}
-                    {sortedHistories.some(h =>
-    h.is_active &&
-    !h.completed_at &&
-    (h.status_name.toLowerCase().includes('test') ||
-     h.status_name.toLowerCase().includes('psikotes') ||
-     h.status_name.toLowerCase().includes('psychological'))
-) && (
-    <div className="mt-6 text-center">
-        <a
-            href={`/candidate/tests/psychotest/${application.id}`}
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 inline-block"
-        >
-            Mulai Mengerjakan
-        </a>
-    </div>
-)}
                 </div>
             </div>
 
