@@ -9,7 +9,6 @@ use App\Models\QuestionPack;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ApplicationHistoryController extends Controller
@@ -17,7 +16,6 @@ class ApplicationHistoryController extends Controller
     public function index()
     {
         try {
-            Log::info('Starting application history index');
 
             // Ambil data aplikasi user yang sedang login dengan relasi yang diperlukan
             $applications = Applications::where('user_id', Auth::id())
@@ -30,13 +28,8 @@ class ApplicationHistoryController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            Log::info('Applications loaded', ['count' => $applications->count()]);
 
             if ($applications->isEmpty()) {
-                Log::info('No applications found for user', [
-                    'user_id' => Auth::id()
-                ]);
-
                 return Inertia::render('candidate/application-history', [
                     'applications' => []
                 ]);
@@ -45,7 +38,6 @@ class ApplicationHistoryController extends Controller
             // Format data untuk frontend - PRIMARY data dari applications, SECONDARY dari application_history
             $formattedApplications = $applications->map(function ($application) {
                 try {
-                    Log::info('Processing application', ['id' => $application->id]);
 
                     $vacancy = $application->vacancyPeriod ? $application->vacancyPeriod->vacancy : null;
 
@@ -60,13 +52,6 @@ class ApplicationHistoryController extends Controller
                          stripos($currentStatus->name, 'psikotes') !== false) && 
                         $vacancy && $vacancy->psychotest_name) {
                         $currentStage = $vacancy->psychotest_name;
-                        
-                        Log::info('Using psychotest_name for status', [
-                            'application_id' => $application->id,
-                            'original_status' => $currentStatus->name,
-                            'psychotest_name' => $vacancy->psychotest_name,
-                            'final_stage' => $currentStage
-                        ]);
                     }
                     
                     $statusColor = $currentStatus ? $this->getStageColor($currentStatus->stage, null) : '#6c757d';
@@ -93,14 +78,6 @@ class ApplicationHistoryController extends Controller
                         }
                     }
 
-                    Log::info('Application data processed', [
-                        'id' => $application->id,
-                        'current_status_id' => $application->status_id,
-                        'current_status_name' => $currentStage,
-                        'has_vacancy' => isset($vacancy),
-                        'has_matching_history' => isset($matchingHistory),
-                    ]);
-
                     // Fallback jika tidak ada data vacancy
                     if (!$vacancy && $application->vacancy_period_id) {
                         try {
@@ -108,7 +85,6 @@ class ApplicationHistoryController extends Controller
                                             ->find($application->vacancy_period_id);
                             $vacancy = $vacancyPeriod ? $vacancyPeriod->vacancy : null;
                         } catch (\Exception $e) {
-                            Log::error('Error fetching vacancy data: ' . $e->getMessage());
                         }
                     }
 
@@ -154,18 +130,9 @@ class ApplicationHistoryController extends Controller
                         ]
                     ];
                 } catch (\Exception $e) {
-                    Log::error('Error processing application', [
-                        'application_id' => $application->id,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
                     throw $e; // Re-throw to be caught by outer try-catch
                 }
             });
-
-            Log::info('Application history loaded successfully', [
-                'count' => count($formattedApplications)
-            ]);
 
             // Get companies data
             $companies = \App\Models\Company::select('id', 'name', 'description')->get();
@@ -185,7 +152,6 @@ class ApplicationHistoryController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in application history: ' . $e->getMessage());
 
             return Inertia::render('candidate/application-history', [
                 'applications' => [],
@@ -278,18 +244,9 @@ class ApplicationHistoryController extends Controller
     public function applicationStatus($id)
     {
         try {
-            Log::info('ApplicationStatus accessed', [
-                'application_id' => $id,
-                'user_id' => Auth::id(),
-                'is_authenticated' => Auth::check()
-            ]);
-
             $user = Auth::user();
 
             if (!$user) {
-                Log::warning('User not authenticated for application status', [
-                    'application_id' => $id
-                ]);
                 return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
             }
 
@@ -305,19 +262,9 @@ class ApplicationHistoryController extends Controller
                 ->first();
 
             if (!$application) {
-                Log::warning('Application not found or not owned by user', [
-                    'application_id' => $id,
-                    'user_id' => Auth::id()
-                ]);
                 return redirect('/candidate/application-history')
                     ->with('error', 'Data aplikasi tidak ditemukan');
             }
-
-            Log::info('Application found', [
-                'application_id' => $application->id,
-                'user_id' => $application->user_id,
-                'status_id' => $application->status_id
-            ]);
 
             // Ambil data lowongan dari relasi
             $vacancy = $application->vacancyPeriod ? $application->vacancyPeriod->vacancy : null;
@@ -344,13 +291,6 @@ class ApplicationHistoryController extends Controller
                  stripos($currentStatus->name, 'psikotes') !== false) && 
                 $vacancy && $vacancy->psychotest_name) {
                 $currentStage = $vacancy->psychotest_name;
-                
-                Log::info('Using psychotest_name for applicationStatus', [
-                    'application_id' => $application->id,
-                    'original_status' => $currentStatus->name,
-                    'psychotest_name' => $vacancy->psychotest_name,
-                    'final_stage' => $currentStage
-                ]);
             }
             
             $statusColor = $currentStatus ? $this->getStageColor($currentStatus->stage, null) : '#6c757d';
@@ -375,12 +315,6 @@ class ApplicationHistoryController extends Controller
                         ->first();
                 }
             }
-
-            Log::info('Application histories found', [
-                'application_id' => $id,
-                'count' => $applicationHistories->count(),
-                'histories' => $applicationHistories->toArray()
-            ]);
 
             // Format histories dengan semua detail - SINKRON dengan logika index
             $formattedHistories = $applicationHistories->map(function ($history) use ($application, $vacancy) {
@@ -456,12 +390,6 @@ class ApplicationHistoryController extends Controller
                 })
                 ->exists();
             
-            Log::info('Checking psychotest scheduling', [
-                'application_id' => $application->id,
-                'current_status' => $currentStatus ? $currentStatus->stage : null,
-                'has_psycho_test' => $hasPsychoTest
-            ]);
-            
             // Kirim scheduling jika status saat ini adalah psychological_test ATAU pernah ada history psychological test
             if (($currentStatus && $currentStatus->stage === 'psychological_test') || $hasPsychoTest) {
                 // PERBAIKAN: Gunakan logic yang sama seperti di CandidateController - prioritas vacancy question_pack_id
@@ -470,13 +398,6 @@ class ApplicationHistoryController extends Controller
                 // First priority: Use question pack assigned to this vacancy
                 if ($vacancy && $vacancy->question_pack_id) {
                     $questionPack = \App\Models\QuestionPack::find($vacancy->question_pack_id);
-                    Log::info('Using vacancy-specific question pack', [
-                        'vacancy_id' => $vacancy->id,
-                        'vacancy_title' => $vacancy->title,
-                        'question_pack_id' => $vacancy->question_pack_id,
-                        'pack_name' => $questionPack ? $questionPack->pack_name : null,
-                        'pack_test_type' => $questionPack ? $questionPack->test_type : null
-                    ]);
                 }
                 
                 // Fallback: Prioritas pencarian berdasarkan jenis tes
@@ -493,12 +414,6 @@ class ApplicationHistoryController extends Controller
                             $testType = 'psychotest';
                         }
                     }
-                    
-                    Log::info('Determining test type for fallback', [
-                        'application_id' => $application->id,
-                        'status_name' => $currentStatus ? $currentStatus->name : null,
-                        'determined_test_type' => $testType
-                    ]);
                     
                     // Cari question pack berdasarkan jenis tes
                     if ($testType === 'technical') {
@@ -521,29 +436,13 @@ class ApplicationHistoryController extends Controller
                         $questionPack = \App\Models\QuestionPack::where('pack_name', 'General Assessment')
                             ->orWhere('test_type', 'general')
                             ->first();
-                            
-                        Log::info('No specific question pack found, using General Assessment', [
-                            'requested_test_type' => $testType,
-                            'pack_id' => $questionPack ? $questionPack->id : null,
-                            'pack_name' => $questionPack ? $questionPack->pack_name : null
-                        ]);
                     }
                 }
                 
                 // Jika masih tidak ada, ambil QuestionPack pertama yang ada
                 if (!$questionPack) {
                     $questionPack = \App\Models\QuestionPack::first();
-                    Log::warning('No suitable question pack found, using first available', [
-                        'pack_id' => $questionPack ? $questionPack->id : null,
-                        'pack_name' => $questionPack ? $questionPack->pack_name : null
-                    ]);
                 }
-                
-                Log::info('Question pack found', [
-                    'pack_name' => $questionPack ? $questionPack->pack_name : null,
-                    'opens_at' => $questionPack ? $questionPack->opens_at : null,
-                    'closes_at' => $questionPack ? $questionPack->closes_at : null,
-                ]);
                 
                 if ($questionPack) {
                     $now = now();
@@ -564,7 +463,6 @@ class ApplicationHistoryController extends Controller
                         'formatted_closes_at' => $closesAt ? $closesAt->format('d M Y H:i') : null,
                     ];
                     
-                    Log::info('Psychotest scheduling created', $psychotestScheduling);
                 }
             }
 
@@ -587,10 +485,6 @@ class ApplicationHistoryController extends Controller
                 'applied_at' => $application->created_at->format('Y-m-d H:i:s'),
                 'histories' => $formattedHistories,
             ];
-
-            Log::info('Formatted application data', [
-                'application' => $formattedApplication
-            ]);
 
             return Inertia::render('candidate/status-candidate', [
                 'application' => $formattedApplication,
@@ -676,7 +570,6 @@ class ApplicationHistoryController extends Controller
             $decoded = json_decode($value, true);
             return (is_array($decoded) && json_last_error() === JSON_ERROR_NONE) ? $decoded : [];
         } catch (\Exception $e) {
-            Log::warning('JSON decode failed: ' . $e->getMessage());
             return [];
         }
     }
@@ -696,7 +589,6 @@ class ApplicationHistoryController extends Controller
         try {
             return \Carbon\Carbon::parse($date)->format($format);
         } catch (\Exception $e) {
-            Log::warning('Date formatting failed: ' . $e->getMessage());
             return null;
         }
     }

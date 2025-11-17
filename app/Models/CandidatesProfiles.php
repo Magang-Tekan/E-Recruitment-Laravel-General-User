@@ -52,12 +52,6 @@ class CandidatesProfiles extends Model
         try {
             DB::beginTransaction();
 
-            // Log input data
-            \Log::info('Attempting to save profile data:', [
-                'user_id' => $userId,
-                'data' => $userData
-            ]);
-
             // Gender sudah langsung disimpan sebagai string
 
             $profile = self::updateOrCreate(
@@ -67,7 +61,6 @@ class CandidatesProfiles extends Model
 
             DB::commit();
 
-            \Log::info('Profile saved successfully:', $profile->toArray());
 
             return [
                 'success' => true,
@@ -77,10 +70,6 @@ class CandidatesProfiles extends Model
 
         } catch (Exception $e) {
             DB::rollBack();
-            \Log::error('Error saving profile: ' . $e->getMessage(), [
-                'exception' => $e,
-                'trace' => $e->getTraceAsString()
-            ]);
 
             return [
                 'success' => false,

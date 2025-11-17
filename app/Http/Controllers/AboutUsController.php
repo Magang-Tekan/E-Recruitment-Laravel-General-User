@@ -29,7 +29,6 @@ class AboutUsController extends Controller
                 'contacts' => $contacts
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error loading about us data: ' . $e->getMessage());
             return Inertia::render('landing-page/about-us', [
                 'aboutUsData' => null,
                 'companies' => [],
