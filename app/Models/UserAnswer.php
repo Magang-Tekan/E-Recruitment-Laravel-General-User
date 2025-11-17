@@ -18,7 +18,21 @@ class UserAnswer extends Model
     protected $fillable = [
         'user_id',
         'question_id',
-        'choice_id'
+        'choice_id',
+        'application_id',
+        'answered_at',
+        'answer_text',
+        'score'
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'answered_at' => 'datetime',
+        'score' => 'decimal:2',
     ];
 
     /**
@@ -43,5 +57,13 @@ class UserAnswer extends Model
     public function choice(): BelongsTo
     {
         return $this->belongsTo(Choice::class);
+    }
+
+    /**
+     * Get the application that owns the answer.
+     */
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(Applications::class, 'application_id');
     }
 }

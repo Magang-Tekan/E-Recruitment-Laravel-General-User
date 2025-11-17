@@ -39,7 +39,7 @@ interface TestInfo {
 type PageProps = InertiaPageProps & {
     questions: Question[];
     assessment: Assessment;
-    userAnswers: Record<number, string>;
+    userAnswers: Record<number, string | { text: string; type: string }>;
 };
 
 export default function CandidatePsychotest() {
@@ -48,7 +48,8 @@ export default function CandidatePsychotest() {
     // State management
     const [currentPhase, setCurrentPhase] = useState<'start' | 'test' | 'complete'>('start');
     const [currentQuestion, setCurrentQuestion] = useState(0);
-    const [userAnswers, setUserAnswers] = useState<Record<number, string>>(initialUserAnswers || {});
+    // Support both multiple choice (string = choice_id) and essay (object with text)
+    const [userAnswers, setUserAnswers] = useState<Record<number, string | { text: string; type: string }>>(initialUserAnswers || {});
     const [rulesAccepted, setRulesAccepted] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
     const [testStarted, setTestStarted] = useState(false);
@@ -255,6 +256,16 @@ export default function CandidatePsychotest() {
         }));
     };
 
+    const handleEssayAnswerChange = (questionId: number, answerText: string) => {
+        setUserAnswers(prev => ({
+            ...prev,
+            [questionId]: {
+                text: answerText,
+                type: 'essay'
+            }
+        }));
+    };
+
     const handlePreviousQuestion = () => {
         if (currentQuestion > 0) {
             setCurrentQuestion(currentQuestion - 1);
@@ -299,11 +310,19 @@ export default function CandidatePsychotest() {
         setTestCompleted(true);
         setCountdown(8);
         
+        // Format answers for submission
+        const formattedAnswers: Record<number, string | { text: string; type: string }> = {};
+        Object.keys(userAnswers).forEach(key => {
+            const questionId = parseInt(key);
+            const answer = userAnswers[questionId];
+            formattedAnswers[questionId] = answer;
+        });
+        
         try {
             // Submit with cheating flag
             router.post('/candidate/tests/psychotest/submit', {
                 application_id: assessment?.id,
-                answers: userAnswers,
+                answers: formattedAnswers,
                 is_cheating: true,
                 cheating_reason: 'Membuka tab baru atau beralih ke aplikasi lain selama ujian'
             }, {
@@ -381,7 +400,7 @@ export default function CandidatePsychotest() {
                 return;
             }
 
-            const answeredCount = Object.keys(userAnswers).length;
+            const answeredCount = getAnsweredCount();
             const unansweredCount = questions.length - answeredCount;
             
             // Konfirmasi sebelum submit dengan informasi yang lebih jelas
@@ -405,16 +424,25 @@ export default function CandidatePsychotest() {
             setTestCompleted(true);
             setCountdown(8);
             
+            // Format answers for submission: MC as choice_id string, Essay as object with text
+            const formattedAnswers: Record<number, string | { text: string; type: string }> = {};
+            Object.keys(userAnswers).forEach(key => {
+                const questionId = parseInt(key);
+                const answer = userAnswers[questionId];
+                // Keep the format as is - backend should handle both string (MC) and object (essay)
+                formattedAnswers[questionId] = answer;
+            });
+            
             console.log("Submitting data:", {
                 application_id: assessment?.id,
-                answers: userAnswers
+                answers: formattedAnswers
             });
             
             try {
                 // Gunakan router.post() dari Inertia.js
                 router.post('/candidate/tests/psychotest/submit', {
                     application_id: assessment?.id,
-                    answers: userAnswers
+                    answers: formattedAnswers
                 }, {
                     onSuccess: (data) => {
                         console.log("Server response:", data);
@@ -455,14 +483,21 @@ export default function CandidatePsychotest() {
 
     const getQuestionStatus = (index: number) => {
         const questionId = questions[index]?.id;
-        if (userAnswers[questionId]) {
+        const answer = userAnswers[questionId];
+        // Check if answer exists (either string for MC or object with text for essay)
+        const hasAnswer = answer && (typeof answer === 'string' || (typeof answer === 'object' && answer.text && answer.text.trim() !== ''));
+        if (hasAnswer) {
             return markedQuestions[index] ? 'answered-marked' : 'answered';
         }
         return markedQuestions[index] ? 'unmarked-marked' : 'unanswered';
     };
 
     const getAnsweredCount = () => {
-        return Object.keys(userAnswers).length;
+        return Object.keys(userAnswers).filter(key => {
+            const answer = userAnswers[parseInt(key)];
+            // Count as answered if it's a string (MC) or object with non-empty text (essay)
+            return answer && (typeof answer === 'string' || (typeof answer === 'object' && answer.text && answer.text.trim() !== ''));
+        }).length;
     };
 
     const getUnansweredCount = () => {
@@ -639,6 +674,9 @@ export default function CandidatePsychotest() {
     if (currentPhase === 'test' && questions.length > 0) {
         const currentQuestionData = questions[currentQuestion];
         const currentAnswer = currentQuestionData ? userAnswers[currentQuestionData.id] : '';
+        const isEssay = currentQuestionData?.question_type === 'essay';
+        const currentEssayAnswer = isEssay && typeof currentAnswer === 'object' && currentAnswer?.text ? currentAnswer.text : '';
+        const currentMCAnswer = !isEssay && typeof currentAnswer === 'string' ? currentAnswer : '';
 
         return (
             <>
@@ -678,37 +716,70 @@ export default function CandidatePsychotest() {
                     <div className="flex-1 max-w-3xl">
                         <div className="bg-white border border-gray-200 rounded-lg shadow-lg">
                             {/* Question Header */}
-                            <div className="bg-blue-500 text-white px-8 py-5 rounded-t-lg">
+                            <div className="bg-blue-500 text-white px-8 py-5 rounded-t-lg flex items-center justify-between">
                                 <h3 className="text-lg font-bold">Soal {currentQuestion + 1} dari {questions.length}</h3>
+                                {isEssay && (
+                                    <span className="bg-blue-600 px-3 py-1 rounded-full text-sm font-medium">
+                                        Essay
+                                    </span>
+                                )}
+                                {!isEssay && (
+                                    <span className="bg-blue-600 px-3 py-1 rounded-full text-sm font-medium">
+                                        Pilihan Ganda
+                                    </span>
+                                )}
                             </div>
                             {/* Question Content */}
                             <div className="px-4 py-6">
                                 <p className="text-gray-900 mb-6 text-lg leading-relaxed">
                                     {currentQuestionData?.question}
                                 </p>
-                                {/* Answer Options */}
-                                <div className="space-y-3">
-                                    {currentQuestionData?.options.map((option) => (
-                                        <label
-                                            key={option.id}
-                                            className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${
-                                                userAnswers[currentQuestionData.id] === option.id.toString() 
-                                                    ? 'border-blue-500 bg-blue-50' 
-                                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                            }`}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name={`question-${currentQuestionData.id}`}
-                                                value={option.id}
-                                                checked={userAnswers[currentQuestionData.id] === option.id.toString()}
-                                                onChange={() => handleAnswerChange(currentQuestionData.id, option.id.toString())}
-                                                className="mt-1 mr-3 text-blue-500 w-5 h-5"
-                                            />
-                                            <span className="text-gray-900 text-base leading-relaxed">{option.text}</span>
-                                        </label>
-                                    ))}
-                                </div>
+                                
+                                {/* Answer Options - Multiple Choice */}
+                                {!isEssay && (
+                                    <div className="space-y-3">
+                                        {currentQuestionData?.options && currentQuestionData.options.length > 0 ? (
+                                            currentQuestionData.options.map((option) => (
+                                                <label
+                                                    key={option.id}
+                                                    className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${
+                                                        currentMCAnswer === option.id.toString() 
+                                                            ? 'border-blue-500 bg-blue-50' 
+                                                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name={`question-${currentQuestionData.id}`}
+                                                        value={option.id}
+                                                        checked={currentMCAnswer === option.id.toString()}
+                                                        onChange={() => handleAnswerChange(currentQuestionData.id, option.id.toString())}
+                                                        className="mt-1 mr-3 text-blue-500 w-5 h-5"
+                                                    />
+                                                    <span className="text-gray-900 text-base leading-relaxed">{option.text}</span>
+                                                </label>
+                                            ))
+                                        ) : (
+                                            <p className="text-gray-500 text-sm italic">Tidak ada pilihan jawaban tersedia</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Answer Input - Essay */}
+                                {isEssay && (
+                                    <div className="space-y-3">
+                                        <textarea
+                                            value={currentEssayAnswer}
+                                            onChange={(e) => handleEssayAnswerChange(currentQuestionData.id, e.target.value)}
+                                            placeholder="Tulis jawaban Anda di sini..."
+                                            className="w-full min-h-[200px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-base leading-relaxed resize-y"
+                                            rows={8}
+                                        />
+                                        <p className="text-sm text-gray-500">
+                                            {currentEssayAnswer.length > 0 ? `${currentEssayAnswer.length} karakter` : 'Jawaban belum diisi'}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                             {/* Navigation */}
                             <div className="flex justify-between items-center px-8 py-5 border-t border-gray-200 bg-gray-50 rounded-b-lg">

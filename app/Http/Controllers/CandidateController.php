@@ -2864,10 +2864,27 @@ private function getPsychotestQuestionsFromDatabase($questionPackId)
 private function getUserAnswers($applicationId, $userId)
 {
     try {
-        $userAnswers = \App\Models\UserAnswer::where('user_id', $userId)
-            ->get()
-            ->pluck('choice_id', 'question_id')
-            ->toArray();
+        // Filter by application_id to get answers for this specific application
+        $userAnswersData = \App\Models\UserAnswer::where('user_id', $userId)
+            ->where('application_id', $applicationId)
+            ->get();
+        
+        $userAnswers = [];
+        foreach ($userAnswersData as $userAnswer) {
+            $questionId = $userAnswer->question_id;
+            
+            // Check if this is an essay answer (has answer_text) or multiple choice (has choice_id)
+            if ($userAnswer->answer_text !== null && $userAnswer->answer_text !== '') {
+                // Essay answer - return as object
+                $userAnswers[$questionId] = [
+                    'text' => $userAnswer->answer_text,
+                    'type' => 'essay'
+                ];
+            } elseif ($userAnswer->choice_id !== null) {
+                // Multiple choice answer - return as string (choice_id)
+                $userAnswers[$questionId] = (string)$userAnswer->choice_id;
+            }
+        }
         
         return $userAnswers;
     } catch (\Exception $e) {
@@ -3042,21 +3059,45 @@ public function submitPsychotest(Request $request)
         try {
             DB::beginTransaction();
 
-            // Hapus jawaban lama jika ada untuk semua soal dalam question pack ini
+            // Hapus jawaban lama jika ada untuk semua soal dalam question pack ini dan application ini
             \App\Models\UserAnswer::where('user_id', Auth::id())
+                ->where('application_id', $application_id)
                 ->whereIn('question_id', $allQuestions)
                 ->delete();
 
             // Simpan SEMUA soal - termasuk yang tidak dijawab (choice_id = null)
             $savedCount = 0;
             foreach ($allQuestions as $questionId) {
-                $choiceId = isset($answers[$questionId]) ? $answers[$questionId] : null;
+                $answerData = isset($answers[$questionId]) ? $answers[$questionId] : null;
                 
-                \App\Models\UserAnswer::create([
+                // Handle both multiple choice (string = choice_id) and essay (object with text)
+                $choiceId = null;
+                $answerText = null;
+                
+                if ($answerData !== null) {
+                    if (is_array($answerData) && isset($answerData['text'])) {
+                        // Essay answer
+                        $answerText = $answerData['text'];
+                    } elseif (is_string($answerData)) {
+                        // Multiple choice answer
+                        $choiceId = $answerData;
+                    }
+                }
+                
+                $userAnswerData = [
                     'user_id' => Auth::id(),
                     'question_id' => $questionId,
-                    'choice_id' => $choiceId // null jika tidak dijawab
-                ]);
+                    'choice_id' => $choiceId,
+                    'application_id' => $application_id,
+                    'answered_at' => now()
+                ];
+                
+                // Add answer_text if it's an essay answer
+                if ($answerText !== null) {
+                    $userAnswerData['answer_text'] = $answerText;
+                }
+                
+                \App\Models\UserAnswer::create($userAnswerData);
                 $savedCount++;
             }
 

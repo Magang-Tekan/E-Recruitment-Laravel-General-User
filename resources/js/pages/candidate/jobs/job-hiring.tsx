@@ -19,6 +19,10 @@ interface Job {
   type: string | { name: string };
   deadline?: string;
   department: string | { name: string };
+  major_id?: number | null; // For backward compatibility
+  major_name?: string | null; // For backward compatibility
+  major_names?: string[]; // Array of major names
+  major_ids?: number[]; // Array of major IDs
 }
 
 interface Recommendation {
@@ -176,7 +180,7 @@ const Description = styled.p`
 
 const JobDetails = styled.div`
   display: flex;
-  flex-wrap: wrap;  // Mengganti flex-wrap menjadi nowrap
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   color: #657786;
@@ -189,8 +193,27 @@ const JobDetails = styled.div`
     display: flex;
     align-items: center;
     gap: 6px;
-    white-space: nowrap;  // Menambahkan white-space nowrap
+    white-space: nowrap;
   }
+`;
+
+const MajorTags = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+`;
+
+const MajorTag = styled.span`
+  background: #E6F4FF;
+  color: #0088FF;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 `;
 
 const DetailButton = styled.button`
@@ -325,8 +348,23 @@ const JobHiring: React.FC<Props> = ({
                       <span>🕒 {typeof vacancy.type === 'object' ? vacancy.type?.name : vacancy.type}</span>
                       <span>📅 {vacancy.deadline || 'Open'}</span>
                       <span>👥 {typeof vacancy.department === 'object' ? vacancy.department?.name : vacancy.department}</span>
-                      {/* <ScoreBadge>⭐ Score: {score}</ScoreBadge> */}
                     </JobDetails>
+                    {/* Display Multiple Majors */}
+                    {(vacancy.major_names && vacancy.major_names.length > 0) || vacancy.major_name ? (
+                      <MajorTags>
+                        {vacancy.major_names && vacancy.major_names.length > 0 ? (
+                          vacancy.major_names.map((majorName, index) => (
+                            <MajorTag key={index}>
+                              🎓 {majorName}
+                            </MajorTag>
+                          ))
+                        ) : vacancy.major_name ? (
+                          <MajorTag>
+                            🎓 {vacancy.major_name}
+                          </MajorTag>
+                        ) : null}
+                      </MajorTags>
+                    ) : null}
                   </JobInfo>
                   <DetailButton onClick={() => navigateToJobDetail(vacancy.id)}>
                     Lihat Detail
@@ -369,6 +407,22 @@ const JobHiring: React.FC<Props> = ({
                       <span>📅 {job.deadline || 'Open'}</span>
                       <span>👥 {typeof job.department === 'object' ? job.department?.name : job.department}</span>
                     </JobDetails>
+                    {/* Display Multiple Majors */}
+                    {(job.major_names && job.major_names.length > 0) || job.major_name ? (
+                      <MajorTags>
+                        {job.major_names && job.major_names.length > 0 ? (
+                          job.major_names.map((majorName, index) => (
+                            <MajorTag key={index}>
+                              🎓 {majorName}
+                            </MajorTag>
+                          ))
+                        ) : job.major_name ? (
+                          <MajorTag>
+                            🎓 {job.major_name}
+                          </MajorTag>
+                        ) : null}
+                      </MajorTags>
+                    ) : null}
                   </JobInfo>
                   {/* PERBAIKAN: Gunakan navigateToJobDetail untuk handling navigasi */}
                   <DetailButton onClick={() => navigateToJobDetail(job.id)}>

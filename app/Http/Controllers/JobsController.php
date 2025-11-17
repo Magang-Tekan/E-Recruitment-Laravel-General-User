@@ -26,7 +26,7 @@ class JobsController extends Controller
     {
         try {
             // Ambil semua lowongan aktif dengan relasi
-            $jobs = Vacancies::with(['company', 'department', 'vacancyType', 'major'])
+            $jobs = Vacancies::with(['company', 'department', 'vacancyType', 'major', 'majors'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -39,11 +39,24 @@ class JobsController extends Controller
                     ->orderBy('periods.end_time', 'desc')
                     ->first();
 
-                // Get major name if exists
+                // Get major names (support multiple majors)
                 $majorName = null;
-                if ($job->major_id) {
+                $majorNames = [];
+                $majorIds = [];
+                
+                // Get majors from many-to-many relationship
+                if ($job->majors && $job->majors->isNotEmpty()) {
+                    $majorNames = $job->majors->pluck('name')->toArray();
+                    $majorIds = $job->majors->pluck('id')->toArray();
+                    $majorName = implode(', ', $majorNames); // For backward compatibility
+                } elseif ($job->major_id) {
+                    // Fallback to single major_id for backward compatibility
                     $major = MasterMajor::find($job->major_id);
                     $majorName = $major ? $major->name : null;
+                    if ($majorName) {
+                        $majorNames = [$majorName];
+                        $majorIds = [$job->major_id];
+                    }
                 }
 
                 // Format requirements and benefits with improved parsing
@@ -65,8 +78,10 @@ class JobsController extends Controller
                     'requirements' => $requirements,
                     'benefits' => $benefits,
                     'salary' => $job->salary,
-                    'major_id' => $job->major_id,
-                    'major_name' => $majorName,
+                    'major_id' => $job->major_id, // For backward compatibility
+                    'major_name' => $majorName, // For backward compatibility (comma-separated if multiple)
+                    'major_names' => $majorNames, // Array of major names
+                    'major_ids' => $majorIds, // Array of major IDs
                     'created_at' => $job->created_at ? $job->created_at->format('Y-m-d H:i:s') : null,
                     'updated_at' => $job->updated_at ? $job->updated_at->format('Y-m-d H:i:s') : null
                 ];
@@ -90,9 +105,14 @@ class JobsController extends Controller
                         $candidateMajor = $major ? $major->name : null;
                     }
 
-                    // Filter lowongan yang sesuai dengan jurusan user
+                    // Filter lowongan yang sesuai dengan jurusan user (check against all majors)
                     $matchedJobs = $formattedJobs->filter(function($job) use ($userMajorId) {
-                        return $job['major_id'] == $userMajorId;
+                        // Check if user's major matches any of the vacancy's majors
+                        if (isset($job['major_ids']) && is_array($job['major_ids'])) {
+                            return in_array($userMajorId, $job['major_ids']);
+                        }
+                        // Fallback to single major_id for backward compatibility
+                        return isset($job['major_id']) && $job['major_id'] == $userMajorId;
                     })->values();
 
                     // Buat rekomendasi dengan score
@@ -364,18 +384,29 @@ class JobsController extends Controller
     {
         $vacancy = Vacancies::with('company')->findOrFail($id);
 
-        // Mengambil informasi major
+        // Mengambil informasi major (support multiple majors)
         $majorName = null;
-        if ($vacancy->major_id) {
+        $majorNames = [];
+        
+        // Get majors from many-to-many relationship
+        $vacancyMajors = $vacancy->majors()->get();
+        if ($vacancyMajors->isNotEmpty()) {
+            $majorNames = $vacancyMajors->pluck('name')->toArray();
+            $majorName = implode(', ', $majorNames); // For backward compatibility
+        } elseif ($vacancy->major_id) {
+            // Fallback to single major_id for backward compatibility
             $major = MasterMajor::find($vacancy->major_id);
             $majorName = $major ? $major->name : null;
+            if ($majorName) {
+                $majorNames = [$majorName];
+            }
         }
 
         // Parse requirements & benefits data with proper handling for nested JSON
         $requirements = $this->parseJobData($vacancy->requirements);
         $benefits = $this->parseJobData($vacancy->benefits);
 
-        // Get user's major if authenticated
+        // Get user's major if authenticated - check ALL educations
         $userMajor = null;
         $isMajorMatched = false;
         $educationMatched = false;
@@ -383,16 +414,80 @@ class JobsController extends Controller
         $requiredEducation = 'S1'; // Default for testing
 
         if (Auth::check()) {
-            $education = CandidatesEducations::with('educationLevel')
+            // Get ALL educations, not just the first one
+            $educations = CandidatesEducations::with(['educationLevel', 'major'])
                 ->where('user_id', Auth::id())
-                ->first();
+                ->get();
 
-            if ($education) {
-                $userMajor = $education->major_id;
-                $userEducation = $education->educationLevel ? $education->educationLevel->name : null;
+            // Get vacancy major IDs - use pluck directly from relationship for consistency
+            $vacancyMajorIds = [];
+            if ($vacancyMajors->isNotEmpty()) {
+                $vacancyMajorIds = $vacancyMajors->pluck('id')->toArray();
+            } elseif ($vacancy->major_id) {
+                $vacancyMajorIds = [$vacancy->major_id];
+            }
+            
+            // Also get from relationship directly as fallback
+            if (empty($vacancyMajorIds)) {
+                $vacancyMajorsFallback = $vacancy->majors()->get();
+                if ($vacancyMajorsFallback->isNotEmpty()) {
+                    $vacancyMajorIds = $vacancyMajorsFallback->pluck('id')->toArray();
+                } elseif ($vacancy->major_id) {
+                    $vacancyMajorIds = [$vacancy->major_id];
+                }
+            }
 
-                // Check major match
-                $isMajorMatched = ($vacancy->major_id == $userMajor);
+            // Check if ANY education has a major that matches vacancy majors
+            if ($educations->isNotEmpty() && !empty($vacancyMajorIds)) {
+                Log::info('Checking major match in detail page', [
+                    'vacancy_id' => $vacancy->id,
+                    'vacancy_major_ids' => $vacancyMajorIds,
+                    'user_educations_count' => $educations->count(),
+                    'user_educations' => $educations->map(function($edu) {
+                        return [
+                            'id' => $edu->id,
+                            'major_id' => $edu->major_id,
+                            'major_name' => $edu->major ? $edu->major->name : null,
+                            'education_level' => $edu->educationLevel ? $edu->educationLevel->name : null
+                        ];
+                    })->toArray()
+                ]);
+                
+                foreach ($educations as $education) {
+                    if ($education->major_id && in_array($education->major_id, $vacancyMajorIds)) {
+                        $isMajorMatched = true;
+                        $userMajor = $education->major_id; // Use the matched major
+                        $userEducation = $education->educationLevel ? $education->educationLevel->name : null;
+                        
+                        Log::info('Major match found in detail page', [
+                            'education_id' => $education->id,
+                            'matched_major_id' => $education->major_id,
+                            'matched_major_name' => $education->major ? $education->major->name : null
+                        ]);
+                        break; // Found a match, no need to continue
+                    }
+                }
+                
+                // If no match found yet, use the first education for display purposes
+                if (!$isMajorMatched && $educations->isNotEmpty()) {
+                    $firstEducation = $educations->first();
+                    $userMajor = $firstEducation->major_id;
+                    $userEducation = $firstEducation->educationLevel ? $firstEducation->educationLevel->name : null;
+                    
+                    Log::warning('No major match found in detail page', [
+                        'using_first_education' => $firstEducation->id,
+                        'first_education_major_id' => $firstEducation->major_id
+                    ]);
+                }
+            } elseif ($educations->isNotEmpty()) {
+                // No major requirement, just use first education for display
+                $firstEducation = $educations->first();
+                $userMajor = $firstEducation->major_id;
+                $userEducation = $firstEducation->educationLevel ? $firstEducation->educationLevel->name : null;
+                $isMajorMatched = true; // No major requirement means it's always matched
+            }
+
+            if ($educations->isNotEmpty()) {
 
                 // Find minimum education requirement
                 if (is_array($requirements)) {
@@ -471,8 +566,12 @@ class JobsController extends Controller
                 'job_description' => $vacancy->job_description,
                 'requirements' => $requirements,
                 'benefits' => $benefits,
-                'major_id' => $vacancy->major_id,
-                'major_name' => $majorName,
+                'major_id' => $vacancy->major_id, // For backward compatibility
+                'major_name' => $majorName, // For backward compatibility (comma-separated if multiple)
+                'major_names' => $majorNames, // Array of major names
+                'major_ids' => $vacancyMajors->isNotEmpty() 
+                    ? $vacancyMajors->pluck('id')->toArray() 
+                    : ($vacancy->major_id ? [$vacancy->major_id] : []), // Array of major IDs
                 'required_education' => $requiredEducation,
             ],
             'userMajor' => $userMajor,
@@ -488,7 +587,7 @@ class JobsController extends Controller
     {
         try {
             // Ambil semua lowongan aktif (tanpa join kompleks dulu)
-            $jobs = Vacancies::with(['company', 'department'])
+            $jobs = Vacancies::with(['company', 'department', 'majors'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -530,8 +629,14 @@ class JobsController extends Controller
                         $candidateMajor = $major ? $major->name : null;
                     }
 
-                    // Filter lowongan yang sesuai dengan jurusan user
+                    // Filter lowongan yang sesuai dengan jurusan user (check against all majors)
                     $matchedJobs = $jobs->filter(function($job) use ($userMajorId) {
+                        // Check if user's major matches any of the vacancy's majors
+                        if ($job->majors && $job->majors->isNotEmpty()) {
+                            $vacancyMajorIds = $job->majors->pluck('id')->toArray();
+                            return in_array($userMajorId, $vacancyMajorIds);
+                        }
+                        // Fallback to single major_id for backward compatibility
                         return $job->major_id == $userMajorId;
                     });
 
@@ -1081,12 +1186,12 @@ class JobsController extends Controller
     private function validateCandidateEducation($user, $vacancy)
     {
         try {
-            // Get candidate's education with educationLevel relation
-            $education = CandidatesEducations::with('educationLevel')
+            // Get ALL candidate's educations with educationLevel and major relations
+            $educations = CandidatesEducations::with(['educationLevel', 'major'])
                 ->where('user_id', $user->id)
-                ->first();
+                ->get();
 
-            if (!$education) {
+            if ($educations->isEmpty()) {
                 return [
                     'is_valid' => false,
                     'message' => 'Data pendidikan tidak ditemukan. Harap lengkapi data pendidikan Anda terlebih dahulu.',
@@ -1102,10 +1207,28 @@ class JobsController extends Controller
                 return [
                     'is_valid' => false,
                     'message' => 'Persyaratan pendidikan untuk lowongan ini tidak valid.',
-                    'candidate_education' => $education->educationLevel->name ?? null,
+                    'candidate_education' => null,
                     'required_education' => null
                 ];
             }
+
+            // Get vacancy's required majors (many-to-many)
+            $vacancyMajorsCollection = $vacancy->majors()->get();
+            $vacancyMajors = $vacancyMajorsCollection->isNotEmpty() 
+                ? $vacancyMajorsCollection->pluck('id')->toArray() 
+                : [];
+            
+            // If no majors in many-to-many, check if there's a single major_id (backward compatibility)
+            if (empty($vacancyMajors) && $vacancy->major_id) {
+                $vacancyMajors = [$vacancy->major_id];
+            }
+            
+            Log::info('Vacancy majors in validateCandidateEducation', [
+                'vacancy_id' => $vacancy->id,
+                'vacancy_major_ids' => $vacancyMajors,
+                'vacancy_major_id' => $vacancy->major_id,
+                'majors_collection_count' => $vacancyMajorsCollection->count()
+            ]);
 
             // Define education hierarchy (from lowest to highest)
             $educationLevels = [
@@ -1118,35 +1241,15 @@ class JobsController extends Controller
                 'S3' => 5,
             ];
 
-            $candidateEducationName = $education->educationLevel->name;
             $requiredEducationName = $requiredEducationLevel->name;
-
-            // Normalize education names
-            $normalizedCandidate = $candidateEducationName;
+            
+            // Normalize required education name
             $normalizedRequired = $requiredEducationName;
-
-            // Handle SMA/SMK variations
-            if ($candidateEducationName === 'SMA' || $candidateEducationName === 'SMK') {
-                $normalizedCandidate = 'SMA/SMK';
-            }
             if ($requiredEducationName === 'SMA' || $requiredEducationName === 'SMK') {
                 $normalizedRequired = 'SMA/SMK';
             }
 
-            // Check if education levels exist in our hierarchy
-            if (!isset($educationLevels[$normalizedCandidate])) {
-                Log::error('Unknown candidate education level', [
-                    'candidate_education' => $candidateEducationName,
-                    'normalized' => $normalizedCandidate
-                ]);
-                return [
-                    'is_valid' => false,
-                    'message' => "Jenjang pendidikan kandidat ({$candidateEducationName}) tidak dikenali.",
-                    'candidate_education' => $candidateEducationName,
-                    'required_education' => $requiredEducationName
-                ];
-            }
-
+            // Check if required education level exists in our hierarchy
             if (!isset($educationLevels[$normalizedRequired])) {
                 Log::error('Unknown required education level', [
                     'required_education' => $requiredEducationName,
@@ -1155,35 +1258,127 @@ class JobsController extends Controller
                 return [
                     'is_valid' => false,
                     'message' => "Persyaratan pendidikan ({$requiredEducationName}) tidak dikenali.",
-                    'candidate_education' => $candidateEducationName,
+                    'candidate_education' => null,
                     'required_education' => $requiredEducationName
                 ];
             }
 
-            // Compare education levels using the hierarchy
-            $isValid = $educationLevels[$normalizedCandidate] >= $educationLevels[$normalizedRequired];
+            $requiredLevel = $educationLevels[$normalizedRequired];
+            $hasValidEducationLevel = false;
+            $hasValidMajor = false;
+            $matchedEducation = null;
+            $matchedMajor = null;
 
-            $message = $isValid
-                ? 'Jenjang pendidikan memenuhi syarat.'
-                : "Jenjang pendidikan Anda ({$candidateEducationName}) tidak memenuhi persyaratan minimal ({$requiredEducationName}) untuk lowongan ini.";
+            // Check ALL educations - find if any education meets the requirements
+            // First, check for perfect matches (both education level AND major match)
+            foreach ($educations as $education) {
+                if (!$education->educationLevel) {
+                    continue;
+                }
+
+                $candidateEducationName = $education->educationLevel->name;
+                
+                // Normalize candidate education name
+                $normalizedCandidate = $candidateEducationName;
+                if ($candidateEducationName === 'SMA' || $candidateEducationName === 'SMK') {
+                    $normalizedCandidate = 'SMA/SMK';
+                }
+
+                // Check if education level exists in our hierarchy
+                if (!isset($educationLevels[$normalizedCandidate])) {
+                    Log::warning('Unknown candidate education level', [
+                        'candidate_education' => $candidateEducationName,
+                        'normalized' => $normalizedCandidate,
+                        'education_id' => $education->id
+                    ]);
+                    continue;
+                }
+
+                $candidateLevel = $educationLevels[$normalizedCandidate];
+
+                // Check if education level meets requirement
+                if ($candidateLevel >= $requiredLevel) {
+                    $hasValidEducationLevel = true;
+                    
+                    // If vacancy has major requirements, check if this education's major matches
+                    if (!empty($vacancyMajors)) {
+                        if ($education->major_id && in_array($education->major_id, $vacancyMajors)) {
+                            // Perfect match: both education level AND major match
+                            $hasValidMajor = true;
+                            $matchedEducation = $education;
+                            $matchedMajor = $education->major;
+                            break; // Found matching education with matching major
+                        }
+                    } else {
+                        // No major requirement, so education level match is sufficient
+                        $hasValidMajor = true;
+                        $matchedEducation = $education;
+                        break;
+                    }
+                }
+            }
+            
+            // If no perfect match found but we have major requirements, 
+            // check if any education has matching major (for better error message)
+            if (!$hasValidMajor && !empty($vacancyMajors) && !$hasValidEducationLevel) {
+                foreach ($educations as $education) {
+                    if ($education->major_id && in_array($education->major_id, $vacancyMajors)) {
+                        // Found major match but education level might not be sufficient
+                        // This helps us provide better error message
+                        $matchedEducation = $education;
+                        $matchedMajor = $education->major;
+                        break;
+                    }
+                }
+            }
+
+            // Determine validation result
+            $isValid = false;
+            $message = '';
+
+            if (empty($vacancyMajors)) {
+                // No major requirement, only check education level
+                $isValid = $hasValidEducationLevel;
+                if ($isValid) {
+                    $message = 'Jenjang pendidikan memenuhi syarat.';
+                } else {
+                    $message = "Tidak ada jenjang pendidikan Anda yang memenuhi persyaratan minimal ({$requiredEducationName}) untuk lowongan ini.";
+                }
+            } else {
+                // Has major requirement, need both education level AND major match
+                $isValid = $hasValidEducationLevel && $hasValidMajor;
+                
+                if (!$hasValidEducationLevel) {
+                    $message = "Tidak ada jenjang pendidikan Anda yang memenuhi persyaratan minimal ({$requiredEducationName}) untuk lowongan ini.";
+                } elseif (!$hasValidMajor) {
+                    $majorNames = MasterMajor::whereIn('id', $vacancyMajors)->pluck('name')->toArray();
+                    $majorList = implode(', ', $majorNames);
+                    $message = "Jenjang pendidikan Anda memenuhi syarat, namun major/jurusan Anda tidak sesuai dengan persyaratan lowongan. Major yang dibutuhkan: {$majorList}.";
+                } else {
+                    $message = 'Jenjang pendidikan dan major/jurusan Anda memenuhi syarat.';
+                }
+            }
 
             Log::info('Education validation result', [
                 'user_id' => $user->id,
-                'candidate_education_id' => $education->education_level_id,
+                'vacancy_id' => $vacancy->id,
+                'total_educations_checked' => $educations->count(),
                 'required_education_id' => $vacancy->education_level_id,
-                'candidate_education_name' => $candidateEducationName,
                 'required_education_name' => $requiredEducationName,
-                'normalized_candidate' => $normalizedCandidate,
-                'normalized_required' => $normalizedRequired,
-                'candidate_level' => $educationLevels[$normalizedCandidate],
-                'required_level' => $educationLevels[$normalizedRequired],
+                'required_majors' => $vacancyMajors,
+                'matched_education_id' => $matchedEducation ? $matchedEducation->id : null,
+                'matched_education_level' => $matchedEducation ? $matchedEducation->educationLevel->name : null,
+                'matched_major_id' => $matchedMajor ? $matchedMajor->id : null,
+                'matched_major_name' => $matchedMajor ? $matchedMajor->name : null,
+                'has_valid_education_level' => $hasValidEducationLevel,
+                'has_valid_major' => $hasValidMajor,
                 'is_valid' => $isValid
             ]);
 
             return [
                 'is_valid' => $isValid,
                 'message' => $message,
-                'candidate_education' => $candidateEducationName,
+                'candidate_education' => $matchedEducation ? $matchedEducation->educationLevel->name : null,
                 'required_education' => $requiredEducationName
             ];
 
