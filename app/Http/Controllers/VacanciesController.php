@@ -10,7 +10,6 @@ use App\Models\CandidatesEducations;
 use App\Models\CandidatesWorkExperiences;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 
@@ -24,20 +23,8 @@ class VacanciesController extends Controller
                 ->take(6)
                 ->get()
                 ->map(function ($vacancy) {
-                    // Debug the periods relationship
-                    \Log::info('Vacancy periods:', [
-                        'vacancy_id' => $vacancy->id,
-                        'periods' => $vacancy->periods->toArray()
-                    ]);
-
                     // Get the first period's end time
                     $endTime = $vacancy->periods->first()?->end_time;
-
-                    // Debug the end time formatting
-                    \Log::info('End time:', [
-                        'raw' => $endTime,
-                        'formatted' => $endTime ? \Carbon\Carbon::parse($endTime)->locale('id')->isoFormat('D MMMM Y') : null
-                    ]);
 
                     return [
                         'id' => $vacancy->id,
@@ -61,7 +48,6 @@ class VacanciesController extends Controller
                 });
 
             // Debug final data being sent to view
-            \Log::info('Vacancies data:', $vacancies->toArray());
 
             return Inertia::render('welcome', [
                 'vacancies' => $vacancies,
@@ -69,7 +55,6 @@ class VacanciesController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error in VacanciesController@index: ' . $e->getMessage());
             return Inertia::render('welcome', [
                 'vacancies' => [],
                 'companies' => []
@@ -80,7 +65,6 @@ class VacanciesController extends Controller
     public function store()
     {
         $vacancies = Vacancies::all();
-        Log::info($vacancies);
 
         return Inertia::render('admin/jobs/jobs-management', [
             'vacancies' => $vacancies,
@@ -285,7 +269,6 @@ class VacanciesController extends Controller
             ]);
         } catch (\Exception $e) {
             // Log error and return empty data with error message
-            Log::error('Error in VacanciesController@getVacanciesLandingPage: ' . $e->getMessage());
             return Inertia::render('landing-page/job-hiring-landing-page', [
                 'jobs' => [],
                 'companies' => [],

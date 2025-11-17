@@ -11,8 +11,10 @@ interface JobDetailProps extends Record<string, unknown> {
         job_description: string;
         requirements: string[];
         benefits: string[];
-        major_id: number;
-        major_name: string | null;
+        major_id?: number | null; // For backward compatibility
+        major_name?: string | null; // For backward compatibility
+        major_names?: string[]; // Array of major names
+        major_ids?: number[]; // Array of major IDs
     };
     userMajor: number | null;
     isMajorMatched: boolean;
@@ -330,17 +332,33 @@ const parseArrayData = (data: string | string[] | null | undefined): string[] =>
                 <HeroSection>
                     <JobTitle>{job?.title}</JobTitle>
                     <CompanyTitle>{job?.company?.name}</CompanyTitle>
-                    <div className="flex items-center gap-4 mt-4 text-sm text-gray-600">
+                    <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                             <i className="fas fa-graduation-cap text-blue-500"></i>
                             <span>Pendidikan Minimal</span>
                         </div>
-                        {job?.major_name && (
-                            <div className="flex items-center gap-1">
+                        {/* Display Multiple Majors */}
+                        {(job?.major_names && job.major_names.length > 0) || job?.major_name ? (
+                            <div className="flex flex-wrap items-center gap-2">
                                 <i className="fas fa-book text-green-500"></i>
-                                <span>{job.major_name}</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {job?.major_names && job.major_names.length > 0 ? (
+                                        job.major_names.map((majorName, index) => (
+                                            <span 
+                                                key={index}
+                                                className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium"
+                                            >
+                                                {majorName}
+                                            </span>
+                                        ))
+                                    ) : job?.major_name ? (
+                                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium">
+                                            {job.major_name}
+                                        </span>
+                                    ) : null}
+                                </div>
                             </div>
-                        )}
+                        ) : null}
                         <div className="flex items-center gap-1">
                             <i className="fas fa-building text-purple-500"></i>
                             <span>{job?.company?.name}</span>
@@ -362,7 +380,13 @@ const parseArrayData = (data: string | string[] | null | undefined): string[] =>
                             <MatchIcon>✅</MatchIcon>
                             <div>
                                 <strong>Jurusan Anda cocok!</strong>
-                                <p className="mt-1 text-sm">Lowongan ini membutuhkan jurusan {job?.major_name} yang sesuai dengan jurusan Anda.</p>
+                                <p className="mt-1 text-sm">
+                                    Lowongan ini membutuhkan jurusan: {
+                                        job?.major_names && job.major_names.length > 0 
+                                            ? job.major_names.join(', ')
+                                            : job?.major_name || 'Tidak ditentukan'
+                                    } yang sesuai dengan jurusan Anda.
+                                </p>
                             </div>
                         </MajorMatch>
                     ) : (
@@ -370,7 +394,13 @@ const parseArrayData = (data: string | string[] | null | undefined): string[] =>
                             <WarningIcon>❌</WarningIcon>
                             <div>
                                 <strong>Jurusan tidak sesuai!</strong>
-                                <p className="mt-1 text-sm">Lowongan ini membutuhkan jurusan {job?.major_name} yang tidak sesuai dengan jurusan Anda.</p>
+                                <p className="mt-1 text-sm">
+                                    Lowongan ini membutuhkan jurusan: {
+                                        job?.major_names && job.major_names.length > 0 
+                                            ? job.major_names.join(', ')
+                                            : job?.major_name || 'Tidak ditentukan'
+                                    } yang tidak sesuai dengan jurusan Anda.
+                                </p>
                             </div>
                         </MajorWarning>
                     )}

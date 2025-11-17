@@ -27,8 +27,10 @@ interface Job {
   requirements: string[] | string;
   benefits: string[] | string;
   salary: string | null;
-  major_id: number | null;
-  major_name: string | null;
+  major_id?: number | null; // For backward compatibility
+  major_name?: string | null; // For backward compatibility
+  major_names?: string[]; // Array of major names
+  major_ids?: number[]; // Array of major IDs
   created_at: string | null;
   updated_at: string | null;
 }
@@ -175,6 +177,25 @@ const JobDetails = styled.div`
     align-items: center;
     gap: 6px;
   }
+`;
+
+const MajorTags = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+`;
+
+const MajorTag = styled.span`
+  background: #E6F4FF;
+  color: #0088FF;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 `;
 
 const DetailButton = styled.button`
@@ -441,6 +462,22 @@ const JobHiring: React.FC<Props> = ({ jobs, companies }) => {
                       <span style={{ color: '#ef4444', fontWeight: '600' }}>⚠️ Expired</span>
                     )}
                   </JobDetails>
+                  {/* Display Multiple Majors */}
+                  {(job.major_names && job.major_names.length > 0) || job.major_name ? (
+                    <MajorTags>
+                      {job.major_names && job.major_names.length > 0 ? (
+                        job.major_names.map((majorName, index) => (
+                          <MajorTag key={index}>
+                            🎓 {majorName}
+                          </MajorTag>
+                        ))
+                      ) : job.major_name ? (
+                        <MajorTag>
+                          🎓 {job.major_name}
+                        </MajorTag>
+                      ) : null}
+                    </MajorTags>
+                  ) : null}
                 </JobInfo>
                 <DetailButton 
                   onClick={() => handleJobDetailClick(job.id)}

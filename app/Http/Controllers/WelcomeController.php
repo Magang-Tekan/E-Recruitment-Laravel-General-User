@@ -7,7 +7,6 @@ use App\Models\Vacancies;
 use App\Models\Contacts;
 use App\Models\MasterMajor;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class WelcomeController extends Controller
@@ -61,8 +60,6 @@ class WelcomeController extends Controller
             $contacts = Contacts::select('email', 'phone', 'address')->first();
 
             // Log the data being sent
-            Log::info('WelcomeController - Companies count: ' . $featuredCompanies->count());
-            Log::info('WelcomeController - Companies data: ' . json_encode($featuredCompanies->toArray()));
 
             return Inertia::render('welcome', [
                 'companies' => $featuredCompanies,
@@ -73,8 +70,6 @@ class WelcomeController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in WelcomeController: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
             return Inertia::render('welcome', [
                 'companies' => [],
                 'footerCompanies' => [],
@@ -143,7 +138,6 @@ class WelcomeController extends Controller
                 ];
             });
         } catch (\Exception $e) {
-            Log::error('Error formatting vacancies for welcome page: ' . $e->getMessage());
             return [];
         }
     }

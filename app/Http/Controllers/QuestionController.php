@@ -6,7 +6,6 @@ use App\Models\QuestionPack;
 use App\Models\Question;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class QuestionController extends Controller
@@ -30,7 +29,6 @@ class QuestionController extends Controller
     public function edit(QuestionPack $questionPack)
     {
         $questionPack->load('questions');
-        Log::info('Question pack questions: '.$questionPack->questions);
 
         return Inertia::render('admin/questions/edit-questions', [
             'assessment' => $questionPack,
@@ -74,7 +72,6 @@ class QuestionController extends Controller
                 ->with('success', 'Question pack updated successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Update failed: '.$e->getMessage());
 
             return back()->with('error', 'Failed to update question pack');
         }
