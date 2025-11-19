@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Contact {
@@ -387,14 +388,14 @@ export default function Welcome(props: WelcomeProps) {
                         />
                     ))}
                     {/* Black overlay */}
-                    <div className="absolute inset-0 z-10 bg-black opacity-60" />
+                    <div className="absolute inset-0 z-10 bg-black opacity-70" />
                     <div className="relative z-20 container mx-auto flex h-full flex-col items-center justify-center px-4 sm:px-6">
-                        <h1 className="mb-[12px] sm:mb-[16px] text-[24px] sm:text-[36px] md:text-[56px] font-bold leading-tight">
+                        <h1 className="mb-[10px] sm:mb-[14px] text-[20px] sm:text-[28px] md:text-[44px] font-bold leading-tight text-white drop-shadow-lg">
                             Selamat Datang di E-Recruitment
                             <br />
                             Mitra Karya Group
                         </h1>
-                        <p className="mb-[24px] sm:mb-[32px] text-[14px] sm:text-[18px] px-4">Temukan Karier Impian Anda Bersama Kami</p>
+                        <p className="mb-[20px] sm:mb-[28px] text-[12px] sm:text-[15px] px-4 font-medium text-white drop-shadow-md">Temukan Karier Impian Anda Bersama Kami</p>
                         <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
                             <Link href="/job-hiring-landing-page">
                                 <Button
@@ -718,137 +719,201 @@ export default function Welcome(props: WelcomeProps) {
                 </section>
 
                 {/* Footer */}
-                <footer className="bg-[#f6fafe] py-12 sm:py-16">
-                    <div className="container mx-auto grid grid-cols-1 gap-8 sm:gap-10 px-4 sm:px-6 md:grid-cols-3">
-                        {/* Kolom 1 */}
-                        <div>
-                            {props.companies && props.companies.length > 0 ? (
-                                <>
-                                    <h4 className="mb-2 text-[14px] sm:text-[16px] font-bold">{props.companies[0].name}</h4>
-                                    <p className="mb-4 sm:mb-6 text-xs sm:text-sm text-gray-700">
-                                        {props.companies[0].description}
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <h4 className="mb-2 text-[14px] sm:text-[16px] font-bold">MITRA KARYA GROUP</h4>
-                                    <p className="mb-4 sm:mb-6 text-xs sm:text-sm text-gray-700">
-                                        Kami adalah perusahaan teknologi pintar yang senantiasa berkomitmen untuk memberikan dan meningkatkan kepuasan pelanggan
-                                    </p>
-                                </>
-                            )}
+                <footer className="bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 py-20 text-gray-300">
+                    <div className="container mx-auto grid grid-cols-1 gap-12 px-6 md:grid-cols-2 lg:grid-cols-4">
+                        {/* Kolom 1: About */}
+                        <div className="lg:col-span-2">
+                            <div className="mb-6">
+                                <h3 className="mb-4 text-2xl font-bold text-white">MITRA KARYA GROUP</h3>
+                                <p className="mb-4 max-w-md text-sm leading-relaxed text-gray-400">
+                                    Ekosistem perusahaan teknologi terdepan yang menghadirkan solusi inovatif untuk transformasi digital Indonesia. 
+                                    Kami berkomitmen membangun masa depan bersama melalui teknologi dan inovasi.
+                                </p>
+                                <p className="text-sm leading-relaxed text-gray-400">
+                                    Menghubungkan talenta terbaik dengan peluang karier berkualitas di berbagai perusahaan terpercaya.
+                                </p>
+                            </div>
                             {/* Social Media Icons */}
-                            <div className="flex space-x-4 sm:space-x-6 text-lg sm:text-xl text-blue-600">
-                                {/* Instagram - Dropup untuk dua akun */}
-                                <div className="relative group">
-                                    <a href="#" className="group-hover:text-blue-800">
-                                        <i className="fab fa-instagram"></i>
-                                    </a>
-                                    <div className="absolute bottom-full left-0 mb-1 bg-white shadow-md rounded-md p-2 hidden group-hover:block z-10 w-40">
-                                        <a
-                                            href="https://www.instagram.com/mikacares.id"
-                                            target="_blank"
+                            <div className="flex items-center gap-4">
+                                <span className="text-sm font-medium text-gray-400">Ikuti Kami:</span>
+                                <div className="flex gap-3">
+                                    <div className="relative group">
+                                        <a 
+                                            href="https://www.instagram.com/mikacares.id" 
+                                            target="_blank" 
                                             rel="noopener noreferrer"
-                                            className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
+                                            className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-800 text-gray-400 transition-all hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-500 hover:text-white"
+                                            aria-label="Instagram"
                                         >
-                                            @mikacares.id
+                                            <i className="fab fa-instagram text-lg"></i>
                                         </a>
-                                        <a
-                                            href="https://www.instagram.com/autentik.co.id"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block py-1 px-2 text-sm hover:text-blue-800 hover:bg-gray-50"
-                                        >
-                                            @autentik.co.id
-                                        </a>
-                                    </div>
-                                </div>
-
-                                {/* LinkedIn - Dropup untuk dua perusahaan */}
-                                <div className="relative group">
-                                    <a href="#" className="group-hover:text-blue-800">
-                                        <i className="fab fa-linkedin-in"></i>
-                                    </a>
-                                    <div className="absolute bottom-8 left-0 mb-1 bg-white shadow-lg rounded-lg p-3 hidden group-hover:block z-50 w-72">
-                                        <div className="flex flex-col gap-3">
-                                            <a
-                                                href="https://www.linkedin.com/company/pt-mitra-karya-analitika"
-                                                target="_blank"
+                                        <div className="absolute bottom-full left-0 mb-2 bg-gray-800 shadow-xl rounded-lg p-2 hidden group-hover:block z-10 w-40 border border-gray-700">
+                                            <a 
+                                                href="https://www.instagram.com/mikacares.id" 
+                                                target="_blank" 
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                                                className="block py-2 px-3 text-sm hover:text-pink-500 hover:bg-gray-700 rounded transition-colors"
                                             >
-                                                <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-medium">PT Mitra Karya Analitika</span>
-                                                    <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
-                                                </div>
+                                                @mikacares.id
                                             </a>
-                                            <div className="border-t border-gray-100"></div>
-                                            <a
-                                                href="https://www.linkedin.com/company/pt-autentik-karya-analitika"
-                                                target="_blank"
+                                            <a 
+                                                href="https://www.instagram.com/autentik.co.id" 
+                                                target="_blank" 
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
+                                                className="block py-2 px-3 text-sm hover:text-pink-500 hover:bg-gray-700 rounded transition-colors"
                                             >
-                                                <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-medium">PT Autentik Karya Analitika</span>
-                                                    <span className="text-xs text-gray-500">Follow us on LinkedIn</span>
-                                                </div>
+                                                @autentik.co.id
                                             </a>
                                         </div>
                                     </div>
+
+                                    <div className="relative group">
+                                        <a 
+                                            href="https://www.linkedin.com/company/pt-mitra-karya-analitika" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-800 text-gray-400 transition-all hover:bg-[#0A66C2] hover:text-white"
+                                            aria-label="LinkedIn"
+                                        >
+                                            <i className="fab fa-linkedin-in text-lg"></i>
+                                        </a>
+                                        <div className="absolute bottom-full left-0 mb-2 bg-gray-800 shadow-xl rounded-lg p-3 hidden group-hover:block z-50 w-72 border border-gray-700">
+                                            <div className="flex flex-col gap-2">
+                                                <a 
+                                                    href="https://www.linkedin.com/company/pt-mitra-karya-analitika" 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-3 hover:bg-gray-700 p-2 rounded-md transition-colors"
+                                                >
+                                                    <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium text-white">PT Mitra Karya Analitika</span>
+                                                        <span className="text-xs text-gray-400">Ikuti kami di LinkedIn</span>
+                                                    </div>
+                                                </a>
+                                                <div className="border-t border-gray-700"></div>
+                                                <a 
+                                                    href="https://www.linkedin.com/company/pt-autentik-karya-analitika" 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-3 hover:bg-gray-700 p-2 rounded-md transition-colors"
+                                                >
+                                                    <i className="fab fa-linkedin text-2xl text-[#0A66C2]"></i>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium text-white">PT Autentik Karya Analitika</span>
+                                                        <span className="text-xs text-gray-400">Ikuti kami di LinkedIn</span>
+                                                    </div>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <a 
+                                        href="https://www.youtube.com/@mikacares" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-800 text-gray-400 transition-all hover:bg-red-600 hover:text-white"
+                                        aria-label="YouTube"
+                                    >
+                                        <i className="fab fa-youtube text-lg"></i>
+                                    </a>
+
+                                    <a 
+                                        href="https://wa.me/6281770555554" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-800 text-gray-400 transition-all hover:bg-green-500 hover:text-white"
+                                        aria-label="WhatsApp"
+                                    >
+                                        <i className="fab fa-whatsapp text-lg"></i>
+                                    </a>
                                 </div>
-
-                                {/* YouTube */}
-                                <a href="https://www.youtube.com/@mikacares" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
-                                    <i className="fab fa-youtube"></i>
-                                </a>
-
-                                {/* WhatsApp */}
-                                <a href="https://wa.me/6281770555554" target="_blank" rel="noopener noreferrer" className="hover:text-blue-800">
-                                    <i className="fab fa-whatsapp"></i>
-                                </a>
-                              </div>
+                            </div>
                         </div>
 
-                        {/* Kolom 2 */}
+                        {/* Kolom 2: Perusahaan Kami */}
                         <div>
-                            <h4 className="mb-2 text-[14px] sm:text-[16px] font-bold">Perusahaan Kami</h4>
-                            <ul className="space-y-1 text-xs sm:text-sm text-gray-700">
+                            <h4 className="mb-6 text-lg font-bold text-white">Perusahaan Kami</h4>
+                            <ul className="space-y-3">
                                 {props.footerCompanies && props.footerCompanies.length > 0 ? (
                                     props.footerCompanies.map((company) => (
-                                        <li key={company.id}>{company.name}</li>
+                                        <li key={company.id}>
+                                            <span className="text-sm text-gray-400 transition-colors hover:text-white">
+                                                {company.name}
+                                            </span>
+                                        </li>
                                     ))
                                 ) : (
-                                    <li>Tidak ada perusahaan untuk ditampilkan</li>
+                                    <li className="text-sm text-gray-500">Tidak ada perusahaan untuk ditampilkan</li>
                                 )}
                             </ul>
+                            <div className="mt-6">
+                                <Link 
+                                    href="/job-hiring-landing-page" 
+                                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                                >
+                                    Lihat Lowongan Pekerjaan
+                                    <ChevronRight className="h-4 w-4" />
+                                </Link>
+                            </div>
                         </div>
 
-                        {/* Kolom 3 */}
+                        {/* Kolom 3: Kontak */}
                         <div>
-                            <h4 className="mb-3 sm:mb-4 text-[14px] sm:text-[16px] font-bold">Contact</h4>
-                            <ul className="space-y-2 text-xs sm:text-sm text-gray-700">
-                                {props.contacts && (
+                            <h4 className="mb-6 text-lg font-bold text-white">Hubungi Kami</h4>
+                            <ul className="space-y-4 text-sm">
+                                {props.contacts ? (
                                     <>
-                                        <li className="flex items-start gap-2">
-                                            <i className="fas fa-phone mt-1 text-blue-600" />
-                                            <div dangerouslySetInnerHTML={{ __html: props.contacts.phone }} />
+                                        <li className="flex items-start gap-3">
+                                            <i className="fas fa-phone mt-1 text-blue-400 flex-shrink-0" />
+                                            <div className="text-gray-400 leading-relaxed" dangerouslySetInnerHTML={{ __html: props.contacts.phone }} />
                                         </li>
-                                        <li className="flex items-center gap-2">
-                                            <i className="fas fa-envelope text-blue-600" />
-                                            <span>{props.contacts.email}</span>
+                                        <li className="flex items-start gap-3">
+                                            <i className="fas fa-envelope mt-1 text-blue-400 flex-shrink-0" />
+                                            <a 
+                                                href={`mailto:${props.contacts.email}`}
+                                                className="text-gray-400 hover:text-white transition-colors break-all"
+                                            >
+                                                {props.contacts.email}
+                                            </a>
                                         </li>
-                                        <li className="flex items-start gap-2">
-                                            <i className="fas fa-map-marker-alt mt-1 text-blue-600" />
-                                            <span dangerouslySetInnerHTML={{
-                                                __html: props.contacts.address.replace(/\n/g, '<br />')
+                                        <li className="flex items-start gap-3">
+                                            <i className="fas fa-map-marker-alt mt-1 text-blue-400 flex-shrink-0" />
+                                            <span className="text-gray-400 leading-relaxed" dangerouslySetInnerHTML={{ 
+                                                __html: props.contacts.address.replace(/\n/g, '<br />') 
                                             }} />
                                         </li>
                                     </>
+                                ) : (
+                                    <li className="text-gray-500">Informasi kontak tidak tersedia</li>
                                 )}
                             </ul>
+                            <div className="mt-6">
+                                <Link 
+                                    href="/contact" 
+                                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                                >
+                                    Kirim Pesan
+                                    <ChevronRight className="h-4 w-4" />
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Bottom Bar */}
+                    <div className="mt-16 border-t border-gray-700 pt-8">
+                        <div className="container mx-auto px-6">
+                            <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+                                <p className="text-sm text-gray-500">
+                                    &copy; {new Date().getFullYear()} <span className="font-semibold text-white">Mitra Karya Group</span>. Hak cipta dilindungi.
+                                </p>
+                                <div className="flex gap-6 text-sm text-gray-500">
+                                    <Link href="/" className="hover:text-white transition-colors">Beranda</Link>
+                                    <Link href="/about-us" className="hover:text-white transition-colors">Tentang Kami</Link>
+                                    <Link href="/job-hiring-landing-page" className="hover:text-white transition-colors">Lowongan</Link>
+                                    <Link href="/contact" className="hover:text-white transition-colors">Kontak</Link>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </footer>
