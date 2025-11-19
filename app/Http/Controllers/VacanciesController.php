@@ -15,6 +15,23 @@ use Illuminate\Support\Facades\DB;
 
 class VacanciesController extends Controller
 {
+    /**
+     * Parse requirements from various formats to array
+     */
+    private function parseRequirements($requirements)
+    {
+        if (is_array($requirements)) {
+            return $requirements;
+        }
+        
+        if (is_string($requirements) && !empty($requirements)) {
+            $decoded = json_decode($requirements, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+        
+        return [];
+    }
+
     public function index()
     {
         try {
@@ -35,9 +52,7 @@ class VacanciesController extends Controller
                         'department' => $vacancy->department ? $vacancy->department->name : 'N/A',
                         'type' => $vacancy->vacancyType ? $vacancy->vacancyType->name : 'Full Time',
                         'location' => $vacancy->location,
-                        'requirements' => is_array($vacancy->requirements)
-                            ? $vacancy->requirements
-                            : (is_string($vacancy->requirements) ? json_decode($vacancy->requirements, true) : []) ?? [],
+                        'requirements' => $this->parseRequirements($vacancy->requirements),
                         'endTime' => $endTime
                             ? \Carbon\Carbon::parse($endTime)->locale('id')->isoFormat('D MMMM Y')
                             : null,
@@ -49,9 +64,18 @@ class VacanciesController extends Controller
 
             // Debug final data being sent to view
 
+            $companies = Company::select('id', 'name', 'description', 'logo')->get()->map(function($company) {
+                return [
+                    'id' => $company->id,
+                    'name' => $company->name,
+                    'description' => $company->description,
+                    'logo' => $company->getLogoUrl()
+                ];
+            });
+
             return Inertia::render('welcome', [
                 'vacancies' => $vacancies,
-                'companies' => Company::select('id', 'name', 'description', 'logo')->get()
+                'companies' => $companies
             ]);
 
         } catch (\Exception $e) {
@@ -185,7 +209,7 @@ class VacanciesController extends Controller
             }
         }
 
-        $companies = Companies::pluck('name')->toArray();
+        $companies = Company::pluck('name')->toArray();
 
         // Ambil nama jurusan kandidat untuk frontend
         $candidateMajor = $education && $education->major ? $education->major->name : null;

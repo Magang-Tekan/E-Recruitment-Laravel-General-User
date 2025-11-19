@@ -33,7 +33,7 @@ class WelcomeController extends Controller
                     'id' => $company->id,
                     'name' => $company->name,
                     'description' => $company->description,
-                    'logo' => $company->logo ? asset('storage/' . $company->logo) : asset('images/default-company-logo.png'),
+                    'logo' => $company->getLogoUrl(),
                     'website' => $company->website,
                     'email' => $company->email,
                     'phone' => $company->phone,
