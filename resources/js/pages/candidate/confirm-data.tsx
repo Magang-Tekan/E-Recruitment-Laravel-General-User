@@ -174,15 +174,29 @@ const ConfirmData = () => {
       });
 
       // Kirim aplikasi ke backend menggunakan Inertia.js router
+      console.log('Submitting application to:', `/candidate/apply/${job_id}`);
       router.post(`/candidate/apply/${job_id}`, {}, {
-        onSuccess: (data: any) => {
+        onSuccess: (page: any) => {
+          console.log('Application submit success response:', page);
+          console.log('Flash message:', page.props?.flash);
           Swal.close();
           
+          // Cek apakah ada flash message error
+          if (page.props?.flash?.error) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: page.props.flash.error,
+              confirmButtonColor: '#3085d6'
+            });
+            return;
+          }
+
           // Tampilkan pesan sukses dan langsung redirect
           Swal.fire({
             icon: 'success',
             title: 'Berhasil!',
-            text: 'Lamaran berhasil dikirim! Anda akan dialihkan ke halaman riwayat lamaran.',
+            text: page.props?.flash?.success || 'Lamaran berhasil dikirim! Anda akan dialihkan ke halaman riwayat lamaran.',
             confirmButtonColor: '#3085d6',
             timer: 2000,
             timerProgressBar: true,
@@ -199,6 +213,7 @@ const ConfirmData = () => {
         },
         onError: (errors: any) => {
           console.error('Error submitting application:', errors);
+          console.error('Error details:', JSON.stringify(errors, null, 2));
           Swal.close();
 
           // Handle different error cases
@@ -209,6 +224,13 @@ const ConfirmData = () => {
               text: errors.message,
               confirmButtonColor: '#3085d6'
             });
+          } else if (typeof errors === 'string') {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: errors,
+              confirmButtonColor: '#3085d6'
+            });
           } else {
             Swal.fire({
               icon: 'error',
@@ -217,6 +239,9 @@ const ConfirmData = () => {
               confirmButtonColor: '#3085d6'
             });
           }
+        },
+        onFinish: () => {
+          console.log('Application submit request finished');
         }
       });
     } catch (error: unknown) {

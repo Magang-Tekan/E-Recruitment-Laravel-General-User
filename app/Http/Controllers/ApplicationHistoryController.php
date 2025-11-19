@@ -16,9 +16,11 @@ class ApplicationHistoryController extends Controller
     public function index()
     {
         try {
+            $userId = Auth::id();
+            \Log::info('Loading application history', ['user_id' => $userId]);
 
             // Ambil data aplikasi user yang sedang login dengan relasi yang diperlukan
-            $applications = Applications::where('user_id', Auth::id())
+            $applications = Applications::where('user_id', $userId)
                 ->with([
                     'vacancyPeriod.vacancy:id,title,location,vacancy_type_id,company_id,psychotest_name,question_pack_id',
                     'vacancyPeriod.vacancy.company:id,name',
@@ -28,8 +30,14 @@ class ApplicationHistoryController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
+            \Log::info('Applications found', [
+                'user_id' => $userId,
+                'count' => $applications->count(),
+                'application_ids' => $applications->pluck('id')->toArray()
+            ]);
 
             if ($applications->isEmpty()) {
+                \Log::info('No applications found for user', ['user_id' => $userId]);
                 return Inertia::render('candidate/application-history', [
                     'applications' => []
                 ]);
@@ -142,6 +150,12 @@ class ApplicationHistoryController extends Controller
             
             // Get contact data
             $contacts = \App\Models\Contacts::first();
+
+            \Log::info('Rendering application history', [
+                'user_id' => $userId,
+                'applications_count' => $formattedApplications->count(),
+                'application_ids' => $formattedApplications->pluck('id')->toArray()
+            ]);
 
             return Inertia::render('candidate/application-history', [
                 'applications' => $formattedApplications,

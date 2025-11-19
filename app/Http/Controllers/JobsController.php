@@ -169,19 +169,35 @@ class JobsController extends Controller
             // Verifikasi user sudah login
             $user = Auth::user();
             if (!$user) {
+                \Log::info('Apply attempt without login');
                 return redirect('/login')->with('flash', [
-                    'type' => 'error',
-                    'message' => 'Anda harus login terlebih dahulu.'
+                    'error' => 'Anda harus login terlebih dahulu.'
                 ]);
             }
 
+            \Log::info('User applying for job', [
+                'user_id' => $user->id,
+                'vacancy_id' => $id
+            ]);
+
             // Cek kelengkapan profil
             $profileCheck = $this->checkProfileComplete($user);
+            \Log::info('Profile completeness check', [
+                'user_id' => $user->id,
+                'is_complete' => $profileCheck['is_complete'],
+                'profile_complete' => $profileCheck['profile_complete'],
+                'education_complete' => $profileCheck['education_complete'],
+                'skills_complete' => $profileCheck['skills_complete'],
+                'message' => $profileCheck['message']
+            ]);
 
             if (!$profileCheck['is_complete']) {
-                return redirect("/candidate/confirm-data/{$id}")->with('flash', [
-                    'type' => 'warning',
+                \Log::warning('Profile incomplete, redirecting to confirm-data', [
+                    'user_id' => $user->id,
                     'message' => $profileCheck['message']
+                ]);
+                return redirect("/candidate/confirm-data/{$id}")->with('flash', [
+                    'warning' => $profileCheck['message']
                 ]);
             }
 
@@ -214,9 +230,13 @@ class JobsController extends Controller
                     ? "Periode perekrutan untuk lowongan ini belum dimulai. Periode {$futurePeriod->name} akan dimulai pada " . date('d M Y H:i', strtotime($futurePeriod->start_time))
                     : 'Periode perekrutan untuk lowongan ini tidak aktif atau telah berakhir.';
 
-                return redirect()->back()->with('flash', [
-                    'type' => 'error',
+                \Log::warning('No active vacancy period', [
+                    'user_id' => $user->id,
+                    'vacancy_id' => $id,
                     'message' => $message
+                ]);
+                return redirect()->back()->with('flash', [
+                    'error' => $message
                 ]);
             }
 
@@ -235,7 +255,9 @@ class JobsController extends Controller
 
             if ($existingApplicationToSameVacancy) {
                 $applicationStatus = $existingApplicationToSameVacancy->status;
-                return redirect()->back()->with('error', 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.');
+                return redirect()->back()->with('flash', [
+                    'error' => 'Anda sudah pernah melamar lowongan pekerjaan ini sebelumnya.'
+                ]);
             }
 
             // Cek apakah user sudah pernah apply ke salah satu vacancy di periode yang sama
@@ -255,24 +277,36 @@ class JobsController extends Controller
                 // This check is now handled above, so we can remove this condition
                 // and just handle the case where they applied to a different vacancy in the same period
                 // Sudah apply ke lowongan lain di periode yang sama
-                return redirect()->back()->with('error', "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen.");
+                return redirect()->back()->with('flash', [
+                    'error' => "Anda sudah pernah melamar lowongan '{$appliedVacancy->title}' pada periode {$currentVacancyPeriod->period_name}. Setiap kandidat hanya dapat melamar satu lowongan per periode rekrutmen."
+                ]);
             }
 
             // VALIDASI JENJANG PENDIDIKAN: Cek apakah jenjang pendidikan candidate memenuhi syarat
             $educationValidation = $this->validateCandidateEducation($user, $vacancy);
             if (!$educationValidation['is_valid']) {
-                return redirect()->back()->with('error', $educationValidation['message']);
+                return redirect()->back()->with('flash', [
+                    'error' => $educationValidation['message']
+                ]);
             }
 
             // Ambil data status dari tabel statuses
             $status = DB::table('statuses')->where('name', 'Administrative Selection')->first();
             if (!$status) {
-                return redirect()->back()->with('error', 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.');
+                return redirect()->back()->with('flash', [
+                    'error' => 'Sistem rekrutmen belum siap. Silakan coba lagi nanti.'
+                ]);
             }
 
             // Simpan data aplikasi baru
             DB::beginTransaction();
             try {
+                \Log::info('Creating application', [
+                    'user_id' => $user->id,
+                    'vacancy_period_id' => $currentVacancyPeriod->vacancy_period_id,
+                    'status_id' => $status->id
+                ]);
+
                 // Buat aplikasi baru menggunakan vacancy_period_id
                 $application = Applications::create([
                     'user_id' => $user->id,
@@ -280,8 +314,15 @@ class JobsController extends Controller
                     'status_id' => $status->id,
                 ]);
 
+                \Log::info('Application created successfully', [
+                    'application_id' => $application->id,
+                    'user_id' => $application->user_id,
+                    'vacancy_period_id' => $application->vacancy_period_id,
+                    'status_id' => $application->status_id
+                ]);
+
                 // Buat entry pertama di application_history untuk tracking
-                ApplicationHistory::create([
+                $history = ApplicationHistory::create([
                     'application_id' => $application->id,
                     'status_id' => $status->id,
                     'processed_at' => now(),
@@ -289,18 +330,51 @@ class JobsController extends Controller
                     'notes' => "Lamaran dikirim pada " . now()->format('d M Y H:i') . " untuk periode {$currentVacancyPeriod->period_name}",
                 ]);
 
+                \Log::info('Application history created successfully', [
+                    'history_id' => $history->id,
+                    'application_id' => $history->application_id
+                ]);
+
                 DB::commit();
 
-                return redirect('/candidate/application-history')->with('success', "Lamaran berhasil dikirim untuk periode {$currentVacancyPeriod->period_name}! Anda dapat melihat status lamaran pada menu \"Lamaran\".");
+                // Verifikasi data benar-benar tersimpan
+                $savedApplication = Applications::find($application->id);
+                if (!$savedApplication) {
+                    throw new \Exception('Data aplikasi tidak tersimpan ke database');
+                }
+
+                \Log::info('Application saved successfully, redirecting to history', [
+                    'application_id' => $application->id,
+                    'user_id' => $user->id,
+                    'vacancy_period_id' => $application->vacancy_period_id,
+                    'status_id' => $application->status_id,
+                    'verified' => true
+                ]);
+
+                // Return dengan format flash message yang konsisten untuk Inertia.js
+                return redirect('/candidate/application-history')->with('flash', [
+                    'success' => "Lamaran berhasil dikirim untuk periode {$currentVacancyPeriod->period_name}! Anda dapat melihat status lamaran pada menu \"Lamaran\"."
+                ]);
 
             } catch (\Exception $e) {
                 DB::rollBack();
-                return redirect()->back()->with('error', 'Terjadi kesalahan saat mengirim lamaran. Silakan coba lagi.');
+                \Log::error('Error saving application', [
+                    'user_id' => $user->id,
+                    'vacancy_id' => $id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                return redirect()->back()->with('flash', [
+                    'error' => 'Terjadi kesalahan saat mengirim lamaran: ' . $e->getMessage()
+                ]);
             }
 
         } catch (\Exception $e) {
-
-            return redirect()->back()->with('error', 'Terjadi kesalahan sistem. Silakan coba lagi.');
+            \Log::error('Error in apply method: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            return redirect()->back()->with('flash', [
+                'error' => 'Terjadi kesalahan sistem. Silakan coba lagi.'
+            ]);
         }
     }
 
@@ -767,19 +841,21 @@ class JobsController extends Controller
         }
 
         // Cek pendidikan
+        // Catatan: year_out boleh kosong jika belum lulus (nullable)
         $education = CandidatesEducations::where('user_id', $user->id)->first();
         $educationComplete = false;
         if (
             $education &&
             !empty($education->institution_name) &&
-            !empty($education->major_id) &&
-            !empty($education->year_out)
+            !empty($education->major_id)
+            // year_out tidak wajib karena bisa kosong jika belum lulus
         ) {
             $educationComplete = true;
         }
 
-        // Cek skills/kemampuan (anggap lengkap jika profil dan pendidikan lengkap)
-        $skillsComplete = $profileComplete && $educationComplete;
+        // Cek skills/kemampuan - harus benar-benar ada data skills
+        $skillsCount = \App\Models\CandidatesSkills::where('user_id', $user->id)->count();
+        $skillsComplete = $skillsCount > 0;
 
         // Cek pengalaman kerja (opsional)
         $workExperienceComplete = true;
