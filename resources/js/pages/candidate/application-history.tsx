@@ -1,8 +1,9 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { format, isValid, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale/id'; // Tambahkan locale indonesia
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
+import Swal from 'sweetalert2';
 
 // Style components
 const GlobalStyle = createGlobalStyle`
@@ -221,6 +222,11 @@ interface ApplicationHistoryProps {
         name: string;
     }[];
     contacts: Contact | null;
+    flash?: {
+        success?: string;
+        error?: string;
+        warning?: string;
+    };
 }
 
 const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({ 
@@ -230,10 +236,48 @@ const ApplicationHistory: React.FC<ApplicationHistoryProps> = ({
     footerCompanies = [],
     contacts = null
 }) => {
+    const { flash } = usePage<ApplicationHistoryProps>().props;
     const [isLoading, setIsLoading] = useState(false);
     // No need to create a separate state for applicationList, use the props directly
     const applicationList = applications;
     const [errorMessage, setErrorMessage] = useState(error);
+
+    // Handle flash messages
+    useEffect(() => {
+        console.log('Flash message received:', flash);
+        console.log('Current applications:', applicationList);
+        
+        if (flash?.success) {
+            Swal.fire({
+                title: 'Berhasil!',
+                text: flash.success,
+                icon: 'success',
+                confirmButtonText: 'OK'
+            }).then(() => {
+                // Force reload untuk memastikan data ter-update
+                console.log('Reloading page to refresh data...');
+                window.location.reload();
+            });
+        }
+
+        if (flash?.error) {
+            Swal.fire({
+                title: 'Error!',
+                text: flash.error,
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+        }
+
+        if (flash?.warning) {
+            Swal.fire({
+                title: 'Perhatian!',
+                text: flash.warning,
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
+        }
+    }, [flash]);
 
     // Fungsi refresh data yang lebih aman
     const refreshData = () => {
