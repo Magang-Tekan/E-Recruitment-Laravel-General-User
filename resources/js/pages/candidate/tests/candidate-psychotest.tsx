@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import type { PageProps as InertiaPageProps } from '@inertiajs/core';
 import Swal from 'sweetalert2';
@@ -65,6 +65,9 @@ export default function CandidatePsychotest() {
     const [showCheatingModal, setShowCheatingModal] = useState(false);
     const [isTabVisible, setIsTabVisible] = useState(true);
     const [modalJustClosed, setModalJustClosed] = useState(false);
+    
+    // Ref to track current answer for immediate access (to handle last question bug)
+    const currentAnswerRef = useRef<string | { text: string; type: string } | null>(null);
 
     // Create test info from assessment
     const testInfo: TestInfo = {
@@ -81,7 +84,8 @@ export default function CandidatePsychotest() {
             const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
             return () => clearTimeout(timer);
         } else if (timeLeft === 0 && testStarted && currentPhase === 'test') {
-            handleCompleteTest();
+            // Waktu habis - submit otomatis meskipun belum ada jawaban
+            handleCompleteTest(true);
         }
     }, [timeLeft, testStarted, currentPhase]);
 
@@ -201,6 +205,17 @@ export default function CandidatePsychotest() {
         }
     }, [currentPhase, testCompleted]);
 
+    // Sync ref dengan jawaban saat ini ketika berpindah soal
+    useEffect(() => {
+        if (currentPhase === 'test' && questions.length > 0) {
+            const currentQuestionData = questions[currentQuestion];
+            if (currentQuestionData) {
+                const currentAnswer = userAnswers[currentQuestionData.id];
+                currentAnswerRef.current = currentAnswer || null;
+            }
+        }
+    }, [currentQuestion, currentPhase, questions, userAnswers]);
+
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -250,6 +265,7 @@ export default function CandidatePsychotest() {
     };
 
     const handleAnswerChange = (questionId: number, choiceId: string) => {
+        currentAnswerRef.current = choiceId;
         setUserAnswers(prev => ({
             ...prev,
             [questionId]: choiceId
@@ -257,12 +273,14 @@ export default function CandidatePsychotest() {
     };
 
     const handleEssayAnswerChange = (questionId: number, answerText: string) => {
+        const essayAnswer = {
+            text: answerText,
+            type: 'essay'
+        };
+        currentAnswerRef.current = essayAnswer;
         setUserAnswers(prev => ({
             ...prev,
-            [questionId]: {
-                text: answerText,
-                type: 'essay'
-            }
+            [questionId]: essayAnswer
         }));
     };
 
@@ -392,31 +410,56 @@ export default function CandidatePsychotest() {
         );
     };
 
-    const handleCompleteTest = async () => {
+    const handleCompleteTest = async (isTimeUp: boolean = false) => {
         try {
-            // Validasi
-            if (Object.keys(userAnswers).length === 0) {
+            // FIX: Pastikan jawaban untuk soal terakhir tersimpan sebelum submit
+            // Ini mengatasi bug dimana jawaban terakhir tidak terkirim jika user langsung klik "Akhiri Tes"
+            const currentQuestionData = questions[currentQuestion];
+            let finalAnswers = { ...userAnswers };
+            
+            // Pastikan jawaban terakhir tersimpan jika ada di ref tapi belum di state
+            if (currentQuestionData && currentAnswerRef.current) {
+                const currentQuestionId = currentQuestionData.id;
+                // Simpan jawaban saat ini ke finalAnswers
+                finalAnswers[currentQuestionId] = currentAnswerRef.current;
+                // Update state juga untuk konsistensi
+                setUserAnswers(finalAnswers);
+            }
+
+            // Validasi: User harus menjawab setidaknya satu soal sebelum mengakhiri test
+            // Kecuali jika waktu habis (isTimeUp = true)
+            const answeredCount = Object.keys(finalAnswers).filter(key => {
+                const answer = finalAnswers[parseInt(key)];
+                return answer && (typeof answer === 'string' || (typeof answer === 'object' && answer.text && answer.text.trim() !== ''));
+            }).length;
+
+            if (!isTimeUp && answeredCount === 0) {
                 alert('Mohon jawab setidaknya satu pertanyaan sebelum menyelesaikan tes.');
                 return;
             }
 
-            const answeredCount = getAnsweredCount();
             const unansweredCount = questions.length - answeredCount;
             
             // Konfirmasi sebelum submit dengan informasi yang lebih jelas
-            let confirmMessage = `Anda telah menjawab ${answeredCount} dari ${questions.length} pertanyaan.`;
-            
-            if (unansweredCount > 0) {
-                confirmMessage += `\n\n${unansweredCount} pertanyaan belum dijawab. `;
-                confirmMessage += 'Untuk hasil yang lebih akurat, disarankan untuk menjawab semua pertanyaan. ';
-            }
-            
-            confirmMessage += '\n\nApakah Anda yakin ingin menyelesaikan tes ini? Jawaban tidak dapat diubah setelah diserahkan.';
+            // Skip konfirmasi jika waktu habis (auto-submit)
+            if (!isTimeUp) {
+                let confirmMessage = `Anda telah menjawab ${answeredCount} dari ${questions.length} pertanyaan.`;
+                
+                if (unansweredCount > 0) {
+                    confirmMessage += `\n\n${unansweredCount} pertanyaan belum dijawab. `;
+                    confirmMessage += 'Untuk hasil yang lebih akurat, disarankan untuk menjawab semua pertanyaan. ';
+                }
+                
+                confirmMessage += '\n\nApakah Anda yakin ingin menyelesaikan tes ini? Jawaban tidak dapat diubah setelah diserahkan.';
 
-            const confirmSubmit = window.confirm(confirmMessage);
+                const confirmSubmit = window.confirm(confirmMessage);
 
-            if (!confirmSubmit) {
-                return;
+                if (!confirmSubmit) {
+                    return;
+                }
+            } else {
+                // Jika waktu habis, tampilkan notifikasi
+                alert('Waktu pengerjaan telah habis. Tes akan otomatis diselesaikan.');
             }
 
             setIsSubmitting(true);
@@ -426,9 +469,9 @@ export default function CandidatePsychotest() {
             
             // Format answers for submission: MC as choice_id string, Essay as object with text
             const formattedAnswers: Record<number, string | { text: string; type: string }> = {};
-            Object.keys(userAnswers).forEach(key => {
+            Object.keys(finalAnswers).forEach(key => {
                 const questionId = parseInt(key);
-                const answer = userAnswers[questionId];
+                const answer = finalAnswers[questionId];
                 // Keep the format as is - backend should handle both string (MC) and object (essay)
                 formattedAnswers[questionId] = answer;
             });
@@ -469,11 +512,11 @@ export default function CandidatePsychotest() {
                 setIsSubmitting(false);
             }
         } catch (error) {
-        console.error('Error in handleCompleteTest:', error);
-        alert('Terjadi kesalahan. Silakan coba lagi.');
-        setCurrentPhase('test');
-        setTestCompleted(false);
-        setIsSubmitting(false);
+            console.error('Error in handleCompleteTest:', error);
+            alert('Terjadi kesalahan. Silakan coba lagi.');
+            setCurrentPhase('test');
+            setTestCompleted(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -876,7 +919,7 @@ export default function CandidatePsychotest() {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={handleCompleteTest}
+                                    onClick={() => handleCompleteTest(false)}
                                     className="w-full mt-8 bg-blue-500 hover:bg-blue-600 text-white py-4 rounded font-bold text-lg transition-colors"
                                 >
                                     Akhiri Tes
