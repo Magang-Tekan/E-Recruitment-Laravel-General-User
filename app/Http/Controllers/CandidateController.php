@@ -2904,7 +2904,8 @@ public function submitPsychotest(Request $request)
         $psychotestHistory->completed_at = now();
         
         // Get total questions count for better reporting
-        $questionPack = $this->getPsychotestQuestionPack();
+        // FIX: Pass $application parameter to get correct question pack
+        $questionPack = $this->getPsychotestQuestionPack($application);
         $totalQuestions = 0;
         if ($questionPack) {
             $totalQuestions = $questionPack->questions()->count();
@@ -2960,18 +2961,30 @@ public function submitPsychotest(Request $request)
         }
         
         // Get all questions from the question pack untuk aplikasi ini (dipindahkan ke atas)
-        $questionPack = $this->getPsychotestQuestionPack();
+        // FIX: Pass $application parameter to get correct question pack
+        $questionPack = $this->getPsychotestQuestionPack($application);
         $allQuestions = [];
         
         if ($questionPack) {
             // Fix ambiguous column issue dengan spesifik table name
             $allQuestions = $questionPack->questions()->pluck('questions.id')->toArray();
+            
+            \Illuminate\Support\Facades\Log::info('Question pack loaded for submission', [
+                'question_pack_id' => $questionPack->id,
+                'question_pack_name' => $questionPack->pack_name,
+                'total_questions' => count($allQuestions),
+                'question_ids' => $allQuestions
+            ]);
         }
         
         // Jika tidak ada question pack, gunakan questions dari dummy data
         if (empty($allQuestions)) {
             // Fallback ke dummy questions (ID 1-5)
             $allQuestions = [1, 2, 3, 4, 5];
+            \Illuminate\Support\Facades\Log::warning('No question pack found, using fallback dummy questions', [
+                'application_id' => $application_id,
+                'fallback_question_ids' => $allQuestions
+            ]);
         }
         
         $notes = 'Tes psikotes telah dikerjakan oleh kandidat pada ' . now()->format('Y-m-d H:i') . '. ';
@@ -3006,14 +3019,28 @@ public function submitPsychotest(Request $request)
         try {
             DB::beginTransaction();
 
+            \Illuminate\Support\Facades\Log::info('Starting to save user answers', [
+                'user_id' => Auth::id(),
+                'application_id' => $application_id,
+                'total_questions_in_pack' => count($allQuestions),
+                'total_answers_received' => count($answers),
+                'question_ids_in_pack' => $allQuestions,
+                'answer_keys_received' => array_keys($answers)
+            ]);
+
             // Hapus jawaban lama jika ada untuk semua soal dalam question pack ini dan application ini
-            \App\Models\UserAnswer::where('user_id', Auth::id())
+            $deletedCount = \App\Models\UserAnswer::where('user_id', Auth::id())
                 ->where('application_id', $application_id)
                 ->whereIn('question_id', $allQuestions)
                 ->delete();
+            
+            \Illuminate\Support\Facades\Log::info('Deleted old answers', [
+                'deleted_count' => $deletedCount
+            ]);
 
             // Simpan SEMUA soal - termasuk yang tidak dijawab (choice_id = null)
             $savedCount = 0;
+            $savedQuestionIds = [];
             foreach ($allQuestions as $questionId) {
                 $answerData = isset($answers[$questionId]) ? $answers[$questionId] : null;
                 
@@ -3046,7 +3073,19 @@ public function submitPsychotest(Request $request)
                 
                 \App\Models\UserAnswer::create($userAnswerData);
                 $savedCount++;
+                $savedQuestionIds[] = $questionId;
+                
+                \Illuminate\Support\Facades\Log::debug('Saved answer for question', [
+                    'question_id' => $questionId,
+                    'choice_id' => $choiceId,
+                    'has_answer_text' => $answerText !== null
+                ]);
             }
+            
+            \Illuminate\Support\Facades\Log::info('All answers saved', [
+                'total_saved' => $savedCount,
+                'saved_question_ids' => $savedQuestionIds
+            ]);
 
             // Simpan backup jawaban dalam JSON juga untuk keamanan data
             $allAnswersForBackup = [];
