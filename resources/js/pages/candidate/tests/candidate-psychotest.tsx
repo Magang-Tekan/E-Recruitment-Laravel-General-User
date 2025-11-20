@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import type { PageProps as InertiaPageProps } from '@inertiajs/core';
 import Swal from 'sweetalert2';
@@ -65,6 +65,9 @@ export default function CandidatePsychotest() {
     const [showCheatingModal, setShowCheatingModal] = useState(false);
     const [isTabVisible, setIsTabVisible] = useState(true);
     const [modalJustClosed, setModalJustClosed] = useState(false);
+    
+    // Ref to track current answer for immediate access (to handle last question bug)
+    const currentAnswerRef = useRef<string | { text: string; type: string } | null>(null);
 
     // Create test info from assessment
     const testInfo: TestInfo = {
@@ -81,7 +84,8 @@ export default function CandidatePsychotest() {
             const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
             return () => clearTimeout(timer);
         } else if (timeLeft === 0 && testStarted && currentPhase === 'test') {
-            handleCompleteTest();
+            // Waktu habis - submit otomatis meskipun belum ada jawaban
+            handleCompleteTest(true);
         }
     }, [timeLeft, testStarted, currentPhase]);
 
@@ -201,6 +205,17 @@ export default function CandidatePsychotest() {
         }
     }, [currentPhase, testCompleted]);
 
+    // Sync ref dengan jawaban saat ini ketika berpindah soal
+    useEffect(() => {
+        if (currentPhase === 'test' && questions.length > 0) {
+            const currentQuestionData = questions[currentQuestion];
+            if (currentQuestionData) {
+                const currentAnswer = userAnswers[currentQuestionData.id];
+                currentAnswerRef.current = currentAnswer || null;
+            }
+        }
+    }, [currentQuestion, currentPhase, questions, userAnswers]);
+
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -250,6 +265,7 @@ export default function CandidatePsychotest() {
     };
 
     const handleAnswerChange = (questionId: number, choiceId: string) => {
+        currentAnswerRef.current = choiceId;
         setUserAnswers(prev => ({
             ...prev,
             [questionId]: choiceId
@@ -257,12 +273,14 @@ export default function CandidatePsychotest() {
     };
 
     const handleEssayAnswerChange = (questionId: number, answerText: string) => {
+        const essayAnswer = {
+            text: answerText,
+            type: 'essay'
+        };
+        currentAnswerRef.current = essayAnswer;
         setUserAnswers(prev => ({
             ...prev,
-            [questionId]: {
-                text: answerText,
-                type: 'essay'
-            }
+            [questionId]: essayAnswer
         }));
     };
 
@@ -392,31 +410,176 @@ export default function CandidatePsychotest() {
         );
     };
 
-    const handleCompleteTest = async () => {
+    const handleCompleteTest = async (isTimeUp: boolean = false) => {
         try {
-            // Validasi
-            if (Object.keys(userAnswers).length === 0) {
+            // FIX: Pastikan jawaban untuk soal terakhir tersimpan sebelum submit
+            // Ini mengatasi bug dimana jawaban terakhir tidak terkirim jika user langsung klik "Akhiri Tes"
+            const currentQuestionData = questions[currentQuestion];
+            let finalAnswers = { ...userAnswers };
+            
+            // Pastikan jawaban terakhir tersimpan jika ada di ref tapi belum di state
+            if (currentQuestionData && currentAnswerRef.current) {
+                const currentQuestionId = currentQuestionData.id;
+                // Simpan jawaban saat ini ke finalAnswers
+                finalAnswers[currentQuestionId] = currentAnswerRef.current;
+                // Update state juga untuk konsistensi
+                setUserAnswers(finalAnswers);
+            }
+
+            // Validasi: User harus menjawab setidaknya satu soal sebelum mengakhiri test
+            // Kecuali jika waktu habis (isTimeUp = true)
+            const answeredCount = Object.keys(finalAnswers).filter(key => {
+                const answer = finalAnswers[parseInt(key)];
+                return answer && (typeof answer === 'string' || (typeof answer === 'object' && answer.text && answer.text.trim() !== ''));
+            }).length;
+
+            if (!isTimeUp && answeredCount === 0) {
                 alert('Mohon jawab setidaknya satu pertanyaan sebelum menyelesaikan tes.');
                 return;
             }
 
-            const answeredCount = getAnsweredCount();
             const unansweredCount = questions.length - answeredCount;
+            const completionPercentage = Math.round((answeredCount / questions.length) * 100);
             
             // Konfirmasi sebelum submit dengan informasi yang lebih jelas
-            let confirmMessage = `Anda telah menjawab ${answeredCount} dari ${questions.length} pertanyaan.`;
-            
-            if (unansweredCount > 0) {
-                confirmMessage += `\n\n${unansweredCount} pertanyaan belum dijawab. `;
-                confirmMessage += 'Untuk hasil yang lebih akurat, disarankan untuk menjawab semua pertanyaan. ';
-            }
-            
-            confirmMessage += '\n\nApakah Anda yakin ingin menyelesaikan tes ini? Jawaban tidak dapat diubah setelah diserahkan.';
+            // Skip konfirmasi jika waktu habis (auto-submit)
+            if (!isTimeUp) {
+                // Redesign modal konfirmasi dengan SweetAlert2
+                const result = await Swal.fire({
+                    title: 'Konfirmasi Mengakhiri Tes',
+                    html: `
+                        <div class="text-left space-y-4">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h3 class="font-semibold text-blue-900 mb-3 flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Status Pengerjaan
+                                </h3>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-700">Total Soal:</span>
+                                        <span class="font-bold text-gray-900">${questions.length} soal</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-700">Sudah Dijawab:</span>
+                                        <span class="font-bold text-green-600">${answeredCount} soal</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-700">Belum Dijawab:</span>
+                                        <span class="font-bold ${unansweredCount > 0 ? 'text-orange-600' : 'text-gray-600'}">${unansweredCount} soal</span>
+                                    </div>
+                                    <div class="mt-3">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-xs text-gray-600">Progress</span>
+                                            <span class="text-xs font-semibold text-gray-700">${completionPercentage}%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                            <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: ${completionPercentage}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${unansweredCount > 0 ? `
+                                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                    <div class="flex items-start">
+                                        <svg class="w-5 h-5 text-orange-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                        </svg>
+                                        <div>
+                                            <p class="text-sm font-medium text-orange-800 mb-1">Perhatian!</p>
+                                            <p class="text-xs text-orange-700">
+                                                Anda masih memiliki <strong>${unansweredCount} soal</strong> yang belum dijawab. 
+                                                Untuk hasil yang lebih akurat, disarankan untuk menjawab semua pertanyaan.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <p class="text-sm text-green-800 font-medium">Semua soal telah dijawab. Bagus!</p>
+                                    </div>
+                                </div>
+                            `}
+                            
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div class="flex items-start">
+                                    <svg class="w-5 h-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="text-sm font-semibold text-red-800 mb-1">Peringatan Penting</p>
+                                        <p class="text-xs text-red-700">
+                                            Setelah Anda mengakhiri tes, jawaban tidak dapat diubah atau dikerjakan ulang. 
+                                            Pastikan Anda telah memeriksa semua jawaban sebelum melanjutkan.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <p class="text-center text-sm text-gray-600 font-medium">
+                                Apakah Anda yakin ingin mengakhiri tes ini?
+                            </p>
+                        </div>
+                    `,
+                    icon: 'question',
+                    iconColor: '#3B82F6',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-check-circle mr-2"></i>Ya, Akhiri Tes',
+                    cancelButtonText: '<i class="fas fa-times-circle mr-2"></i>Batal',
+                    confirmButtonColor: '#EF4444',
+                    cancelButtonColor: '#6B7280',
+                    reverseButtons: true,
+                    focusCancel: true,
+                    customClass: {
+                        popup: 'rounded-lg',
+                        title: 'text-xl font-bold text-gray-900',
+                        confirmButton: 'px-6 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all',
+                        cancelButton: 'px-6 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all'
+                    },
+                    buttonsStyling: true,
+                    allowOutsideClick: false,
+                    allowEscapeKey: true
+                });
 
-            const confirmSubmit = window.confirm(confirmMessage);
-
-            if (!confirmSubmit) {
-                return;
+                if (!result.isConfirmed) {
+                    return;
+                }
+            } else {
+                // Jika waktu habis, tampilkan notifikasi dengan SweetAlert2
+                await Swal.fire({
+                    title: 'Waktu Pengerjaan Habis',
+                    html: `
+                        <div class="text-center space-y-3">
+                            <div class="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                                <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <p class="text-gray-700">
+                                Waktu pengerjaan tes telah habis. Tes akan otomatis diselesaikan dan jawaban Anda akan dikirim.
+                            </p>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                                <p class="text-sm text-blue-800">
+                                    <strong>Status:</strong> ${answeredCount} dari ${questions.length} soal telah dijawab
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    icon: 'info',
+                    iconColor: '#F59E0B',
+                    confirmButtonText: 'Mengerti',
+                    confirmButtonColor: '#3B82F6',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                });
             }
 
             setIsSubmitting(true);
@@ -426,9 +589,9 @@ export default function CandidatePsychotest() {
             
             // Format answers for submission: MC as choice_id string, Essay as object with text
             const formattedAnswers: Record<number, string | { text: string; type: string }> = {};
-            Object.keys(userAnswers).forEach(key => {
+            Object.keys(finalAnswers).forEach(key => {
                 const questionId = parseInt(key);
-                const answer = userAnswers[questionId];
+                const answer = finalAnswers[questionId];
                 // Keep the format as is - backend should handle both string (MC) and object (essay)
                 formattedAnswers[questionId] = answer;
             });
@@ -469,11 +632,11 @@ export default function CandidatePsychotest() {
                 setIsSubmitting(false);
             }
         } catch (error) {
-        console.error('Error in handleCompleteTest:', error);
-        alert('Terjadi kesalahan. Silakan coba lagi.');
-        setCurrentPhase('test');
-        setTestCompleted(false);
-        setIsSubmitting(false);
+            console.error('Error in handleCompleteTest:', error);
+            alert('Terjadi kesalahan. Silakan coba lagi.');
+            setCurrentPhase('test');
+            setTestCompleted(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -876,7 +1039,7 @@ export default function CandidatePsychotest() {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={handleCompleteTest}
+                                    onClick={() => handleCompleteTest(false)}
                                     className="w-full mt-8 bg-blue-500 hover:bg-blue-600 text-white py-4 rounded font-bold text-lg transition-colors"
                                 >
                                     Akhiri Tes
