@@ -439,27 +439,147 @@ export default function CandidatePsychotest() {
             }
 
             const unansweredCount = questions.length - answeredCount;
+            const completionPercentage = Math.round((answeredCount / questions.length) * 100);
             
             // Konfirmasi sebelum submit dengan informasi yang lebih jelas
             // Skip konfirmasi jika waktu habis (auto-submit)
             if (!isTimeUp) {
-                let confirmMessage = `Anda telah menjawab ${answeredCount} dari ${questions.length} pertanyaan.`;
-                
-                if (unansweredCount > 0) {
-                    confirmMessage += `\n\n${unansweredCount} pertanyaan belum dijawab. `;
-                    confirmMessage += 'Untuk hasil yang lebih akurat, disarankan untuk menjawab semua pertanyaan. ';
-                }
-                
-                confirmMessage += '\n\nApakah Anda yakin ingin menyelesaikan tes ini? Jawaban tidak dapat diubah setelah diserahkan.';
+                // Redesign modal konfirmasi dengan SweetAlert2
+                const result = await Swal.fire({
+                    title: 'Konfirmasi Mengakhiri Tes',
+                    html: `
+                        <div class="text-left space-y-4">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h3 class="font-semibold text-blue-900 mb-3 flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Status Pengerjaan
+                                </h3>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-700">Total Soal:</span>
+                                        <span class="font-bold text-gray-900">${questions.length} soal</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-700">Sudah Dijawab:</span>
+                                        <span class="font-bold text-green-600">${answeredCount} soal</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-700">Belum Dijawab:</span>
+                                        <span class="font-bold ${unansweredCount > 0 ? 'text-orange-600' : 'text-gray-600'}">${unansweredCount} soal</span>
+                                    </div>
+                                    <div class="mt-3">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-xs text-gray-600">Progress</span>
+                                            <span class="text-xs font-semibold text-gray-700">${completionPercentage}%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                            <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: ${completionPercentage}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${unansweredCount > 0 ? `
+                                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                    <div class="flex items-start">
+                                        <svg class="w-5 h-5 text-orange-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                        </svg>
+                                        <div>
+                                            <p class="text-sm font-medium text-orange-800 mb-1">Perhatian!</p>
+                                            <p class="text-xs text-orange-700">
+                                                Anda masih memiliki <strong>${unansweredCount} soal</strong> yang belum dijawab. 
+                                                Untuk hasil yang lebih akurat, disarankan untuk menjawab semua pertanyaan.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <p class="text-sm text-green-800 font-medium">Semua soal telah dijawab. Bagus!</p>
+                                    </div>
+                                </div>
+                            `}
+                            
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div class="flex items-start">
+                                    <svg class="w-5 h-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="text-sm font-semibold text-red-800 mb-1">Peringatan Penting</p>
+                                        <p class="text-xs text-red-700">
+                                            Setelah Anda mengakhiri tes, jawaban tidak dapat diubah atau dikerjakan ulang. 
+                                            Pastikan Anda telah memeriksa semua jawaban sebelum melanjutkan.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <p class="text-center text-sm text-gray-600 font-medium">
+                                Apakah Anda yakin ingin mengakhiri tes ini?
+                            </p>
+                        </div>
+                    `,
+                    icon: 'question',
+                    iconColor: '#3B82F6',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-check-circle mr-2"></i>Ya, Akhiri Tes',
+                    cancelButtonText: '<i class="fas fa-times-circle mr-2"></i>Batal',
+                    confirmButtonColor: '#EF4444',
+                    cancelButtonColor: '#6B7280',
+                    reverseButtons: true,
+                    focusCancel: true,
+                    customClass: {
+                        popup: 'rounded-lg',
+                        title: 'text-xl font-bold text-gray-900',
+                        confirmButton: 'px-6 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all',
+                        cancelButton: 'px-6 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all'
+                    },
+                    buttonsStyling: true,
+                    allowOutsideClick: false,
+                    allowEscapeKey: true
+                });
 
-                const confirmSubmit = window.confirm(confirmMessage);
-
-                if (!confirmSubmit) {
+                if (!result.isConfirmed) {
                     return;
                 }
             } else {
-                // Jika waktu habis, tampilkan notifikasi
-                alert('Waktu pengerjaan telah habis. Tes akan otomatis diselesaikan.');
+                // Jika waktu habis, tampilkan notifikasi dengan SweetAlert2
+                await Swal.fire({
+                    title: 'Waktu Pengerjaan Habis',
+                    html: `
+                        <div class="text-center space-y-3">
+                            <div class="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                                <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <p class="text-gray-700">
+                                Waktu pengerjaan tes telah habis. Tes akan otomatis diselesaikan dan jawaban Anda akan dikirim.
+                            </p>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                                <p class="text-sm text-blue-800">
+                                    <strong>Status:</strong> ${answeredCount} dari ${questions.length} soal telah dijawab
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    icon: 'info',
+                    iconColor: '#F59E0B',
+                    confirmButtonText: 'Mengerti',
+                    confirmButtonColor: '#3B82F6',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                });
             }
 
             setIsSubmitting(true);
