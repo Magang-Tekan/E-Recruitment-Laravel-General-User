@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
+import { Head, usePage, router } from '@inertiajs/react';
 import type { PageProps as InertiaPageProps } from '@inertiajs/core';
 import Swal from 'sweetalert2';
+import { useExamSecurity } from '../../../hooks/useExamSecurity';
 
 interface Choice {
     id: number;
@@ -55,7 +56,6 @@ export default function CandidatePsychotest() {
     const [testStarted, setTestStarted] = useState(false);
     const [markedQuestions, setMarkedQuestions] = useState(Array(questions.length).fill(false));
     const [testCompleted, setTestCompleted] = useState(false);
-    const [submitError, setSubmitError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     // Pindahkan countdown state ke level atas
     const [countdown, setCountdown] = useState(8);
@@ -63,8 +63,132 @@ export default function CandidatePsychotest() {
     // Anti-cheating states
     const [cheatingWarnings, setCheatingWarnings] = useState(0);
     const [showCheatingModal, setShowCheatingModal] = useState(false);
-    const [isTabVisible, setIsTabVisible] = useState(true);
+    const [, setIsTabVisible] = useState(true);
     const [modalJustClosed, setModalJustClosed] = useState(false);
+
+    // Exam security (copy/paste/PrintScreen) violations
+    const [securityViolations, setSecurityViolations] = useState(0);
+    const [showSecurityModal, setShowSecurityModal] = useState(false);
+    const [lastBlockedAction, setLastBlockedAction] = useState<string>('');
+
+    const registerSecurityViolation = (action: string) => {
+        // Saat sudah submit / complete, jangan ganggu UI
+        if (currentPhase !== 'test' || testCompleted) return;
+
+        setLastBlockedAction(action);
+        setShowSecurityModal(true);
+        setSecurityViolations((prev) => prev + 1);
+    };
+
+    // Blokir copy/paste/cut/klik kanan hanya saat kandidat benar-benar sedang mengerjakan ujian
+    useExamSecurity(currentPhase === 'test', {
+        onBlockedAction: (action) => {
+            registerSecurityViolation(action);
+        },
+    });
+
+    // Deteksi PrintScreen (best-effort; tidak selalu bisa dicegah di semua OS/browser)
+    useEffect(() => {
+        if (currentPhase !== 'test' || testCompleted) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Banyak browser expose sebagai 'PrintScreen'; sebagian sebagai keyCode 44
+            const key = (e.key || '').toLowerCase();
+            const keyCode = (e as unknown as { keyCode?: number }).keyCode;
+            const isPrintScreen = key === 'printscreen' || keyCode === 44;
+
+            if (isPrintScreen) {
+                e.preventDefault();
+                e.stopPropagation();
+                registerSecurityViolation('printscreen');
+                // Tidak ada cara standar untuk memastikan screenshot gagal,
+                // tapi kita bisa berusaha mengosongkan clipboard (best-effort)
+                if (navigator.clipboard?.writeText) {
+                    navigator.clipboard.writeText('').catch(() => undefined);
+                }
+                return false;
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown, true);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown, true);
+        };
+    }, [currentPhase, testCompleted]);
+
+    // Auto-fail setelah 3 kali pelanggaran selama ujian
+    useEffect(() => {
+        if (currentPhase !== 'test' || testCompleted) return;
+        if (securityViolations < 3) return;
+
+        // Tutup modal keamanan, lalu paksa selesaikan ujian
+        setShowSecurityModal(false);
+
+        Swal.fire({
+            title: 'Ujian Dihentikan',
+            html: `
+                <div class="text-left">
+                    <p class="mb-2">Kami mendeteksi pelanggaran aturan ujian sebanyak <strong>${securityViolations} kali</strong>.</p>
+                    <p class="text-red-600 font-semibold">Sesuai aturan, ujian Anda dihentikan dan dinyatakan tidak lulus.</p>
+                </div>
+            `,
+            icon: 'error',
+            confirmButtonText: 'Mengerti',
+            confirmButtonColor: '#EF4444',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+        }).then(() => {
+            // gunakan flow submit yang sudah ada. Kita paksa complete tanpa konfirmasi.
+            // isTimeUp=true supaya skip konfirmasi.
+            handleCompleteTest(true);
+        });
+    }, [securityViolations, currentPhase, testCompleted]);
+
+    const closeSecurityModal = () => {
+        setShowSecurityModal(false);
+    };
+
+    const SecurityViolationModal = () => {
+        if (!showSecurityModal) return null;
+
+        const remaining = Math.max(0, 3 - securityViolations);
+        const actionLabel = (() => {
+            if (lastBlockedAction === 'printscreen') return 'Print Screen / Screenshot';
+            if (lastBlockedAction === 'paste' || lastBlockedAction === 'ctrl+v') return 'Paste';
+            if (lastBlockedAction === 'copy' || lastBlockedAction === 'ctrl+c') return 'Copy';
+            if (lastBlockedAction === 'cut' || lastBlockedAction === 'ctrl+x') return 'Cut';
+            if (lastBlockedAction === 'contextmenu') return 'Klik kanan';
+            return lastBlockedAction || 'Aksi terlarang';
+        })();
+
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-8 max-w-md mx-4 shadow-2xl">
+                    <div className="text-center">
+                        <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-orange-600 mb-2">Dilarang Copy / Paste</h3>
+                        <p className="text-gray-700 mb-4 leading-relaxed">
+                            Sistem mendeteksi percobaan: <strong>{actionLabel}</strong>.<br />
+                            Selama ujian, copy/paste/screenshot tidak diperbolehkan.
+                        </p>
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-5 text-sm text-orange-800">
+                            Pelanggaran: <strong>{securityViolations}/3</strong>. Sisa kesempatan: <strong>{remaining}</strong>.
+                        </div>
+                        <button
+                            onClick={closeSecurityModal}
+                            className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded font-medium transition-colors"
+                        >
+                            Saya Mengerti
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
     
     // Ref to track current answer for immediate access (to handle last question bug)
     const currentAnswerRef = useRef<string | { text: string; type: string } | null>(null);
@@ -180,11 +304,6 @@ export default function CandidatePsychotest() {
     // Prevent browser back button after test completion
     useEffect(() => {
         if (currentPhase === 'complete' || testCompleted) {
-            // Push a dummy state to prevent going back to test page
-            const preventBack = () => {
-                window.history.pushState(null, '', window.location.href);
-            };
-            
             // Add state to history
             window.history.pushState(null, '', window.location.href);
             
@@ -415,7 +534,7 @@ export default function CandidatePsychotest() {
             // FIX: Pastikan jawaban untuk soal terakhir tersimpan sebelum submit
             // Ini mengatasi bug dimana jawaban terakhir tidak terkirim jika user langsung klik "Akhiri Tes"
             const currentQuestionData = questions[currentQuestion];
-            let finalAnswers = { ...userAnswers };
+            const finalAnswers = { ...userAnswers };
             
             // Pastikan jawaban terakhir tersimpan jika ada di ref tapi belum di state
             if (currentQuestionData && currentAnswerRef.current) {
@@ -828,6 +947,8 @@ export default function CandidatePsychotest() {
                 
                 {/* Anti-Cheating Modal */}
                 <AntiCheatingModal />
+                {/* Security Violation Modal (copy/paste/printscreen) */}
+                <SecurityViolationModal />
                 </div>
             </>
         );
@@ -1051,6 +1172,8 @@ export default function CandidatePsychotest() {
                 
                 {/* Anti-Cheating Modal */}
                 <AntiCheatingModal />
+                {/* Security Violation Modal (copy/paste/printscreen) */}
+                <SecurityViolationModal />
                 </div>
             </>
         );
@@ -1132,6 +1255,8 @@ export default function CandidatePsychotest() {
                 
                 {/* Anti-Cheating Modal */}
                 <AntiCheatingModal />
+                {/* Security Violation Modal (copy/paste/printscreen) */}
+                <SecurityViolationModal />
                 </div>
             </>
         );
